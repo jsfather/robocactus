@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+Disallow: /dashboard
+Disallow: /company
+Disallow: /team
+Disallow: /payments
+Disallow: /league-admin
+Disallow: /staff
+Disallow: /super-admin
+
+Sitemap: /sitemap.xml

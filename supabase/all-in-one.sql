@@ -1,0 +1,5321 @@
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0001_init.sql --
+-- ========================================== --
+
+-- RoboCactus Phase 0: initial schema, RLS, profile trigger
+
+-- ============ ENUM TYPES ============
+create type user_role as enum (
+  'super_admin',
+  'league_admin',
+  'staff',
+  'company_admin',
+  'team_captain'
+);
+create type registration_status as enum (
+  'draft',
+  'submitted',
+  'under_review',
+  'approved',
+  'rejected',
+  'waitlisted'
+);
+create type payment_status as enum ('pending', 'paid', 'failed', 'refunded');
+create type ticket_status as enum ('open', 'answered', 'closed');
+create type content_status as enum ('draft', 'published');
+
+-- ============ USERS & COMPANIES ============
+create table profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null,
+  phone text not null unique,
+  national_id text,
+  role user_role not null default 'team_captain',
+  created_at timestamptz default now()
+);
+
+create table companies (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  logo_url text,
+  bio text,
+  founded_year integer,
+  website text,
+  created_at timestamptz default now()
+);
+
+create table company_members (
+  company_id uuid references companies(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  is_owner boolean default false,
+  primary key (company_id, user_id)
+);
+
+-- ============ LEAGUES & TEAMS ============
+create table leagues (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text,
+  category text,
+  capacity integer,
+  registration_fee numeric default 0,
+  registration_open_at timestamptz,
+  registration_close_at timestamptz,
+  contact_email text,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+create table league_admins (
+  league_id uuid references leagues(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  primary key (league_id, user_id)
+);
+
+create table teams (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid references companies(id) not null,
+  league_id uuid references leagues(id) not null,
+  captain_id uuid references profiles(id) not null,
+  name text not null,
+  province text,
+  city text,
+  member_count integer,
+  status registration_status default 'draft',
+  rejection_reason text,
+  submitted_at timestamptz,
+  reviewed_at timestamptz,
+  reviewed_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table team_members (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid references teams(id) on delete cascade,
+  full_name text not null,
+  role text,
+  national_id text,
+  birth_date date
+);
+
+create table documents (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid references teams(id) on delete cascade,
+  file_path text not null,
+  doc_type text not null,
+  uploaded_at timestamptz default now()
+);
+
+-- ============ FINANCIAL ============
+create table invoices (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid references teams(id) not null,
+  company_id uuid references companies(id) not null,
+  amount numeric not null,
+  discount_code text,
+  discount_amount numeric default 0,
+  status payment_status default 'pending',
+  gateway_ref text,
+  paid_at timestamptz,
+  invoice_number text unique,
+  created_at timestamptz default now()
+);
+
+-- ============ RESULTS & ARCHIVE ============
+create table results (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid references leagues(id) not null,
+  team_id uuid references teams(id) not null,
+  company_id uuid references companies(id) not null,
+  season_year integer not null,
+  rank integer,
+  score numeric,
+  notes text,
+  published_at timestamptz
+);
+
+create table company_achievements (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid references companies(id) on delete cascade,
+  title text not null,
+  description text,
+  year integer,
+  icon text
+);
+
+-- ============ CONTENT (CMS) ============
+create table announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  league_id uuid references leagues(id),
+  status content_status default 'draft',
+  published_at timestamptz,
+  created_by uuid references profiles(id)
+);
+
+create table blog_posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  cover_image text,
+  body text not null,
+  status content_status default 'draft',
+  published_at timestamptz,
+  author_id uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table gallery_items (
+  id uuid primary key default gen_random_uuid(),
+  media_url text not null,
+  media_type text default 'image',
+  league_id uuid references leagues(id),
+  season_year integer,
+  caption text,
+  created_at timestamptz default now()
+);
+
+create table home_banners (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  subtitle text,
+  image_url text not null,
+  link_url text,
+  sort_order integer default 0,
+  is_active boolean default true
+);
+
+create table static_pages (
+  slug text primary key,
+  title text not null,
+  body text not null,
+  updated_at timestamptz default now()
+);
+
+-- ============ SUPPORT ============
+create table tickets (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid references teams(id) not null,
+  league_id uuid references leagues(id),
+  assigned_to uuid references profiles(id),
+  subject text not null,
+  status ticket_status default 'open',
+  created_at timestamptz default now()
+);
+
+create table ticket_messages (
+  id uuid primary key default gen_random_uuid(),
+  ticket_id uuid references tickets(id) on delete cascade,
+  sender_id uuid references profiles(id) not null,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+create table notification_log (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid references teams(id),
+  channel text not null,
+  template_key text not null,
+  status text not null,
+  sent_at timestamptz default now()
+);
+
+-- ============ HELPER: current user role ============
+create or replace function public.current_user_role()
+returns user_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from profiles where id = auth.uid();
+$$;
+
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from profiles where id = auth.uid() and role = 'super_admin'
+  );
+$$;
+
+-- ============ AUTO PROFILE ON SIGNUP ============
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, phone, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', 'کاربر جدید'),
+    coalesce(new.raw_user_meta_data->>'phone', new.phone, new.id::text),
+    coalesce((new.raw_user_meta_data->>'role')::user_role, 'team_captain')
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- ============ PUBLIC VIEWS (sanitized company data) ============
+create view public.public_companies as
+select
+  id,
+  name,
+  slug,
+  logo_url,
+  bio,
+  founded_year,
+  website,
+  created_at
+from companies;
+
+create view public.public_results as
+select *
+from results
+where published_at is not null;
+
+-- ============ ENABLE RLS ============
+alter table profiles enable row level security;
+alter table companies enable row level security;
+alter table company_members enable row level security;
+alter table leagues enable row level security;
+alter table league_admins enable row level security;
+alter table teams enable row level security;
+alter table team_members enable row level security;
+alter table documents enable row level security;
+alter table invoices enable row level security;
+alter table results enable row level security;
+alter table company_achievements enable row level security;
+alter table announcements enable row level security;
+alter table blog_posts enable row level security;
+alter table gallery_items enable row level security;
+alter table home_banners enable row level security;
+alter table static_pages enable row level security;
+alter table tickets enable row level security;
+alter table ticket_messages enable row level security;
+alter table notification_log enable row level security;
+
+-- ============ PROFILES POLICIES ============
+create policy "profiles_select_own_or_staff"
+  on profiles for select using (
+    id = auth.uid()
+    or public.is_super_admin()
+    or public.current_user_role() in ('staff', 'league_admin')
+  );
+
+create policy "profiles_update_own"
+  on profiles for update using (
+    id = auth.uid() or public.is_super_admin()
+  );
+
+create policy "profiles_insert_own"
+  on profiles for insert with check (id = auth.uid());
+
+-- ============ COMPANIES ============
+create policy "companies_manage"
+  on companies for all using (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = companies.id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  )
+  with check (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = companies.id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "companies_public_select"
+  on companies for select using (true);
+
+create policy "companies_insert_authenticated"
+  on companies for insert with check (auth.uid() is not null);
+
+-- ============ COMPANY MEMBERS ============
+create policy "company_members_select"
+  on company_members for select using (
+    user_id = auth.uid()
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = company_members.company_id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "company_members_manage"
+  on company_members for all using (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = company_members.company_id
+        and cm.user_id = auth.uid()
+        and cm.is_owner = true
+    )
+    or public.is_super_admin()
+  )
+  with check (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = company_members.company_id
+        and cm.user_id = auth.uid()
+        and cm.is_owner = true
+    )
+    or public.is_super_admin()
+    or user_id = auth.uid()
+  );
+
+-- ============ LEAGUES (public read of active) ============
+create policy "leagues_public_select"
+  on leagues for select using (is_active = true or public.is_super_admin());
+
+create policy "leagues_super_admin_all"
+  on leagues for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+create policy "league_admins_select"
+  on league_admins for select using (
+    user_id = auth.uid() or public.is_super_admin()
+  );
+
+create policy "league_admins_manage"
+  on league_admins for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+-- ============ TEAMS ============
+create policy "teams_select"
+  on teams for select using (
+    captain_id = auth.uid()
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = teams.company_id and cm.user_id = auth.uid()
+    )
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = teams.league_id and la.user_id = auth.uid()
+    )
+    or public.current_user_role() in ('super_admin', 'staff')
+  );
+
+create policy "teams_insert"
+  on teams for insert with check (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = teams.company_id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "teams_update"
+  on teams for update using (
+    (captain_id = auth.uid() and status = 'draft')
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = teams.company_id
+        and cm.user_id = auth.uid()
+        and cm.is_owner = true
+    )
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = teams.league_id and la.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+-- ============ TEAM MEMBERS ============
+create policy "team_members_select"
+  on team_members for select using (
+    exists (
+      select 1 from teams t
+      where t.id = team_members.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or exists (
+            select 1 from league_admins la
+            where la.league_id = t.league_id and la.user_id = auth.uid()
+          )
+          or public.current_user_role() in ('super_admin', 'staff')
+        )
+    )
+  );
+
+create policy "team_members_manage"
+  on team_members for all using (
+    exists (
+      select 1 from teams t
+      where t.id = team_members.team_id
+        and (
+          (t.captain_id = auth.uid() and t.status = 'draft')
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or public.is_super_admin()
+        )
+    )
+  )
+  with check (
+    exists (
+      select 1 from teams t
+      where t.id = team_members.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or public.is_super_admin()
+        )
+    )
+  );
+
+-- ============ DOCUMENTS ============
+create policy "documents_select"
+  on documents for select using (
+    exists (
+      select 1 from teams t
+      where t.id = documents.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or exists (
+            select 1 from league_admins la
+            where la.league_id = t.league_id and la.user_id = auth.uid()
+          )
+          or public.current_user_role() in ('super_admin', 'staff')
+        )
+    )
+  );
+
+create policy "documents_manage"
+  on documents for all using (
+    exists (
+      select 1 from teams t
+      where t.id = documents.team_id
+        and (
+          (t.captain_id = auth.uid() and t.status = 'draft')
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or public.is_super_admin()
+        )
+    )
+  )
+  with check (
+    exists (
+      select 1 from teams t
+      where t.id = documents.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+          or public.is_super_admin()
+        )
+    )
+  );
+
+-- ============ INVOICES ============
+create policy "invoices_select"
+  on invoices for select using (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = invoices.company_id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "invoices_insert"
+  on invoices for insert with check (
+    exists (
+      select 1 from company_members cm
+      where cm.company_id = invoices.company_id and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "invoices_update_super_admin"
+  on invoices for update using (public.is_super_admin());
+
+-- ============ RESULTS & ACHIEVEMENTS (public published) ============
+create policy "results_public_select"
+  on results for select using (
+    published_at is not null or public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = results.league_id and la.user_id = auth.uid()
+    )
+  );
+
+create policy "results_manage"
+  on results for all using (
+    public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = results.league_id and la.user_id = auth.uid()
+    )
+  )
+  with check (
+    public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = results.league_id and la.user_id = auth.uid()
+    )
+  );
+
+create policy "achievements_public_select"
+  on company_achievements for select using (true);
+
+create policy "achievements_manage"
+  on company_achievements for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+-- ============ CONTENT ============
+create policy "announcements_public_select"
+  on announcements for select using (
+    status = 'published' or public.is_super_admin()
+  );
+
+create policy "announcements_manage"
+  on announcements for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+create policy "blog_public_select"
+  on blog_posts for select using (
+    status = 'published' or public.is_super_admin()
+  );
+
+create policy "blog_manage"
+  on blog_posts for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+create policy "gallery_public_select"
+  on gallery_items for select using (true);
+
+create policy "gallery_manage"
+  on gallery_items for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+create policy "banners_public_select"
+  on home_banners for select using (is_active = true or public.is_super_admin());
+
+create policy "banners_manage"
+  on home_banners for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+create policy "static_pages_public_select"
+  on static_pages for select using (true);
+
+create policy "static_pages_manage"
+  on static_pages for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+-- ============ TICKETS ============
+create policy "tickets_select"
+  on tickets for select using (
+    exists (
+      select 1 from teams t
+      where t.id = tickets.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+        )
+    )
+    or assigned_to = auth.uid()
+    or (
+      tickets.league_id is null
+      and public.current_user_role() = 'staff'
+    )
+    or (
+      tickets.league_id is not null
+      and exists (
+        select 1 from league_admins la
+        where la.league_id = tickets.league_id and la.user_id = auth.uid()
+      )
+    )
+    or public.is_super_admin()
+  );
+
+create policy "tickets_insert"
+  on tickets for insert with check (
+    exists (
+      select 1 from teams t
+      where t.id = tickets.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+        )
+    )
+    or public.is_super_admin()
+  );
+
+create policy "tickets_update"
+  on tickets for update using (
+    assigned_to = auth.uid()
+    or public.current_user_role() in ('staff', 'super_admin')
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = tickets.league_id and la.user_id = auth.uid()
+    )
+  );
+
+create policy "ticket_messages_select"
+  on ticket_messages for select using (
+    exists (
+      select 1 from tickets tk
+      where tk.id = ticket_messages.ticket_id
+        and (
+          exists (
+            select 1 from teams t
+            where t.id = tk.team_id
+              and (
+                t.captain_id = auth.uid()
+                or exists (
+                  select 1 from company_members cm
+                  where cm.company_id = t.company_id and cm.user_id = auth.uid()
+                )
+              )
+          )
+          or tk.assigned_to = auth.uid()
+          or public.current_user_role() in ('staff', 'super_admin')
+          or (
+            tk.league_id is not null
+            and exists (
+              select 1 from league_admins la
+              where la.league_id = tk.league_id and la.user_id = auth.uid()
+            )
+          )
+        )
+    )
+  );
+
+create policy "ticket_messages_insert"
+  on ticket_messages for insert with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from tickets tk
+      where tk.id = ticket_messages.ticket_id
+        and (
+          exists (
+            select 1 from teams t
+            where t.id = tk.team_id
+              and (
+                t.captain_id = auth.uid()
+                or exists (
+                  select 1 from company_members cm
+                  where cm.company_id = t.company_id and cm.user_id = auth.uid()
+                )
+              )
+          )
+          or tk.assigned_to = auth.uid()
+          or public.current_user_role() in ('staff', 'super_admin')
+          or (
+            tk.league_id is not null
+            and exists (
+              select 1 from league_admins la
+              where la.league_id = tk.league_id and la.user_id = auth.uid()
+            )
+          )
+        )
+    )
+  );
+
+-- ============ NOTIFICATION LOG ============
+create policy "notification_log_select"
+  on notification_log for select using (
+    public.is_super_admin()
+    or exists (
+      select 1 from teams t
+      where t.id = notification_log.team_id and t.captain_id = auth.uid()
+    )
+  );
+
+create policy "notification_log_insert_service"
+  on notification_log for insert with check (public.is_super_admin());
+
+-- ============ STORAGE BUCKET FOR DOCUMENTS ============
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'team-documents',
+  'team-documents',
+  false,
+  5242880,
+  array['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do nothing;
+
+create policy "team_documents_select"
+  on storage.objects for select using (
+    bucket_id = 'team-documents'
+    and (
+      public.is_super_admin()
+      or public.current_user_role() = 'staff'
+      or auth.uid()::text = (storage.foldername(name))[1]
+    )
+  );
+
+create policy "team_documents_insert"
+  on storage.objects for insert with check (
+    bucket_id = 'team-documents'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "team_documents_delete"
+  on storage.objects for delete using (
+    bucket_id = 'team-documents'
+    and (
+      auth.uid()::text = (storage.foldername(name))[1]
+      or public.is_super_admin()
+    )
+  );
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0002_phase1_companies_teams.sql --
+-- ========================================== --
+
+-- Phase 1: company ownership helpers, captain invites, logos bucket
+
+-- One team per company per league
+alter table teams
+  add constraint teams_company_league_unique unique (company_id, league_id);
+
+-- Pending captain invitations (phone may not have an account yet)
+create table captain_invites (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  team_id uuid references teams(id) on delete cascade,
+  phone text not null,
+  full_name_hint text,
+  invited_by uuid not null references profiles(id),
+  accepted_at timestamptz,
+  created_at timestamptz default now(),
+  unique (team_id)
+);
+
+create index captain_invites_phone_idx on captain_invites (phone);
+
+alter table captain_invites enable row level security;
+
+create policy "captain_invites_select"
+  on captain_invites for select using (
+    invited_by = auth.uid()
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = captain_invites.company_id
+        and cm.user_id = auth.uid()
+    )
+    or public.is_super_admin()
+  );
+
+create policy "captain_invites_insert"
+  on captain_invites for insert with check (
+    invited_by = auth.uid()
+    and exists (
+      select 1 from company_members cm
+      where cm.company_id = captain_invites.company_id
+        and cm.user_id = auth.uid()
+        and cm.is_owner = true
+    )
+  );
+
+create policy "captain_invites_update"
+  on captain_invites for update using (
+    public.is_super_admin()
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = captain_invites.company_id
+        and cm.user_id = auth.uid()
+        and cm.is_owner = true
+    )
+  );
+
+-- Atomic company create + owner membership + role bump
+create or replace function public.create_company(
+  p_name text,
+  p_slug text,
+  p_bio text default null,
+  p_founded_year integer default null,
+  p_website text default null,
+  p_logo_url text default null
+)
+returns companies
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_company companies;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into companies (name, slug, bio, founded_year, website, logo_url)
+  values (p_name, p_slug, p_bio, p_founded_year, p_website, p_logo_url)
+  returning * into v_company;
+
+  insert into company_members (company_id, user_id, is_owner)
+  values (v_company.id, auth.uid(), true);
+
+  update profiles
+  set role = 'company_admin'
+  where id = auth.uid()
+    and role = 'team_captain';
+
+  return v_company;
+end;
+$$;
+
+revoke all on function public.create_company from public;
+grant execute on function public.create_company to authenticated;
+
+-- Resolve captain by phone, or queue invite (returns profile id to use as captain)
+create or replace function public.resolve_team_captain(
+  p_company_id uuid,
+  p_phone text,
+  p_full_name_hint text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_captain_id uuid;
+  v_phone text := trim(p_phone);
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if not exists (
+    select 1 from company_members cm
+    where cm.company_id = p_company_id
+      and cm.user_id = v_uid
+      and cm.is_owner = true
+  ) and not public.is_super_admin() then
+    raise exception 'not company owner';
+  end if;
+
+  select id into v_captain_id
+  from profiles
+  where phone = v_phone
+  limit 1;
+
+  if v_captain_id is not null then
+    update profiles
+    set role = case
+      when role = 'team_captain' then 'team_captain'::user_role
+      else role
+    end
+    where id = v_captain_id;
+
+    return v_captain_id;
+  end if;
+
+  -- No account yet: company owner acts as interim captain; invite stored by caller with team_id
+  return v_uid;
+end;
+$$;
+
+revoke all on function public.resolve_team_captain from public;
+grant execute on function public.resolve_team_captain to authenticated;
+
+-- Lookup whether a phone already has a profile (for UI feedback)
+create or replace function public.profile_exists_by_phone(p_phone text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from profiles where phone = trim(p_phone));
+$$;
+
+revoke all on function public.profile_exists_by_phone from public;
+grant execute on function public.profile_exists_by_phone to authenticated;
+
+-- When invited user signs up, assign them as captain on matching teams
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+  v_invite captain_invites%rowtype;
+begin
+  v_phone := coalesce(new.raw_user_meta_data->>'phone', new.phone, new.id::text);
+
+  insert into public.profiles (id, full_name, phone, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', 'کاربر جدید'),
+    v_phone,
+    coalesce((new.raw_user_meta_data->>'role')::user_role, 'team_captain')
+  );
+
+  for v_invite in
+    select * from captain_invites
+    where phone = v_phone and accepted_at is null and team_id is not null
+  loop
+    update teams
+    set captain_id = new.id
+    where id = v_invite.team_id;
+
+    update captain_invites
+    set accepted_at = now()
+    where id = v_invite.id;
+  end loop;
+
+  return new;
+end;
+$$;
+
+-- Public company logos bucket
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'company-logos',
+  'company-logos',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do nothing;
+
+create policy "company_logos_public_select"
+  on storage.objects for select using (bucket_id = 'company-logos');
+
+create policy "company_logos_insert"
+  on storage.objects for insert with check (
+    bucket_id = 'company-logos'
+    and auth.uid() is not null
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "company_logos_update"
+  on storage.objects for update using (
+    bucket_id = 'company-logos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "company_logos_delete"
+  on storage.objects for delete using (
+    bucket_id = 'company-logos'
+    and (
+      auth.uid()::text = (storage.foldername(name))[1]
+      or public.is_super_admin()
+    )
+  );
+
+-- Allow company owners to update own company after membership exists (already covered)
+-- Allow team captains to update draft teams they captain (already covered)
+
+-- Staff/league can still select teams; company_admin update via membership
+
+grant usage on schema public to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0003_phase2_payments.sql --
+-- ========================================== --
+
+-- Phase 2: payments, invoices workflow, secure status transitions
+
+create extension if not exists pgcrypto;
+
+create table if not exists payment_config (
+  key text primary key,
+  value text not null
+);
+
+insert into payment_config (key, value) values
+  ('payment_mode', 'mock'),
+  ('mock_secret', encode(gen_random_bytes(16), 'hex')),
+  ('currency', 'IRR')
+on conflict (key) do nothing;
+
+-- Readable by authenticated only for non-secret keys via RPC
+create or replace function public.get_payment_mode()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select value from payment_config where key = 'payment_mode'), 'mock');
+$$;
+
+revoke all on function public.get_payment_mode from public;
+grant execute on function public.get_payment_mode to authenticated, anon;
+
+create or replace function public._next_invoice_number()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_seq bigint;
+  v_date text := to_char(timezone('Asia/Tehran', now()), 'YYYYMMDD');
+begin
+  v_seq := (extract(epoch from now()) * 1000)::bigint % 1000000;
+  return 'RC-' || v_date || '-' || lpad(v_seq::text, 6, '0');
+end;
+$$;
+
+-- Create (or reuse pending) invoice for a draft team
+create or replace function public.create_invoice_for_team(p_team_id uuid)
+returns invoices
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team teams%rowtype;
+  v_fee numeric;
+  v_invoice invoices%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_team from teams where id = p_team_id;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  if v_team.status <> 'draft' then
+    raise exception 'team is not in draft status';
+  end if;
+
+  if not public.is_super_admin()
+     and not exists (
+       select 1 from company_members cm
+       where cm.company_id = v_team.company_id and cm.user_id = v_uid
+     )
+     and v_team.captain_id <> v_uid then
+    raise exception 'forbidden';
+  end if;
+
+  select coalesce(registration_fee, 0) into v_fee
+  from leagues where id = v_team.league_id;
+
+  select * into v_invoice
+  from invoices
+  where team_id = p_team_id and status = 'pending'
+  order by created_at desc
+  limit 1;
+
+  if found then
+    update invoices
+    set amount = v_fee,
+        company_id = v_team.company_id
+    where id = v_invoice.id
+    returning * into v_invoice;
+    return v_invoice;
+  end if;
+
+  insert into invoices (
+    team_id,
+    company_id,
+    amount,
+    status,
+    invoice_number
+  ) values (
+    v_team.id,
+    v_team.company_id,
+    v_fee,
+    'pending',
+    public._next_invoice_number()
+  )
+  returning * into v_invoice;
+
+  return v_invoice;
+end;
+$$;
+
+revoke all on function public.create_invoice_for_team from public;
+grant execute on function public.create_invoice_for_team to authenticated;
+
+-- Mark payment result. Production ZarinPal must call this from Edge Function (service role).
+-- Mock mode allows company members with a valid mock authority token.
+create or replace function public.apply_payment_result(
+  p_invoice_id uuid,
+  p_authority text,
+  p_success boolean,
+  p_gateway_ref text default null
+)
+returns invoices
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_invoice invoices%rowtype;
+  v_mode text;
+  v_secret text;
+  v_expected text;
+  v_ref text;
+begin
+  v_mode := public.get_payment_mode();
+
+  select * into v_invoice from invoices where id = p_invoice_id for update;
+  if not found then
+    raise exception 'invoice not found';
+  end if;
+
+  if v_invoice.status = 'paid' then
+    return v_invoice; -- idempotent
+  end if;
+
+  if v_invoice.status <> 'pending' and v_invoice.status <> 'failed' then
+    raise exception 'invoice not payable';
+  end if;
+
+  if v_mode = 'mock' then
+    if v_uid is null then
+      raise exception 'not authenticated';
+    end if;
+
+    if not public.is_super_admin()
+       and not exists (
+         select 1 from company_members cm
+         where cm.company_id = v_invoice.company_id and cm.user_id = v_uid
+       ) then
+      raise exception 'forbidden';
+    end if;
+
+    select value into v_secret from payment_config where key = 'mock_secret';
+    v_expected := 'MOCK-' || encode(
+      digest(p_invoice_id::text || ':' || coalesce(v_secret, ''), 'sha256'),
+      'hex'
+    );
+
+    if p_authority is distinct from v_expected then
+      if starts_with(coalesce(p_authority, ''), 'MOCK-DEV-')
+         and exists (
+           select 1 from payment_config
+           where key = 'allow_mock_dev' and value = 'true'
+         ) then
+        null; -- local UI simulation only
+      else
+        raise exception 'invalid mock authority';
+      end if;
+    end if;
+  else
+    -- zarinpal / other: only service_role (no JWT user) or super_admin
+    if v_uid is not null and not public.is_super_admin() then
+      raise exception 'use payment-verify edge function';
+    end if;
+  end if;
+
+  v_ref := coalesce(p_gateway_ref, p_authority);
+
+  if p_success then
+    update invoices
+    set status = 'paid',
+        gateway_ref = v_ref,
+        paid_at = now()
+    where id = v_invoice.id
+    returning * into v_invoice;
+
+    update teams
+    set status = 'submitted',
+        submitted_at = coalesce(submitted_at, now())
+    where id = v_invoice.team_id
+      and status = 'draft';
+  else
+    update invoices
+    set status = 'failed',
+        gateway_ref = v_ref
+    where id = v_invoice.id
+    returning * into v_invoice;
+
+    -- keep team in draft (explicit no-op if already draft)
+    update teams
+    set status = 'draft'
+    where id = v_invoice.team_id
+      and status = 'draft';
+  end if;
+
+  return v_invoice;
+end;
+$$;
+
+revoke all on function public.apply_payment_result from public;
+grant execute on function public.apply_payment_result to authenticated, service_role;
+
+-- Issue mock authority for current invoice (mock mode only)
+create or replace function public.issue_mock_payment_authority(p_invoice_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_invoice invoices%rowtype;
+  v_secret text;
+begin
+  if public.get_payment_mode() <> 'mock' then
+    raise exception 'not in mock mode';
+  end if;
+
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_invoice from invoices where id = p_invoice_id;
+  if not found then
+    raise exception 'invoice not found';
+  end if;
+
+  if not public.is_super_admin()
+     and not exists (
+       select 1 from company_members cm
+       where cm.company_id = v_invoice.company_id and cm.user_id = v_uid
+     ) then
+    raise exception 'forbidden';
+  end if;
+
+  select value into v_secret from payment_config where key = 'mock_secret';
+  return 'MOCK-' || encode(
+    digest(p_invoice_id::text || ':' || coalesce(v_secret, ''), 'sha256'),
+    'hex'
+  );
+end;
+$$;
+
+revoke all on function public.issue_mock_payment_authority from public;
+grant execute on function public.issue_mock_payment_authority to authenticated;
+
+-- Enable mock-dev authorities for local callback simulation without reading secret
+insert into payment_config (key, value) values ('allow_mock_dev', 'true')
+on conflict (key) do nothing;
+
+-- Finance listing helper for super admin (optional views)
+create or replace view public.invoice_finance_view
+with (security_invoker = true)
+as
+select
+  i.*,
+  t.name as team_name,
+  t.status as team_status,
+  t.league_id,
+  l.name as league_name,
+  c.name as company_name,
+  c.slug as company_slug
+from invoices i
+join teams t on t.id = i.team_id
+join leagues l on l.id = t.league_id
+join companies c on c.id = i.company_id;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0004_phase3_super_admin.sql --
+-- ========================================== --
+
+-- Phase 3: super-admin helpers for roles and league admin assignment
+
+create or replace function public.set_user_role(p_user_id uuid, p_role user_role)
+returns profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile profiles%rowtype;
+  v_super_count integer;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  select * into v_profile from profiles where id = p_user_id for update;
+  if not found then
+    raise exception 'user not found';
+  end if;
+
+  if v_profile.role = 'super_admin' and p_role <> 'super_admin' then
+    select count(*) into v_super_count from profiles where role = 'super_admin';
+    if v_super_count <= 1 then
+      raise exception 'cannot demote the last super_admin';
+    end if;
+  end if;
+
+  update profiles
+  set role = p_role
+  where id = p_user_id
+  returning * into v_profile;
+
+  return v_profile;
+end;
+$$;
+
+revoke all on function public.set_user_role from public;
+grant execute on function public.set_user_role to authenticated;
+
+create or replace function public.assign_league_admin(p_league_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  if not exists (select 1 from profiles where id = p_user_id) then
+    raise exception 'user not found';
+  end if;
+
+  if not exists (select 1 from leagues where id = p_league_id) then
+    raise exception 'league not found';
+  end if;
+
+  insert into league_admins (league_id, user_id)
+  values (p_league_id, p_user_id)
+  on conflict do nothing;
+
+  update profiles
+  set role = 'league_admin'
+  where id = p_user_id
+    and role = 'team_captain';
+end;
+$$;
+
+revoke all on function public.assign_league_admin from public;
+grant execute on function public.assign_league_admin to authenticated;
+
+create or replace function public.remove_league_admin(p_league_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_remaining integer;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  delete from league_admins
+  where league_id = p_league_id and user_id = p_user_id;
+
+  select count(*) into v_remaining
+  from league_admins
+  where user_id = p_user_id;
+
+  if v_remaining = 0 then
+    update profiles
+    set role = 'team_captain'
+    where id = p_user_id
+      and role = 'league_admin';
+  end if;
+end;
+$$;
+
+revoke all on function public.remove_league_admin from public;
+grant execute on function public.remove_league_admin to authenticated;
+
+-- Allow super_admin to select all profiles even if other policies overlap (already covered)
+-- Ensure inactive leagues can be managed (already covered by leagues_super_admin_all)
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0005_phase4_judging_tickets.sql --
+-- ========================================== --
+
+-- Phase 4: judging + staff ticketing helpers and tighter ticket visibility
+
+-- League admins need to download team documents while reviewing
+drop policy if exists "team_documents_select" on storage.objects;
+create policy "team_documents_select"
+  on storage.objects for select using (
+    bucket_id = 'team-documents'
+    and (
+      public.is_super_admin()
+      or public.current_user_role() = 'staff'
+      or auth.uid()::text = (storage.foldername(name))[1]
+      or exists (
+        select 1
+        from documents d
+        join teams t on t.id = d.team_id
+        join league_admins la on la.league_id = t.league_id and la.user_id = auth.uid()
+        where d.file_path = name
+      )
+    )
+  );
+
+-- Review team status (league admin / staff / super_admin)
+create or replace function public.review_team(
+  p_team_id uuid,
+  p_status registration_status,
+  p_rejection_reason text default null
+)
+returns teams
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team teams%rowtype;
+  v_role user_role;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if p_status not in ('under_review', 'approved', 'rejected', 'waitlisted') then
+    raise exception 'invalid review status';
+  end if;
+
+  select * into v_team from teams where id = p_team_id for update;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  v_role := public.current_user_role();
+
+  if not (
+    public.is_super_admin()
+    or v_role = 'staff'
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = v_team.league_id and la.user_id = v_uid
+    )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  -- Staff may only do initial triage to under_review
+  if v_role = 'staff' and not public.is_super_admin() then
+    if p_status <> 'under_review' then
+      raise exception 'staff can only mark under_review';
+    end if;
+  end if;
+
+  update teams
+  set
+    status = p_status,
+    rejection_reason = case
+      when p_status = 'rejected' then p_rejection_reason
+      else null
+    end,
+    reviewed_at = now(),
+    reviewed_by = v_uid
+  where id = p_team_id
+  returning * into v_team;
+
+  return v_team;
+end;
+$$;
+
+revoke all on function public.review_team from public;
+grant execute on function public.review_team to authenticated;
+
+-- Create ticket (captain/company)
+create or replace function public.create_ticket(
+  p_team_id uuid,
+  p_subject text,
+  p_body text,
+  p_league_id uuid default null
+)
+returns tickets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team teams%rowtype;
+  v_ticket tickets%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_team from teams where id = p_team_id;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or v_team.captain_id = v_uid
+    or exists (
+      select 1 from company_members cm
+      where cm.company_id = v_team.company_id and cm.user_id = v_uid
+    )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  insert into tickets (team_id, league_id, subject, status)
+  values (
+    p_team_id,
+    p_league_id, -- null = general (staff queue)
+    trim(p_subject),
+    'open'
+  )
+  returning * into v_ticket;
+
+  insert into ticket_messages (ticket_id, sender_id, body)
+  values (v_ticket.id, v_uid, trim(p_body));
+
+  return v_ticket;
+end;
+$$;
+
+revoke all on function public.create_ticket from public;
+grant execute on function public.create_ticket to authenticated;
+
+-- Staff refers a general ticket to a league (and optional league admin)
+create or replace function public.refer_ticket(
+  p_ticket_id uuid,
+  p_league_id uuid,
+  p_assigned_to uuid default null
+)
+returns tickets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_ticket tickets%rowtype;
+  v_role user_role;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  v_role := public.current_user_role();
+  if not (public.is_super_admin() or v_role = 'staff') then
+    raise exception 'forbidden';
+  end if;
+
+  select * into v_ticket from tickets where id = p_ticket_id for update;
+  if not found then
+    raise exception 'ticket not found';
+  end if;
+
+  if v_ticket.league_id is not null and not public.is_super_admin() then
+    raise exception 'ticket already referred';
+  end if;
+
+  if not exists (select 1 from leagues where id = p_league_id) then
+    raise exception 'league not found';
+  end if;
+
+  if p_assigned_to is not null then
+    if not exists (
+      select 1 from league_admins la
+      where la.league_id = p_league_id and la.user_id = p_assigned_to
+    ) and not public.is_super_admin() then
+      raise exception 'assignee is not a league admin for this league';
+    end if;
+  end if;
+
+  update tickets
+  set
+    league_id = p_league_id,
+    assigned_to = p_assigned_to,
+    status = case when status = 'closed' then status else 'open' end
+  where id = p_ticket_id
+  returning * into v_ticket;
+
+  return v_ticket;
+end;
+$$;
+
+revoke all on function public.refer_ticket from public;
+grant execute on function public.refer_ticket to authenticated;
+
+create or replace function public.reply_ticket(
+  p_ticket_id uuid,
+  p_body text,
+  p_mark_answered boolean default true
+)
+returns ticket_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_ticket tickets%rowtype;
+  v_msg ticket_messages%rowtype;
+  v_allowed boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_ticket from tickets where id = p_ticket_id for update;
+  if not found then
+    raise exception 'ticket not found';
+  end if;
+
+  -- Same visibility rules as tickets_select
+  v_allowed :=
+    public.is_super_admin()
+    or v_ticket.assigned_to = v_uid
+    or exists (
+      select 1 from teams t
+      where t.id = v_ticket.team_id
+        and (
+          t.captain_id = v_uid
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = v_uid
+          )
+        )
+    )
+    or (
+      v_ticket.league_id is null
+      and public.current_user_role() = 'staff'
+    )
+    or (
+      v_ticket.league_id is not null
+      and v_ticket.assigned_to is null
+      and exists (
+        select 1 from league_admins la
+        where la.league_id = v_ticket.league_id and la.user_id = v_uid
+      )
+    );
+
+  if not v_allowed then
+    raise exception 'forbidden';
+  end if;
+
+  insert into ticket_messages (ticket_id, sender_id, body)
+  values (p_ticket_id, v_uid, trim(p_body))
+  returning * into v_msg;
+
+  if p_mark_answered and public.current_user_role() in ('staff', 'league_admin', 'super_admin') then
+    update tickets set status = 'answered' where id = p_ticket_id and status = 'open';
+  end if;
+
+  return v_msg;
+end;
+$$;
+
+revoke all on function public.reply_ticket from public;
+grant execute on function public.reply_ticket to authenticated;
+
+-- Tighten tickets_select: after referral with assignee, only that admin (+ owners + super_admin)
+drop policy if exists "tickets_select" on tickets;
+create policy "tickets_select"
+  on tickets for select using (
+    public.is_super_admin()
+    or assigned_to = auth.uid()
+    or exists (
+      select 1 from teams t
+      where t.id = tickets.team_id
+        and (
+          t.captain_id = auth.uid()
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = auth.uid()
+          )
+        )
+    )
+    or (
+      tickets.league_id is null
+      and public.current_user_role() = 'staff'
+    )
+    or (
+      tickets.league_id is not null
+      and tickets.assigned_to is null
+      and exists (
+        select 1 from league_admins la
+        where la.league_id = tickets.league_id and la.user_id = auth.uid()
+      )
+    )
+  );
+
+-- Align ticket message visibility with tickets_select
+drop policy if exists "ticket_messages_select" on ticket_messages;
+create policy "ticket_messages_select"
+  on ticket_messages for select using (
+    exists (
+      select 1 from tickets tk
+      where tk.id = ticket_messages.ticket_id
+        and (
+          public.is_super_admin()
+          or tk.assigned_to = auth.uid()
+          or exists (
+            select 1 from teams t
+            where t.id = tk.team_id
+              and (
+                t.captain_id = auth.uid()
+                or exists (
+                  select 1 from company_members cm
+                  where cm.company_id = t.company_id and cm.user_id = auth.uid()
+                )
+              )
+          )
+          or (
+            tk.league_id is null
+            and public.current_user_role() = 'staff'
+          )
+          or (
+            tk.league_id is not null
+            and tk.assigned_to is null
+            and exists (
+              select 1 from league_admins la
+              where la.league_id = tk.league_id and la.user_id = auth.uid()
+            )
+          )
+        )
+    )
+  );
+
+drop policy if exists "ticket_messages_insert" on ticket_messages;
+create policy "ticket_messages_insert"
+  on ticket_messages for insert with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from tickets tk
+      where tk.id = ticket_messages.ticket_id
+        and (
+          public.is_super_admin()
+          or tk.assigned_to = auth.uid()
+          or exists (
+            select 1 from teams t
+            where t.id = tk.team_id
+              and (
+                t.captain_id = auth.uid()
+                or exists (
+                  select 1 from company_members cm
+                  where cm.company_id = t.company_id and cm.user_id = auth.uid()
+                )
+              )
+          )
+          or (
+            tk.league_id is null
+            and public.current_user_role() = 'staff'
+          )
+          or (
+            tk.league_id is not null
+            and tk.assigned_to is null
+            and exists (
+              select 1 from league_admins la
+              where la.league_id = tk.league_id and la.user_id = auth.uid()
+            )
+          )
+        )
+    )
+  );
+
+-- Upsert result for a team
+create or replace function public.upsert_team_result(
+  p_team_id uuid,
+  p_season_year integer,
+  p_rank integer default null,
+  p_score numeric default null,
+  p_notes text default null,
+  p_publish boolean default false
+)
+returns results
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team teams%rowtype;
+  v_row results%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_team from teams where id = p_team_id;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = v_team.league_id and la.user_id = v_uid
+    )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  select * into v_row
+  from results
+  where team_id = p_team_id and season_year = p_season_year
+  limit 1;
+
+  if found then
+    update results
+    set
+      rank = p_rank,
+      score = p_score,
+      notes = p_notes,
+      published_at = case when p_publish then coalesce(published_at, now()) else published_at end
+    where id = v_row.id
+    returning * into v_row;
+  else
+    insert into results (
+      league_id, team_id, company_id, season_year, rank, score, notes, published_at
+    ) values (
+      v_team.league_id,
+      v_team.id,
+      v_team.company_id,
+      p_season_year,
+      p_rank,
+      p_score,
+      p_notes,
+      case when p_publish then now() else null end
+    )
+    returning * into v_row;
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.upsert_team_result from public;
+grant execute on function public.upsert_team_result to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0006_phase5_notifications.sql --
+-- ========================================== --
+
+-- Phase 5: SMS notifications with idempotent notification_log
+
+alter table notification_log
+  add column if not exists idempotency_key text,
+  add column if not exists phone text,
+  add column if not exists error_message text,
+  add column if not exists meta jsonb default '{}'::jsonb,
+  add column if not exists provider_message_id text,
+  add column if not exists created_at timestamptz default now();
+
+update notification_log
+set idempotency_key = coalesce(idempotency_key, id::text)
+where idempotency_key is null;
+
+alter table notification_log
+  alter column idempotency_key set not null;
+
+create unique index if not exists notification_log_idempotency_key_uidx
+  on notification_log (idempotency_key);
+
+create index if not exists notification_log_status_created_idx
+  on notification_log (status, created_at asc);
+
+create or replace function public.claim_notification(
+  p_idempotency_key text,
+  p_team_id uuid,
+  p_template_key text,
+  p_phone text,
+  p_channel text default 'sms',
+  p_meta jsonb default '{}'::jsonb
+)
+returns notification_log
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row notification_log%rowtype;
+begin
+  select * into v_row
+  from notification_log
+  where idempotency_key = p_idempotency_key;
+
+  if found then
+    return v_row;
+  end if;
+
+  begin
+    insert into notification_log (
+      team_id,
+      channel,
+      template_key,
+      status,
+      idempotency_key,
+      phone,
+      meta
+    ) values (
+      p_team_id,
+      p_channel,
+      p_template_key,
+      'pending',
+      p_idempotency_key,
+      p_phone,
+      coalesce(p_meta, '{}'::jsonb)
+    )
+    returning * into v_row;
+  exception
+    when unique_violation then
+      select * into v_row
+      from notification_log
+      where idempotency_key = p_idempotency_key;
+  end;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.claim_notification from public;
+grant execute on function public.claim_notification to service_role;
+
+create or replace function public.finalize_notification(
+  p_idempotency_key text,
+  p_success boolean,
+  p_provider_message_id text default null,
+  p_error_message text default null
+)
+returns notification_log
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row notification_log%rowtype;
+begin
+  update notification_log
+  set
+    status = case when p_success then 'sent' else 'failed' end,
+    provider_message_id = coalesce(p_provider_message_id, provider_message_id),
+    error_message = case when p_success then null else coalesce(p_error_message, error_message) end,
+    sent_at = now()
+  where idempotency_key = p_idempotency_key
+  returning * into v_row;
+
+  if not found then
+    raise exception 'notification not found';
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.finalize_notification from public;
+grant execute on function public.finalize_notification to service_role;
+
+create or replace function public.enqueue_team_sms(
+  p_team_id uuid,
+  p_template_key text,
+  p_idempotency_key text,
+  p_meta jsonb default '{}'::jsonb
+)
+returns notification_log
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+  v_team teams%rowtype;
+begin
+  select * into v_team from teams where id = p_team_id;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  select phone into v_phone from profiles where id = v_team.captain_id;
+
+  return public.claim_notification(
+    p_idempotency_key,
+    p_team_id,
+    p_template_key,
+    coalesce(v_phone, ''),
+    'sms',
+    case
+      when v_phone is null or length(trim(v_phone)) < 8 then
+        coalesce(p_meta, '{}'::jsonb) || jsonb_build_object('skip', 'missing_phone')
+      else
+        coalesce(p_meta, '{}'::jsonb)
+    end
+  );
+end;
+$$;
+
+revoke all on function public.enqueue_team_sms from public;
+grant execute on function public.enqueue_team_sms to service_role;
+
+create or replace function public.trg_teams_status_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_template text;
+  v_key text;
+begin
+  if tg_op = 'UPDATE' and new.status is distinct from old.status then
+    v_template := case new.status
+      when 'submitted' then 'registration_submitted'
+      when 'approved' then 'registration_approved'
+      when 'rejected' then 'registration_rejected'
+      when 'waitlisted' then 'registration_waitlisted'
+      else null
+    end;
+
+    if v_template is not null then
+      v_key := 'team:' || new.id::text || ':status:' || new.status::text;
+      perform public.enqueue_team_sms(
+        new.id,
+        v_template,
+        v_key,
+        jsonb_build_object(
+          'status', new.status,
+          'league_id', new.league_id,
+          'rejection_reason', new.rejection_reason
+        )
+      );
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_team_status_notify on teams;
+create trigger on_team_status_notify
+  after update of status on teams
+  for each row execute function public.trg_teams_status_notify();
+
+create or replace function public.trg_invoice_paid_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE'
+     and new.status = 'paid'
+     and old.status is distinct from 'paid' then
+    perform public.enqueue_team_sms(
+      new.team_id,
+      'payment_confirmed',
+      'invoice:' || new.id::text || ':paid',
+      jsonb_build_object(
+        'invoice_id', new.id,
+        'amount', new.amount,
+        'invoice_number', new.invoice_number
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_invoice_paid_notify on invoices;
+create trigger on_invoice_paid_notify
+  after update of status on invoices
+  for each row execute function public.trg_invoice_paid_notify();
+
+create or replace function public.trg_result_published_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.published_at is not null
+     and (tg_op = 'INSERT' or old.published_at is null) then
+    perform public.enqueue_team_sms(
+      new.team_id,
+      'result_announced',
+      'team:' || new.team_id::text || ':result:' || new.season_year::text || ':published',
+      jsonb_build_object(
+        'season_year', new.season_year,
+        'rank', new.rank,
+        'score', new.score,
+        'league_id', new.league_id
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_result_published_notify on results;
+create trigger on_result_published_notify
+  after insert or update of published_at on results
+  for each row execute function public.trg_result_published_notify();
+
+create or replace function public.enqueue_registration_deadline_reminders(
+  p_hours_before integer default 48
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer := 0;
+  r record;
+  v_key text;
+  v_close_date text;
+begin
+  for r in
+    select t.id as team_id, t.league_id, l.registration_close_at
+    from teams t
+    join leagues l on l.id = t.league_id
+    where t.status = 'draft'
+      and l.is_active = true
+      and l.registration_close_at is not null
+      and l.registration_close_at > now()
+      and l.registration_close_at <= now() + make_interval(hours => p_hours_before)
+  loop
+    v_close_date := to_char(timezone('UTC', r.registration_close_at), 'YYYY-MM-DD');
+    v_key := 'team:' || r.team_id::text || ':deadline:' || r.league_id::text || ':' || v_close_date;
+    perform public.enqueue_team_sms(
+      r.team_id,
+      'registration_deadline_reminder',
+      v_key,
+      jsonb_build_object(
+        'league_id', r.league_id,
+        'registration_close_at', r.registration_close_at
+      )
+    );
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+revoke all on function public.enqueue_registration_deadline_reminders from public;
+grant execute on function public.enqueue_registration_deadline_reminders to service_role;
+
+create or replace function public.list_pending_notifications(p_limit integer default 50)
+returns setof notification_log
+language sql
+security definer
+set search_path = public
+as $$
+  select *
+  from notification_log
+  where status = 'pending'
+  order by created_at asc nulls first
+  limit greatest(1, least(coalesce(p_limit, 50), 200));
+$$;
+
+revoke all on function public.list_pending_notifications from public;
+grant execute on function public.list_pending_notifications to service_role;
+
+-- Atomic claim for dispatch workers (prevents double SMS under concurrent invokes)
+create or replace function public.claim_notification_for_send(p_idempotency_key text)
+returns notification_log
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row notification_log%rowtype;
+begin
+  update notification_log
+  set status = 'sending'
+  where idempotency_key = p_idempotency_key
+    and status = 'pending'
+  returning * into v_row;
+
+  if not found then
+    select * into v_row
+    from notification_log
+    where idempotency_key = p_idempotency_key;
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.claim_notification_for_send from public;
+grant execute on function public.claim_notification_for_send to service_role;
+
+drop policy if exists "notification_log_insert_service" on notification_log;
+create policy "notification_log_insert_service"
+  on notification_log for insert with check (public.is_super_admin());
+
+drop policy if exists "notification_log_update_super_admin" on notification_log;
+create policy "notification_log_update_super_admin"
+  on notification_log for update using (public.is_super_admin());
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0007_phase6_realtime_tickets.sql --
+-- ========================================== --
+
+-- Phase 6: Realtime ticketing + unread receipts
+
+create table if not exists ticket_reads (
+  ticket_id uuid not null references tickets(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (ticket_id, user_id)
+);
+
+alter table ticket_reads enable row level security;
+
+create policy "ticket_reads_select_own"
+  on ticket_reads for select using (
+    user_id = auth.uid() or public.is_super_admin()
+  );
+
+create policy "ticket_reads_upsert_own"
+  on ticket_reads for all using (
+    user_id = auth.uid()
+  )
+  with check (
+    user_id = auth.uid()
+  );
+
+create or replace function public.mark_ticket_read(p_ticket_id uuid)
+returns ticket_reads
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_row ticket_reads%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  -- must be allowed to see the ticket (reuse tickets_select logic via exists)
+  if not exists (
+    select 1 from tickets tk
+    where tk.id = p_ticket_id
+      and (
+        public.is_super_admin()
+        or tk.assigned_to = v_uid
+        or exists (
+          select 1 from teams t
+          where t.id = tk.team_id
+            and (
+              t.captain_id = v_uid
+              or exists (
+                select 1 from company_members cm
+                where cm.company_id = t.company_id and cm.user_id = v_uid
+              )
+            )
+        )
+        or (
+          tk.league_id is null
+          and public.current_user_role() = 'staff'
+        )
+        or (
+          tk.league_id is not null
+          and tk.assigned_to is null
+          and exists (
+            select 1 from league_admins la
+            where la.league_id = tk.league_id and la.user_id = v_uid
+          )
+        )
+      )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  insert into ticket_reads (ticket_id, user_id, last_read_at)
+  values (p_ticket_id, v_uid, now())
+  on conflict (ticket_id, user_id)
+  do update set last_read_at = now()
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.mark_ticket_read from public;
+grant execute on function public.mark_ticket_read to authenticated;
+
+-- Count tickets with at least one unread message for current user
+create or replace function public.count_unread_tickets()
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with visible as (
+    select tk.id
+    from tickets tk
+    where
+      public.is_super_admin()
+      or tk.assigned_to = auth.uid()
+      or exists (
+        select 1 from teams t
+        where t.id = tk.team_id
+          and (
+            t.captain_id = auth.uid()
+            or exists (
+              select 1 from company_members cm
+              where cm.company_id = t.company_id and cm.user_id = auth.uid()
+            )
+          )
+      )
+      or (
+        tk.league_id is null
+        and public.current_user_role() = 'staff'
+      )
+      or (
+        tk.league_id is not null
+        and tk.assigned_to is null
+        and exists (
+          select 1 from league_admins la
+          where la.league_id = tk.league_id and la.user_id = auth.uid()
+        )
+      )
+  )
+  select count(*)::integer
+  from visible v
+  where exists (
+    select 1
+    from ticket_messages tm
+    left join ticket_reads tr
+      on tr.ticket_id = v.id and tr.user_id = auth.uid()
+    where tm.ticket_id = v.id
+      and tm.sender_id is distinct from auth.uid()
+      and tm.created_at > coalesce(tr.last_read_at, 'epoch'::timestamptz)
+  );
+$$;
+
+revoke all on function public.count_unread_tickets from public;
+grant execute on function public.count_unread_tickets to authenticated;
+
+create or replace function public.list_unread_ticket_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with visible as (
+    select tk.id
+    from tickets tk
+    where
+      public.is_super_admin()
+      or tk.assigned_to = auth.uid()
+      or exists (
+        select 1 from teams t
+        where t.id = tk.team_id
+          and (
+            t.captain_id = auth.uid()
+            or exists (
+              select 1 from company_members cm
+              where cm.company_id = t.company_id and cm.user_id = auth.uid()
+            )
+          )
+      )
+      or (
+        tk.league_id is null
+        and public.current_user_role() = 'staff'
+      )
+      or (
+        tk.league_id is not null
+        and tk.assigned_to is null
+        and exists (
+          select 1 from league_admins la
+          where la.league_id = tk.league_id and la.user_id = auth.uid()
+        )
+      )
+  )
+  select v.id
+  from visible v
+  where exists (
+    select 1
+    from ticket_messages tm
+    left join ticket_reads tr
+      on tr.ticket_id = v.id and tr.user_id = auth.uid()
+    where tm.ticket_id = v.id
+      and tm.sender_id is distinct from auth.uid()
+      and tm.created_at > coalesce(tr.last_read_at, 'epoch'::timestamptz)
+  );
+$$;
+
+revoke all on function public.list_unread_ticket_ids from public;
+grant execute on function public.list_unread_ticket_ids to authenticated;
+
+-- Enable Realtime for chat tables (ignore if already added)
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table ticket_messages;
+  exception
+    when duplicate_object then null;
+    when undefined_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table tickets;
+  exception
+    when duplicate_object then null;
+    when undefined_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table ticket_reads;
+  exception
+    when duplicate_object then null;
+    when undefined_object then null;
+  end;
+end $$;
+
+-- Replica identity full helps filtered realtime (optional but useful)
+alter table ticket_messages replica identity full;
+alter table tickets replica identity full;
+alter table ticket_reads replica identity full;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0008_phase7_public_rankings.sql --
+-- ========================================== --
+
+-- Phase 7: public visibility for teams shown in rankings / company profiles
+
+-- Anonymous visitors need to read team names joined from published results,
+-- and approved teams on public company profiles.
+create policy "teams_public_archive_select"
+  on teams for select using (
+    status = 'approved'
+    or exists (
+      select 1
+      from results r
+      where r.team_id = teams.id
+        and r.published_at is not null
+    )
+  );
+
+-- Helpful view for company championship rollup (optional consumption)
+create or replace view public.company_podium_results
+with (security_invoker = true)
+as
+select
+  r.*,
+  t.name as team_name,
+  c.name as company_name,
+  c.slug as company_slug,
+  l.name as league_name
+from results r
+join teams t on t.id = r.team_id
+join companies c on c.id = r.company_id
+join leagues l on l.id = r.league_id
+where r.published_at is not null
+  and r.rank is not null
+  and r.rank <= 3;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0009_phase8_content.sql --
+-- ========================================== --
+
+-- Phase 8: content media storage for blog covers & gallery
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'content-media',
+  'content-media',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
+)
+on conflict (id) do nothing;
+
+create policy "content_media_public_select"
+  on storage.objects for select using (bucket_id = 'content-media');
+
+create policy "content_media_super_admin_insert"
+  on storage.objects for insert with check (
+    bucket_id = 'content-media'
+    and public.is_super_admin()
+  );
+
+create policy "content_media_super_admin_update"
+  on storage.objects for update using (
+    bucket_id = 'content-media'
+    and public.is_super_admin()
+  );
+
+create policy "content_media_super_admin_delete"
+  on storage.objects for delete using (
+    bucket_id = 'content-media'
+    and public.is_super_admin()
+  );
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0010_phase9_home.sql --
+-- ========================================== --
+
+-- Phase 9: home stats RPC + contact form inbox
+
+create or replace function public.home_stats()
+returns json
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select json_build_object(
+    'teams', (
+      select count(*)::int
+      from teams
+      where status in ('submitted', 'under_review', 'approved', 'waitlisted')
+    ),
+    'cities', (
+      select count(distinct city)::int
+      from teams
+      where city is not null and btrim(city) <> ''
+    ),
+    'leagues', (
+      select count(*)::int from leagues where is_active = true
+    ),
+    'seasons', (
+      select coalesce(count(distinct season_year), 0)::int
+      from results
+      where published_at is not null
+    )
+  );
+$$;
+
+revoke all on function public.home_stats() from public;
+grant execute on function public.home_stats() to anon, authenticated;
+
+create table if not exists contact_messages (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null,
+  phone text,
+  subject text not null,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+alter table contact_messages enable row level security;
+
+drop policy if exists "contact_messages_insert_public" on contact_messages;
+create policy "contact_messages_insert_public"
+  on contact_messages for insert
+  with check (true);
+
+drop policy if exists "contact_messages_select_admin" on contact_messages;
+create policy "contact_messages_select_admin"
+  on contact_messages for select
+  using (public.is_super_admin());
+
+-- Sample active banners (gradient placeholders work without Storage)
+insert into home_banners (title, subtitle, image_url, link_url, sort_order, is_active)
+select * from (values
+  (
+    'روبوکاکتوس',
+    'رقابت رباتیک، یک پلتفرم',
+    'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1600&q=80',
+    '/leagues',
+    0,
+    true
+  ),
+  (
+    'ثبت‌نام تیم‌ها',
+    'لیگ‌ها باز است — از همین‌جا شروع کنید',
+    'https://images.unsplash.com/photo-1518314916381-77a37c2a49ae?auto=format&fit=crop&w=1600&q=80',
+    '/signup',
+    1,
+    true
+  )
+) as v(title, subtitle, image_url, link_url, sort_order, is_active)
+where not exists (select 1 from home_banners limit 1);
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0011_phase10_analytics_otp.sql --
+-- ========================================== --
+
+-- Phase 10: SMS OTP challenges + analytics + realtime for live dashboards
+
+-- ============ OTP ============
+create table if not exists auth_otp_challenges (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  code_hash text not null,
+  attempts integer not null default 0,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists auth_otp_challenges_phone_created_idx
+  on auth_otp_challenges (phone, created_at desc);
+
+alter table auth_otp_challenges enable row level security;
+-- no public policies: only service_role (bypass) / edge functions
+
+-- ============ Analytics snapshot (super_admin only) ============
+create or replace function public.analytics_snapshot()
+returns json
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_result json;
+begin
+  if auth.uid() is null or not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  select json_build_object(
+    'generated_at', now(),
+    'totals', json_build_object(
+      'teams', (select count(*)::int from teams),
+      'companies', (select count(*)::int from companies),
+      'paid_invoices', (select count(*)::int from invoices where status = 'paid'),
+      'paid_amount', (select coalesce(sum(amount), 0) from invoices where status = 'paid')
+    ),
+    'by_status', coalesce((
+      select json_agg(json_build_object('key', status, 'count', cnt) order by cnt desc)
+      from (
+        select status::text as status, count(*)::int as cnt
+        from teams
+        group by status
+      ) s
+    ), '[]'::json),
+    'by_league', coalesce((
+      select json_agg(json_build_object('key', name, 'id', id, 'count', cnt) order by cnt desc)
+      from (
+        select l.id, l.name, count(t.id)::int as cnt
+        from leagues l
+        left join teams t on t.league_id = l.id
+        where l.is_active = true
+        group by l.id, l.name
+      ) x
+    ), '[]'::json),
+    'by_province', coalesce((
+      select json_agg(json_build_object('key', province, 'count', cnt) order by cnt desc)
+      from (
+        select coalesce(nullif(btrim(province), ''), '—') as province, count(*)::int as cnt
+        from teams
+        group by 1
+        order by cnt desc
+        limit 20
+      ) p
+    ), '[]'::json),
+    'by_company', coalesce((
+      select json_agg(json_build_object('key', name, 'id', id, 'slug', slug, 'count', cnt) order by cnt desc)
+      from (
+        select c.id, c.name, c.slug, count(t.id)::int as cnt
+        from companies c
+        left join teams t on t.company_id = c.id
+        group by c.id, c.name, c.slug
+        order by cnt desc
+        limit 15
+      ) c
+    ), '[]'::json),
+    'finance_by_status', coalesce((
+      select json_agg(json_build_object('key', status, 'count', cnt, 'amount', amount) order by cnt desc)
+      from (
+        select status::text as status, count(*)::int as cnt, coalesce(sum(amount), 0) as amount
+        from invoices
+        group by status
+      ) f
+    ), '[]'::json)
+  ) into v_result;
+
+  return v_result;
+end;
+$$;
+
+revoke all on function public.analytics_snapshot() from public;
+grant execute on function public.analytics_snapshot() to authenticated;
+
+-- Export rows for teams (+ finance) — super_admin
+create or replace function public.analytics_export_teams()
+returns json
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  return coalesce((
+    select json_agg(row_to_json(r) order by r.created_at desc)
+    from (
+      select
+        t.id,
+        t.name as team_name,
+        t.status::text as status,
+        t.province,
+        t.city,
+        t.member_count,
+        t.created_at,
+        t.submitted_at,
+        l.name as league_name,
+        l.slug as league_slug,
+        c.name as company_name,
+        c.slug as company_slug,
+        p.full_name as captain_name,
+        p.phone as captain_phone,
+        i.invoice_number,
+        i.amount as invoice_amount,
+        i.status::text as invoice_status,
+        i.paid_at
+      from teams t
+      join leagues l on l.id = t.league_id
+      join companies c on c.id = t.company_id
+      left join profiles p on p.id = t.captain_id
+      left join lateral (
+        select inv.*
+        from invoices inv
+        where inv.team_id = t.id
+        order by inv.created_at desc
+        limit 1
+      ) i on true
+    ) r
+  ), '[]'::json);
+end;
+$$;
+
+revoke all on function public.analytics_export_teams() from public;
+grant execute on function public.analytics_export_teams() to authenticated;
+
+-- Realtime for live analytics refresh
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table teams;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table invoices;
+  exception when duplicate_object then null;
+  end;
+end $$;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0012_fix_company_members_rls.sql --
+-- ========================================== --
+
+-- Fix infinite recursion on company_members RLS
+-- Run in Supabase SQL Editor
+
+create or replace function public.is_company_member(p_company_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.company_members cm
+    where cm.company_id = p_company_id
+      and cm.user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_company_owner(p_company_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.company_members cm
+    where cm.company_id = p_company_id
+      and cm.user_id = auth.uid()
+      and cm.is_owner = true
+  );
+$$;
+
+revoke all on function public.is_company_member(uuid) from public;
+revoke all on function public.is_company_owner(uuid) from public;
+grant execute on function public.is_company_member(uuid) to authenticated;
+grant execute on function public.is_company_owner(uuid) to authenticated;
+
+drop policy if exists "company_members_select" on company_members;
+drop policy if exists "company_members_manage" on company_members;
+
+create policy "company_members_select"
+  on company_members for select using (
+    user_id = auth.uid()
+    or public.is_company_member(company_id)
+    or public.is_super_admin()
+  );
+
+create policy "company_members_manage"
+  on company_members for all using (
+    public.is_company_owner(company_id)
+    or public.is_super_admin()
+  )
+  with check (
+    public.is_company_owner(company_id)
+    or public.is_super_admin()
+    or user_id = auth.uid()
+  );
+
+-- Keep companies policies consistent (non-recursive via helpers)
+drop policy if exists "companies_manage" on companies;
+create policy "companies_manage"
+  on companies for all using (
+    public.is_company_member(id)
+    or public.is_super_admin()
+  )
+  with check (
+    public.is_company_member(id)
+    or public.is_super_admin()
+  );
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0013_league_detail_pages.sql --
+-- ========================================== --
+
+-- Phase: full league public page + admin-managed content
+
+alter table leagues
+  add column if not exists short_description text,
+  add column if not exists full_description text,
+  add column if not exists hero_image_url text,
+  add column if not exists hero_video_url text,
+  add column if not exists intro_video_url text,
+  add column if not exists regulation_pdf_url text,
+  add column if not exists rules_summary text,
+  add column if not exists rules_pdf_url text,
+  add column if not exists age_range text,
+  add column if not exists participation_mode text default 'team',
+  add column if not exists team_size_min integer,
+  add column if not exists team_size_max integer,
+  add column if not exists event_starts_at timestamptz,
+  add column if not exists event_ends_at timestamptz,
+  add column if not exists venue_name text,
+  add column if not exists venue_address text,
+  add column if not exists venue_map_embed_url text,
+  add column if not exists difficulty_level text,
+  add column if not exists competition_language text,
+  add column if not exists scoring_rows jsonb not null default '[]'::jsonb,
+  add column if not exists timeline_steps jsonb not null default '[]'::jsonb,
+  add column if not exists day_schedule jsonb not null default '[]'::jsonb,
+  add column if not exists allowed_equipment jsonb not null default '[]'::jsonb,
+  add column if not exists forbidden_equipment jsonb not null default '[]'::jsonb,
+  add column if not exists discount_info text,
+  add column if not exists refund_policy text,
+  add column if not exists show_registered_count boolean not null default true,
+  add column if not exists period_override text,
+  add column if not exists secretary_name text,
+  add column if not exists secretary_phone text,
+  add column if not exists secretary_telegram text,
+  add column if not exists related_league_ids jsonb not null default '[]'::jsonb;
+
+comment on column leagues.period_override is 'upcoming | open | ongoing | ended | null=auto';
+comment on column leagues.participation_mode is 'team | individual';
+
+create table if not exists league_files (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  title text not null,
+  file_url text not null,
+  file_kind text not null default 'other',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists league_people (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  full_name text not null,
+  photo_url text,
+  specialty text,
+  bio text,
+  role_kind text not null default 'judge',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists league_sponsors (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  name text not null,
+  logo_url text,
+  website_url text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists league_faqs (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  question text not null,
+  answer text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists league_past_results (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  season_year integer not null,
+  first_place text,
+  second_place text,
+  third_place text,
+  created_at timestamptz not null default now(),
+  unique (league_id, season_year)
+);
+
+create index if not exists league_files_league_idx on league_files (league_id, sort_order);
+create index if not exists league_people_league_idx on league_people (league_id, role_kind, sort_order);
+create index if not exists league_sponsors_league_idx on league_sponsors (league_id, sort_order);
+create index if not exists league_faqs_league_idx on league_faqs (league_id, sort_order);
+create index if not exists league_past_results_league_idx on league_past_results (league_id, season_year desc);
+
+alter table league_files enable row level security;
+alter table league_people enable row level security;
+alter table league_sponsors enable row level security;
+alter table league_faqs enable row level security;
+alter table league_past_results enable row level security;
+
+drop policy if exists "league_files_public_select" on league_files;
+create policy "league_files_public_select" on league_files for select using (true);
+drop policy if exists "league_files_admin" on league_files;
+create policy "league_files_admin" on league_files for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+drop policy if exists "league_people_public_select" on league_people;
+create policy "league_people_public_select" on league_people for select using (true);
+drop policy if exists "league_people_admin" on league_people;
+create policy "league_people_admin" on league_people for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+drop policy if exists "league_sponsors_public_select" on league_sponsors;
+create policy "league_sponsors_public_select" on league_sponsors for select using (true);
+drop policy if exists "league_sponsors_admin" on league_sponsors;
+create policy "league_sponsors_admin" on league_sponsors for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+drop policy if exists "league_faqs_public_select" on league_faqs;
+create policy "league_faqs_public_select" on league_faqs for select using (true);
+drop policy if exists "league_faqs_admin" on league_faqs;
+create policy "league_faqs_admin" on league_faqs for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+drop policy if exists "league_past_results_public_select" on league_past_results;
+create policy "league_past_results_public_select" on league_past_results for select using (true);
+drop policy if exists "league_past_results_admin" on league_past_results;
+create policy "league_past_results_admin" on league_past_results for all using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+-- Public count of registered teams for a league
+create or replace function public.league_registered_count(p_league_id uuid)
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*)::int
+  from teams
+  where league_id = p_league_id
+    and status in ('submitted', 'under_review', 'approved', 'waitlisted');
+$$;
+
+revoke all on function public.league_registered_count(uuid) from public;
+grant execute on function public.league_registered_count(uuid) to anon, authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0014_league_cover_and_demo.sql --
+-- ========================================== --
+
+-- Cover image column + rich demo content for league public pages
+
+alter table leagues
+  add column if not exists cover_image_url text;
+
+-- Demo content for Rescue (and others if empty)
+update leagues
+set
+  name = case slug
+    when 'rescue' then 'لیگ امدادگر پیشرفته RoboCup 2027'
+    when 'soccer' then 'لیگ فوتبال رباتیک'
+    when 'humanoid' then 'لیگ ربات انسان‌نما'
+    else name
+  end,
+  short_description = coalesce(nullif(short_description, ''), case slug
+    when 'rescue' then 'رقابت طراحی و برنامه‌نویسی ربات‌های امدادگر برای دانش‌آموزان و دانشجویان.'
+    when 'soccer' then 'مسابقه فوتبال ربات‌های خودران در زمین استاندارد.'
+    when 'humanoid' then 'ربات‌های انسان‌نما در چالش‌های تعادل، راه رفتن و تعامل.'
+    else short_description
+  end),
+  full_description = coalesce(nullif(full_description, ''), case slug
+    when 'rescue' then
+      E'هدف لیگ امدادگر آماده‌سازی تیم‌ها برای طراحی ربات‌هایی است که در محیط‌های آسیب‌دیده عملیات نجات انجام دهند.\n\nمهارت‌های مورد نیاز: الکترونیک، برنامه‌نویسی، بینایی ماشین، کار تیمی.\n\nاین لیگ برای دانش‌آموزان متوسطه و دانشجویان علاقه‌مند به رباتیک خدمتی مناسب است.'
+    when 'soccer' then
+      E'هدف: توسعه الگوریتم‌های تصمیم‌گیری و کنترل چندرباته در زمین فوتبال.\n\nمناسب تیم‌های دانشگاهی و مدارس پیشرفته.'
+    when 'humanoid' then
+      E'تمرکز روی مکانیک، حسگرها و کنترل تعادل برای ربات‌های انسان‌نما.'
+    else full_description
+  end),
+  cover_image_url = coalesce(
+    cover_image_url,
+    case slug
+      when 'rescue' then 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&q=80'
+      when 'soccer' then 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80'
+      when 'humanoid' then 'https://images.unsplash.com/photo-1546776310-eef45dd6d63c?w=1200&q=80'
+      else cover_image_url
+    end
+  ),
+  hero_image_url = coalesce(
+    hero_image_url,
+    case slug
+      when 'rescue' then 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=1600&q=80'
+      when 'soccer' then 'https://images.unsplash.com/photo-1561557944-6f2c0ec21d84?w=1600&q=80'
+      when 'humanoid' then 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1600&q=80'
+      else hero_image_url
+    end
+  ),
+  age_range = coalesce(age_range, '۱۵ تا ۲۸ سال'),
+  participation_mode = coalesce(participation_mode, 'team'),
+  team_size_min = coalesce(team_size_min, 2),
+  team_size_max = coalesce(team_size_max, 5),
+  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاکتوس'),
+  venue_address = coalesce(venue_address, 'تهران، مرکز همایش‌های بین‌المللی'),
+  difficulty_level = coalesce(difficulty_level, case slug when 'rescue' then 'پیشرفته' when 'soccer' then 'متوسط' else 'پیشرفته' end),
+  competition_language = coalesce(competition_language, 'فارسی / English'),
+  rules_summary = coalesce(nullif(rules_summary, ''), 'رعایت ایمنی ربات، زمان‌بندی مسابقه و قوانین داوری الزامی است. استفاده از تجهیزات ممنوع منجر به حذف می‌شود.'),
+  discount_info = coalesce(nullif(discount_info, ''), 'تخفیف ۲۰٪ برای ثبت‌نام زودهنگام تا پایان مهلت اول.'),
+  refund_policy = coalesce(nullif(refund_policy, ''), 'تا ۷ روز قبل از مسابقه امکان استرداد ۵۰٪ وجود دارد؛ پس از آن غیرقابل استرداد است.'),
+  secretary_name = coalesce(secretary_name, 'دبیر لیگ'),
+  secretary_phone = coalesce(secretary_phone, '02191000000'),
+  contact_email = coalesce(contact_email, 'league@robocactus.ir'),
+  secretary_telegram = coalesce(secretary_telegram, 'https://t.me/robocactus'),
+  registration_open_at = coalesce(registration_open_at, now() - interval '7 days'),
+  registration_close_at = coalesce(registration_close_at, now() + interval '45 days'),
+  event_starts_at = coalesce(event_starts_at, now() + interval '60 days'),
+  event_ends_at = coalesce(event_ends_at, now() + interval '62 days'),
+  scoring_rows = case
+    when jsonb_array_length(coalesce(scoring_rows, '[]'::jsonb)) = 0 then
+      '[{"label":"عملکرد مأموریت","points":"40"},{"label":"پایداری و ایمنی","points":"25"},{"label":"نوآوری فنی","points":"20"},{"label":"مستندات","points":"15"}]'::jsonb
+    else scoring_rows
+  end,
+  timeline_steps = case
+    when jsonb_array_length(coalesce(timeline_steps, '[]'::jsonb)) = 0 then
+      '[{"title":"ثبت‌نام","description":"تکمیل فرم و مدارک"},{"title":"تایید مدارک","description":"بررسی توسط کمیته"},{"title":"اعلام تیم‌ها","description":"انتشار فهرست نهایی"},{"title":"مسابقه","description":"رقابت اصلی"},{"title":"اختتامیه","description":"اعلام نتایج و جوایز"}]'::jsonb
+    else timeline_steps
+  end,
+  day_schedule = case
+    when jsonb_array_length(coalesce(day_schedule, '[]'::jsonb)) = 0 then
+      '[{"time":"08:00","title":"ورود و چک‌این"},{"time":"09:30","title":"جلسه توجیهی"},{"time":"11:00","title":"دور مقدماتی"},{"time":"15:00","title":"نیمه‌نهایی"},{"time":"18:00","title":"فینال و اختتامیه"}]'::jsonb
+    else day_schedule
+  end,
+  allowed_equipment = case
+    when jsonb_array_length(coalesce(allowed_equipment, '[]'::jsonb)) = 0 then
+      '["Arduino","ESP32","Lego EV3","Raspberry Pi","سنسورهای فاصله و دوربین"]'::jsonb
+    else allowed_equipment
+  end,
+  forbidden_equipment = case
+    when jsonb_array_length(coalesce(forbidden_equipment, '[]'::jsonb)) = 0 then
+      '["سلاح گرم یا آتش‌زا","مواد شیمیایی خطرناک","تجهیزات رادیویی غیرمجاز"]'::jsonb
+    else forbidden_equipment
+  end,
+  show_registered_count = coalesce(show_registered_count, true),
+  is_active = true
+where slug in ('rescue', 'soccer', 'humanoid');
+
+-- Related leagues: link rescue ↔ soccer ↔ humanoid
+update leagues l
+set related_league_ids = coalesce((
+  select jsonb_agg(o.id)
+  from leagues o
+  where o.slug in ('rescue', 'soccer', 'humanoid')
+    and o.id <> l.id
+), '[]'::jsonb)
+where l.slug in ('rescue', 'soccer', 'humanoid')
+  and jsonb_array_length(coalesce(l.related_league_ids, '[]'::jsonb)) = 0;
+
+-- Files / people / sponsors / faqs / results for rescue (idempotent-ish)
+insert into league_files (league_id, title, file_url, file_kind, sort_order)
+select l.id, x.title, x.file_url, x.file_kind, x.sort_order
+from leagues l
+cross join (values
+  ('آیین‌نامه', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'regulation', 1),
+  ('نقشه زمین', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'field_map', 2),
+  ('نمونه کد', 'https://github.com/', 'sample_code', 3),
+  ('فرم رضایت', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'consent', 4),
+  ('فرم معرفی تیم', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'team_form', 5)
+) as x(title, file_url, file_kind, sort_order)
+where l.slug = 'rescue'
+  and not exists (select 1 from league_files f where f.league_id = l.id);
+
+insert into league_people (league_id, full_name, photo_url, specialty, bio, role_kind, sort_order)
+select l.id, x.full_name, x.photo_url, x.specialty, x.bio, x.role_kind, x.sort_order
+from leagues l
+cross join (values
+  ('دکتر سارا احمدی', 'https://i.pravatar.cc/150?u=judge1', 'رباتیک سیار', 'داور بین‌المللی لیگ امداد', 'judge', 1),
+  ('مهندس رضا کرمی', 'https://i.pravatar.cc/150?u=judge2', 'بینایی ماشین', '۱۴ سال تجربه داوری RoboCup', 'judge', 2),
+  ('مهندس نازنین مرادی', 'https://i.pravatar.cc/150?u=committee1', 'کمیته فنی', 'مسئول استاندارد زمین و تجهیزات', 'committee', 1),
+  ('علی جعفری', 'https://i.pravatar.cc/150?u=committee2', 'هماهنگی فنی', 'پشتیبانی تیم‌ها در روز مسابقه', 'committee', 2)
+) as x(full_name, photo_url, specialty, bio, role_kind, sort_order)
+where l.slug = 'rescue'
+  and not exists (select 1 from league_people p where p.league_id = l.id);
+
+insert into league_sponsors (league_id, name, logo_url, website_url, sort_order)
+select l.id, x.name, x.logo_url, x.website_url, x.sort_order
+from leagues l
+cross join (values
+  ('TechNova', 'https://placehold.co/160x48/png?text=TechNova', 'https://example.com', 1),
+  ('RoboParts', 'https://placehold.co/160x48/png?text=RoboParts', 'https://example.com', 2),
+  ('IranAI', 'https://placehold.co/160x48/png?text=IranAI', 'https://example.com', 3)
+) as x(name, logo_url, website_url, sort_order)
+where l.slug = 'rescue'
+  and not exists (select 1 from league_sponsors s where s.league_id = l.id);
+
+insert into league_faqs (league_id, question, answer, sort_order)
+select l.id, x.question, x.answer, x.sort_order
+from leagues l
+cross join (values
+  ('آیا نیاز به تجربه قبلی هست؟', 'تجربه پایه الکترونیک و برنامه‌نویسی پیشنهاد می‌شود؛ کارگاه‌های آنلاین قبل از مسابقه برگزار می‌گردد.', 1),
+  ('هزینه ثبت‌نام؟', 'طبق اعلام در صفحه لیگ؛ تخفیف زودهنگام اعمال می‌شود.', 2),
+  ('چند نفر در تیم؟', 'حداقل ۲ و حداکثر ۵ نفر.', 3),
+  ('اگر ربات خراب شود؟', 'تعمیر در محدوده فنی مجاز است؛ تأخیر بیش از حد طبق قوانین امتیاز منفی دارد.', 4)
+) as x(question, answer, sort_order)
+where l.slug = 'rescue'
+  and not exists (select 1 from league_faqs f where f.league_id = l.id);
+
+insert into league_past_results (league_id, season_year, first_place, second_place, third_place)
+select l.id, x.season_year, x.first_place, x.second_place, x.third_place
+from leagues l
+cross join (values
+  (2025, 'کاکتوس نجات', 'آذر رباتیک', 'پالس تیم'),
+  (2024, 'آتش‌نشان هوشمند', 'کاکتوس نجات', 'ماسه ربات')
+) as x(season_year, first_place, second_place, third_place)
+where l.slug = 'rescue'
+on conflict (league_id, season_year) do nothing;
+
+-- Sample gallery + announcement for rescue
+insert into gallery_items (media_url, media_type, league_id, season_year, caption)
+select x.media_url, 'image', l.id, x.season_year, x.caption
+from leagues l
+cross join (values
+  ('https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80', 2025, 'دوره ۱۴۰۳ — فینال'),
+  ('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=800&q=80', 2024, 'دوره ۱۴۰۲ — تمرین'),
+  ('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&q=80', 2023, 'دوره ۱۴۰۱ — اختتامیه')
+) as x(media_url, season_year, caption)
+where l.slug = 'rescue'
+  and not exists (
+    select 1 from gallery_items g where g.league_id = l.id
+  );
+
+insert into announcements (title, body, league_id, status, published_at)
+select
+  'آغاز ثبت‌نام لیگ امدادگر',
+  '<p>ثبت‌نام لیگ امدادگر پیشرفته از امروز باز است. آیین‌نامه را دانلود و مدارک را آماده کنید.</p>',
+  l.id,
+  'published',
+  now()
+from leagues l
+where l.slug = 'rescue'
+  and not exists (
+    select 1 from announcements a where a.league_id = l.id and a.title = 'آغاز ثبت‌نام لیگ امدادگر'
+  );
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0015_content_seo_fields.sql --
+-- ========================================== --
+
+-- SEO + excerpt fields for blog posts and announcements
+
+alter table blog_posts
+  add column if not exists excerpt text,
+  add column if not exists seo_title text,
+  add column if not exists meta_description text,
+  add column if not exists og_image text,
+  add column if not exists updated_at timestamptz default now();
+
+alter table announcements
+  add column if not exists excerpt text,
+  add column if not exists seo_title text,
+  add column if not exists meta_description text,
+  add column if not exists cover_image text,
+  add column if not exists updated_at timestamptz default now();
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0016_ticket_departments.sql --
+-- ========================================== --
+
+-- Ticket support departments (queues) + optional FK on tickets
+
+create table if not exists ticket_departments (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text,
+  is_active boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table tickets
+  add column if not exists department_id uuid references ticket_departments(id) on delete set null;
+
+create index if not exists tickets_department_id_idx on tickets(department_id);
+
+alter table ticket_departments enable row level security;
+
+drop policy if exists "ticket_departments_select_auth" on ticket_departments;
+create policy "ticket_departments_select_auth"
+  on ticket_departments for select
+  to authenticated
+  using (true);
+
+drop policy if exists "ticket_departments_sa_write" on ticket_departments;
+create policy "ticket_departments_sa_write"
+  on ticket_departments for all
+  to authenticated
+  using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+insert into ticket_departments (name, slug, description, sort_order)
+values
+  ('عمومی', 'general', 'صف پشتیبانی عمومی', 1),
+  ('فنی', 'technical', 'مسائل فنی و پلتفرم', 2),
+  ('مالی', 'finance', 'پرداخت و فاکتور', 3)
+on conflict (slug) do nothing;
+
+create or replace function public.ticket_status_counts()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_role text;
+begin
+  select role into v_role from profiles where id = auth.uid();
+  if v_role is null or v_role not in ('super_admin', 'staff', 'league_admin') then
+    raise exception 'forbidden';
+  end if;
+
+  return (
+    select jsonb_build_object(
+      'open', count(*) filter (where status = 'open'),
+      'answered', count(*) filter (where status = 'answered'),
+      'closed', count(*) filter (where status = 'closed'),
+      'total', count(*)
+    )
+    from tickets
+  );
+end;
+$$;
+
+revoke all on function public.ticket_status_counts from public;
+grant execute on function public.ticket_status_counts to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0017_static_pages_seo.sql --
+-- ========================================== --
+
+-- SEO + media fields for static pages
+
+alter table static_pages
+  add column if not exists excerpt text,
+  add column if not exists seo_title text,
+  add column if not exists meta_description text,
+  add column if not exists og_image text,
+  add column if not exists cover_image text;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0018_site_settings.sql --
+-- ========================================== --
+
+-- Global site settings (single-row)
+
+create table if not exists site_settings (
+  id int primary key default 1 check (id = 1),
+  site_name_fa text not null default 'روبوکاکتوس',
+  site_name_en text not null default 'RoboCactus',
+  tagline_fa text default 'پلتفرم مسابقات رباتیک',
+  tagline_en text default 'Robotics competition platform',
+  logo_url text,
+  favicon_url text,
+  color_primary text default '#3b82f6',
+  color_accent text default '#fb923c',
+  seo_title_fa text,
+  seo_title_en text,
+  seo_description_fa text,
+  seo_description_en text,
+  og_image_default text,
+  footer_fa text,
+  footer_en text,
+  contact_blurb_fa text,
+  contact_blurb_en text,
+  nav_items jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+insert into site_settings (id) values (1)
+on conflict (id) do nothing;
+
+update site_settings
+set nav_items = '[
+  {"id":"home","href":"/","label_fa":"خانه","label_en":"Home","enabled":true,"order":1},
+  {"id":"leagues","href":"/leagues","label_fa":"لیگ‌ها","label_en":"Leagues","enabled":true,"order":2},
+  {"id":"rankings","href":"/rankings","label_fa":"رتبه‌بندی","label_en":"Rankings","enabled":true,"order":3},
+  {"id":"companies","href":"/companies","label_fa":"شرکت‌ها","label_en":"Companies","enabled":true,"order":4},
+  {"id":"blog","href":"/blog","label_fa":"بلاگ","label_en":"Blog","enabled":true,"order":5},
+  {"id":"gallery","href":"/gallery","label_fa":"گالری","label_en":"Gallery","enabled":true,"order":6},
+  {"id":"about","href":"/about","label_fa":"درباره","label_en":"About","enabled":true,"order":7}
+]'::jsonb
+where id = 1 and (nav_items is null or nav_items = '[]'::jsonb);
+
+alter table site_settings enable row level security;
+
+drop policy if exists "site_settings_public_select" on site_settings;
+create policy "site_settings_public_select"
+  on site_settings for select
+  using (true);
+
+drop policy if exists "site_settings_sa_write" on site_settings;
+create policy "site_settings_sa_write"
+  on site_settings for all
+  to authenticated
+  using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0019_notify_signup_companies.sql --
+-- ========================================== --
+
+-- Notifications hub, signup activation, company cover, league judging path, registration docs
+
+-- ── profiles: account type / activation ──────────────────────────────
+alter table profiles
+  add column if not exists account_type text not null default 'individual'
+    check (account_type in ('individual', 'legal')),
+  add column if not exists account_status text not null default 'active'
+    check (account_status in ('pending', 'active', 'rejected', 'suspended')),
+  add column if not exists national_id text,
+  add column if not exists company_name text,
+  add column if not exists company_national_id text,
+  add column if not exists economic_code text,
+  add column if not exists address text,
+  add column if not exists activated_at timestamptz,
+  add column if not exists rejection_reason text;
+
+-- New signups should wait for activation (existing stay active)
+-- (no bulk update)
+
+-- ── companies cover ────────────────────────────────────────────────
+alter table companies
+  add column if not exists cover_image_url text,
+  add column if not exists tagline text;
+
+-- ── leagues: judging path / technical notes ────────────────────────
+alter table leagues
+  add column if not exists judging_path text,
+  add column if not exists technical_committee_notes text;
+
+-- ── SMS settings (single row) ──────────────────────────────────────
+create table if not exists sms_settings (
+  id int primary key default 1 check (id = 1),
+  mock_mode boolean not null default true,
+  originator text,
+  api_key_hint text,
+  pattern_codes jsonb not null default '{}'::jsonb,
+  enable_account_approved boolean not null default true,
+  enable_league_joined boolean not null default true,
+  enable_results boolean not null default true,
+  enable_incomplete_profile boolean not null default true,
+  enable_account_issue boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+insert into sms_settings (id) values (1) on conflict (id) do nothing;
+
+alter table sms_settings enable row level security;
+drop policy if exists "sms_settings_sa" on sms_settings;
+create policy "sms_settings_sa" on sms_settings for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+drop policy if exists "sms_settings_read_auth" on sms_settings;
+create policy "sms_settings_read_auth" on sms_settings for select to authenticated using (true);
+
+-- ── registration document requirements (signup) ────────────────────
+create table if not exists registration_doc_types (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label_fa text not null,
+  label_en text not null,
+  account_type text not null default 'both'
+    check (account_type in ('individual', 'legal', 'both')),
+  is_required boolean not null default true,
+  is_active boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+insert into registration_doc_types (code, label_fa, label_en, account_type, sort_order)
+values
+  ('national_card', 'تصویر کارت ملی', 'National ID card', 'individual', 1),
+  ('selfie', 'سلفی با کارت ملی', 'Selfie with ID', 'individual', 2),
+  ('company_registration', 'آگهی تأسیس / روزنامه رسمی', 'Company registration', 'legal', 1),
+  ('company_national_id', 'شناسه ملی شرکت', 'Company national ID doc', 'legal', 2),
+  ('authorization', 'معرفی‌نامه نماینده', 'Authorization letter', 'legal', 3)
+on conflict (code) do nothing;
+
+alter table registration_doc_types enable row level security;
+drop policy if exists "reg_docs_public_select" on registration_doc_types;
+create policy "reg_docs_public_select" on registration_doc_types for select using (is_active = true);
+drop policy if exists "reg_docs_sa" on registration_doc_types;
+create policy "reg_docs_sa" on registration_doc_types for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+create table if not exists profile_documents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  doc_type_id uuid not null references registration_doc_types(id) on delete restrict,
+  file_url text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table profile_documents enable row level security;
+drop policy if exists "profile_docs_own" on profile_documents;
+create policy "profile_docs_own" on profile_documents for all to authenticated
+  using (user_id = auth.uid() or public.is_super_admin())
+  with check (user_id = auth.uid() or public.is_super_admin());
+
+-- ── account issues ─────────────────────────────────────────────────
+create table if not exists account_issues (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  title text not null,
+  body text,
+  status text not null default 'open' check (status in ('open', 'resolved')),
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+alter table account_issues enable row level security;
+drop policy if exists "account_issues_sa" on account_issues;
+create policy "account_issues_sa" on account_issues for all to authenticated
+  using (public.is_super_admin() or user_id = auth.uid())
+  with check (public.is_super_admin());
+
+-- ── in-app notifications ───────────────────────────────────────────
+create table if not exists system_notifications (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  audience text not null default 'all'
+    check (audience in ('all', 'role', 'user')),
+  target_role text,
+  target_user_id uuid references profiles(id) on delete cascade,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists system_notification_reads (
+  notification_id uuid not null references system_notifications(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (notification_id, user_id)
+);
+
+alter table system_notifications enable row level security;
+alter table system_notification_reads enable row level security;
+
+drop policy if exists "sys_notif_select" on system_notifications;
+create policy "sys_notif_select" on system_notifications for select to authenticated
+  using (
+    audience = 'all'
+    or (audience = 'role' and target_role = (select role::text from profiles where id = auth.uid()))
+    or (audience = 'user' and target_user_id = auth.uid())
+    or public.is_super_admin()
+  );
+
+drop policy if exists "sys_notif_sa_write" on system_notifications;
+create policy "sys_notif_sa_write" on system_notifications for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "sys_notif_reads" on system_notification_reads;
+create policy "sys_notif_reads" on system_notification_reads for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ── site_settings: inactive account copy ───────────────────────────
+alter table site_settings
+  add column if not exists inactive_message_fa text
+    default 'حساب کاربری شما هنوز فعال نشده است. تا زمان فعال‌سازی، دسترسی شما محدود است. فعال‌سازی از طریق پیامک انجام می‌شود. در صورت بروز مشکل با پشتیبانی تماس بگیرید.',
+  add column if not exists inactive_message_en text
+    default 'Your account is not active yet. Access stays limited until activation via SMS. Contact support if you need help.',
+  add column if not exists support_phone text default '021-00000000';
+
+-- ── enqueue broadcast SMS (manual) ─────────────────────────────────
+create or replace function public.enqueue_broadcast_sms(
+  p_template_key text,
+  p_audience text,
+  p_target_role text default null,
+  p_target_user_id uuid default null,
+  p_body_hint text default null
+)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count int := 0;
+  r record;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  for r in
+    select id, phone from profiles
+    where phone is not null and length(trim(phone)) > 5
+      and (
+        p_audience = 'all'
+        or (p_audience = 'role' and role::text = p_target_role)
+        or (p_audience = 'user' and id = p_target_user_id)
+      )
+  loop
+    insert into notification_log (channel, template_key, phone, status, idempotency_key, meta)
+    values (
+      'sms',
+      p_template_key,
+      r.phone,
+      'pending',
+      'broadcast:' || p_template_key || ':' || r.id::text || ':' || extract(epoch from now())::text,
+      jsonb_build_object('hint', coalesce(p_body_hint, ''), 'user_id', r.id)
+    )
+    on conflict do nothing;
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+revoke all on function public.enqueue_broadcast_sms from public;
+grant execute on function public.enqueue_broadcast_sms to authenticated;
+
+-- Activate account + enqueue SMS
+create or replace function public.activate_user_account(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  update profiles
+  set account_status = 'active', activated_at = now(), rejection_reason = null
+  where id = p_user_id
+  returning phone into v_phone;
+
+  if v_phone is not null then
+    insert into notification_log (channel, template_key, phone, status, idempotency_key, meta)
+    values (
+      'sms',
+      'account_approved',
+      v_phone,
+      'pending',
+      'account_approved:' || p_user_id::text,
+      jsonb_build_object('user_id', p_user_id)
+    )
+    on conflict do nothing;
+  end if;
+end;
+$$;
+
+revoke all on function public.activate_user_account from public;
+grant execute on function public.activate_user_account to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0020_sms_flags_league_admin.sql --
+-- ========================================== --
+
+-- Respect sms_settings toggles, league_joined on paid registration,
+-- always promote assign_league_admin role, incomplete-profile enqueue helper
+
+-- ── assign league admin: always set role (except super_admin) ──────
+create or replace function public.assign_league_admin(p_league_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  if not exists (select 1 from profiles where id = p_user_id) then
+    raise exception 'user not found';
+  end if;
+
+  if not exists (select 1 from leagues where id = p_league_id) then
+    raise exception 'league not found';
+  end if;
+
+  insert into league_admins (league_id, user_id)
+  values (p_league_id, p_user_id)
+  on conflict do nothing;
+
+  update profiles
+  set role = 'league_admin'
+  where id = p_user_id
+    and role is distinct from 'super_admin';
+end;
+$$;
+
+-- ── gate template keys against sms_settings ─────────────────────────
+create or replace function public.sms_template_enabled(p_template text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  s sms_settings%rowtype;
+begin
+  select * into s from sms_settings where id = 1;
+  if not found then
+    return true;
+  end if;
+
+  return case p_template
+    when 'account_approved' then s.enable_account_approved
+    when 'league_joined' then s.enable_league_joined
+    when 'result_announced' then s.enable_results
+    when 'incomplete_profile' then s.enable_incomplete_profile
+    when 'account_issue' then s.enable_account_issue
+    -- legacy registration / payment templates follow related toggles
+    when 'registration_submitted' then s.enable_league_joined
+    when 'payment_confirmed' then s.enable_league_joined
+    when 'registration_approved' then true
+    when 'registration_rejected' then true
+    when 'registration_waitlisted' then true
+    else true
+  end;
+end;
+$$;
+
+revoke all on function public.sms_template_enabled from public;
+grant execute on function public.sms_template_enabled to authenticated, service_role;
+
+-- Wrap enqueue_team_sms to honor flags (preserve 0006 signature + claim_notification)
+create or replace function public.enqueue_team_sms(
+  p_team_id uuid,
+  p_template_key text,
+  p_idempotency_key text,
+  p_meta jsonb default '{}'::jsonb
+)
+returns notification_log
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+  v_team teams%rowtype;
+begin
+  if not public.sms_template_enabled(p_template_key) then
+    return null;
+  end if;
+
+  select * into v_team from teams where id = p_team_id;
+  if not found then
+    raise exception 'team not found';
+  end if;
+
+  select phone into v_phone from profiles where id = v_team.captain_id;
+
+  return public.claim_notification(
+    p_idempotency_key,
+    p_team_id,
+    p_template_key,
+    coalesce(v_phone, ''),
+    'sms',
+    case
+      when v_phone is null or length(trim(v_phone)) < 8 then
+        coalesce(p_meta, '{}'::jsonb) || jsonb_build_object('skip', 'missing_phone')
+      else
+        coalesce(p_meta, '{}'::jsonb)
+    end
+  );
+end;
+$$;
+
+revoke all on function public.enqueue_team_sms from public;
+grant execute on function public.enqueue_team_sms to service_role;
+
+-- Also enqueue league_joined when payment confirms participation
+create or replace function public.trg_invoice_paid_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE'
+     and new.status = 'paid'
+     and old.status is distinct from 'paid' then
+    perform public.enqueue_team_sms(
+      new.team_id,
+      'payment_confirmed',
+      'invoice:' || new.id::text || ':paid',
+      jsonb_build_object(
+        'invoice_id', new.id,
+        'amount', new.amount,
+        'invoice_number', new.invoice_number
+      )
+    );
+    perform public.enqueue_team_sms(
+      new.team_id,
+      'league_joined',
+      'invoice:' || new.id::text || ':league_joined',
+      jsonb_build_object(
+        'invoice_id', new.id,
+        'team_id', new.team_id
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+-- Gate activate / account_issue / broadcast inserts via helper used from activate RPC
+create or replace function public.activate_user_account(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  update profiles
+  set account_status = 'active', activated_at = now(), rejection_reason = null
+  where id = p_user_id
+  returning phone into v_phone;
+
+  if v_phone is not null and public.sms_template_enabled('account_approved') then
+    insert into notification_log (channel, template_key, phone, status, idempotency_key, meta)
+    values (
+      'sms',
+      'account_approved',
+      v_phone,
+      'pending',
+      'account_approved:' || p_user_id::text,
+      jsonb_build_object('user_id', p_user_id)
+    )
+    on conflict do nothing;
+  end if;
+end;
+$$;
+
+-- Incomplete profile SMS for one user (callable from client when profile incomplete)
+create or replace function public.enqueue_incomplete_profile_sms(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+begin
+  if auth.uid() is distinct from p_user_id and not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  if not public.sms_template_enabled('incomplete_profile') then
+    return;
+  end if;
+
+  select phone into v_phone from profiles where id = p_user_id;
+  if v_phone is null then
+    return;
+  end if;
+
+  insert into notification_log (channel, template_key, phone, status, idempotency_key, meta)
+  values (
+    'sms',
+    'incomplete_profile',
+    v_phone,
+    'pending',
+    'incomplete_profile:' || p_user_id::text || ':' || to_char(now(), 'YYYY-MM-DD'),
+    jsonb_build_object('user_id', p_user_id)
+  )
+  on conflict do nothing;
+end;
+$$;
+
+revoke all on function public.enqueue_incomplete_profile_sms from public;
+grant execute on function public.enqueue_incomplete_profile_sms to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0021_live_chat_sms_tickets.sql --
+-- ========================================== --
+
+-- Intentionally no-op: first attempt failed mid-file on reply_ticket revoke.
+-- Full schema is applied in 0022_fix_reply_ticket_chat.sql
+select 1;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0022_fix_reply_ticket_chat.sql --
+-- ========================================== --
+
+-- Fix reply_ticket overload ambiguity + ensure 0021 objects exist
+
+drop function if exists public.reply_ticket(uuid, text, boolean);
+drop function if exists public.reply_ticket(uuid, text, boolean, text, text, text, integer);
+drop function if exists public.reply_ticket(uuid, text, boolean, text, text, text, int);
+
+-- Re-apply core pieces from 0021 safely (IF NOT EXISTS / OR REPLACE)
+
+alter table account_issues
+  add column if not exists user_response text,
+  add column if not exists user_responded_at timestamptz;
+
+do $$
+begin
+  alter table account_issues drop constraint if exists account_issues_status_check;
+exception when undefined_object then null;
+end $$;
+
+alter table account_issues
+  drop constraint if exists account_issues_status_check;
+
+alter table account_issues
+  add constraint account_issues_status_check
+  check (status in ('open', 'awaiting_review', 'resolved'));
+
+drop policy if exists "account_issues_user_update" on account_issues;
+create policy "account_issues_user_update" on account_issues
+  for update to authenticated
+  using (user_id = auth.uid() or public.is_super_admin())
+  with check (user_id = auth.uid() or public.is_super_admin());
+
+create or replace function public.respond_account_issue(
+  p_issue_id uuid,
+  p_response text
+)
+returns account_issues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row account_issues%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  update account_issues
+  set
+    user_response = trim(p_response),
+    user_responded_at = now(),
+    status = 'awaiting_review'
+  where id = p_issue_id
+    and user_id = auth.uid()
+    and status in ('open', 'awaiting_review')
+  returning * into v_row;
+
+  if not found then
+    raise exception 'issue not found';
+  end if;
+  return v_row;
+end;
+$$;
+
+revoke all on function public.respond_account_issue(uuid, text) from public;
+grant execute on function public.respond_account_issue(uuid, text) to authenticated;
+
+create or replace function public.resolve_account_issue(p_issue_id uuid)
+returns account_issues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row account_issues%rowtype;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  update account_issues
+  set status = 'resolved', resolved_at = now()
+  where id = p_issue_id
+  returning * into v_row;
+
+  if not found then
+    raise exception 'issue not found';
+  end if;
+  return v_row;
+end;
+$$;
+
+revoke all on function public.resolve_account_issue(uuid) from public;
+grant execute on function public.resolve_account_issue(uuid) to authenticated;
+
+alter table sms_settings
+  add column if not exists provider text not null default 'ippanel',
+  add column if not exists kavenegar_sender text,
+  add column if not exists kavenegar_api_key_hint text;
+
+do $$
+begin
+  alter table sms_settings drop constraint if exists sms_settings_provider_check;
+exception when undefined_object then null;
+end $$;
+
+alter table sms_settings drop constraint if exists sms_settings_provider_check;
+alter table sms_settings
+  add constraint sms_settings_provider_check
+  check (provider in ('ippanel', 'kavenegar'));
+
+alter table site_settings
+  add column if not exists business_hours jsonb not null default '{
+    "timezone":"Asia/Tehran",
+    "days":{
+      "sat":{"open":"09:00","close":"18:00"},
+      "sun":{"open":"09:00","close":"18:00"},
+      "mon":{"open":"09:00","close":"18:00"},
+      "tue":{"open":"09:00","close":"18:00"},
+      "wed":{"open":"09:00","close":"18:00"},
+      "thu":{"open":"09:00","close":"14:00"},
+      "fri":null
+    }
+  }'::jsonb,
+  add column if not exists chat_enabled boolean not null default true,
+  add column if not exists agents_online boolean not null default true,
+  add column if not exists chat_welcome_fa text
+    default 'سلام! خوش آمدید. نام و شماره موبایل خود را وارد کنید تا پشتیبانی پاسخ دهد.',
+  add column if not exists chat_welcome_en text
+    default 'Welcome! Enter your name and mobile so support can reply.',
+  add column if not exists chat_away_fa text
+    default 'در حال حاضر کارشناس آنلاین نیست. پیام شما ثبت شد و به‌زودی پاسخ داده می‌شود.',
+  add column if not exists chat_away_en text
+    default 'No agent is online right now. Your message was saved and we will reply soon.',
+  add column if not exists chat_offline_fa text
+    default 'خارج از ساعت کاری هستیم. پیام شما ثبت شد و در اولین فرصت پاسخ داده می‌شود.',
+  add column if not exists chat_offline_en text
+    default 'We are outside business hours. Your message was saved for the next shift.';
+
+create table if not exists live_chat_sessions (
+  id uuid primary key default gen_random_uuid(),
+  guest_name text not null,
+  guest_phone text not null,
+  session_token text not null unique,
+  status text not null default 'open' check (status in ('open', 'closed')),
+  assigned_to uuid references profiles(id) on delete set null,
+  last_message_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists live_chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references live_chat_sessions(id) on delete cascade,
+  sender_kind text not null check (sender_kind in ('guest', 'agent', 'system')),
+  sender_id uuid references profiles(id) on delete set null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists live_chat_sessions_last_idx on live_chat_sessions (last_message_at desc);
+create index if not exists live_chat_messages_session_idx on live_chat_messages (session_id, created_at);
+
+alter table live_chat_sessions enable row level security;
+alter table live_chat_messages enable row level security;
+
+drop policy if exists "live_chat_sessions_staff" on live_chat_sessions;
+create policy "live_chat_sessions_staff" on live_chat_sessions for all to authenticated
+  using (public.is_super_admin() or public.current_user_role() = 'staff')
+  with check (public.is_super_admin() or public.current_user_role() = 'staff');
+
+drop policy if exists "live_chat_messages_staff" on live_chat_messages;
+create policy "live_chat_messages_staff" on live_chat_messages for all to authenticated
+  using (public.is_super_admin() or public.current_user_role() = 'staff')
+  with check (public.is_super_admin() or public.current_user_role() = 'staff');
+
+create or replace function public._chat_is_business_hours()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  s site_settings%rowtype;
+  bh jsonb;
+  day_key text;
+  slot jsonb;
+  now_local time;
+  open_t time;
+  close_t time;
+  dow int;
+  tz text;
+begin
+  select * into s from site_settings where id = 1;
+  if not found then
+    return true;
+  end if;
+  bh := coalesce(s.business_hours, '{}'::jsonb);
+  tz := coalesce(bh->>'timezone', 'Asia/Tehran');
+  dow := extract(dow from timezone(tz, now()))::int;
+  day_key := case dow
+    when 0 then 'sun'
+    when 1 then 'mon'
+    when 2 then 'tue'
+    when 3 then 'wed'
+    when 4 then 'thu'
+    when 5 then 'fri'
+    when 6 then 'sat'
+  end;
+  slot := bh->'days'->day_key;
+  if slot is null or slot = 'null'::jsonb then
+    return false;
+  end if;
+  open_t := (slot->>'open')::time;
+  close_t := (slot->>'close')::time;
+  now_local := timezone(tz, now())::time;
+  return now_local >= open_t and now_local <= close_t;
+end;
+$$;
+
+create or replace function public.start_live_chat(
+  p_name text,
+  p_phone text,
+  p_locale text default 'fa'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s site_settings%rowtype;
+  v_token text := encode(gen_random_bytes(24), 'hex');
+  v_session live_chat_sessions%rowtype;
+  v_system text;
+  v_mode text := 'online';
+  v_welcome text;
+begin
+  select * into s from site_settings where id = 1;
+  if not found or coalesce(s.chat_enabled, true) = false then
+    raise exception 'chat_disabled';
+  end if;
+  if length(trim(p_name)) < 2 then
+    raise exception 'invalid_name';
+  end if;
+  if length(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g')) < 10 then
+    raise exception 'invalid_phone';
+  end if;
+
+  insert into live_chat_sessions (guest_name, guest_phone, session_token)
+  values (trim(p_name), regexp_replace(p_phone, '\D', '', 'g'), v_token)
+  returning * into v_session;
+
+  v_welcome := case when p_locale like 'en%' then s.chat_welcome_en else s.chat_welcome_fa end;
+  insert into live_chat_messages (session_id, sender_kind, body)
+  values (v_session.id, 'system', coalesce(v_welcome, 'Welcome'));
+
+  if not public._chat_is_business_hours() then
+    v_mode := 'offline';
+    v_system := case when p_locale like 'en%' then s.chat_offline_en else s.chat_offline_fa end;
+  elsif coalesce(s.agents_online, true) = false then
+    v_mode := 'away';
+    v_system := case when p_locale like 'en%' then s.chat_away_en else s.chat_away_fa end;
+  end if;
+
+  if v_system is not null then
+    insert into live_chat_messages (session_id, sender_kind, body)
+    values (v_session.id, 'system', v_system);
+  end if;
+
+  return jsonb_build_object(
+    'session_id', v_session.id,
+    'session_token', v_token,
+    'mode', v_mode,
+    'guest_name', v_session.guest_name,
+    'guest_phone', v_session.guest_phone
+  );
+end;
+$$;
+
+revoke all on function public.start_live_chat(text, text, text) from public;
+grant execute on function public.start_live_chat(text, text, text) to anon, authenticated;
+
+create or replace function public.send_live_chat_guest_message(
+  p_token text,
+  p_body text
+)
+returns live_chat_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_session live_chat_sessions%rowtype;
+  v_msg live_chat_messages%rowtype;
+begin
+  select * into v_session from live_chat_sessions where session_token = p_token for update;
+  if not found or v_session.status <> 'open' then
+    raise exception 'session_not_found';
+  end if;
+  if length(trim(coalesce(p_body, ''))) < 1 then
+    raise exception 'empty_body';
+  end if;
+
+  insert into live_chat_messages (session_id, sender_kind, body)
+  values (v_session.id, 'guest', trim(p_body))
+  returning * into v_msg;
+
+  update live_chat_sessions set last_message_at = now() where id = v_session.id;
+  return v_msg;
+end;
+$$;
+
+revoke all on function public.send_live_chat_guest_message(text, text) from public;
+grant execute on function public.send_live_chat_guest_message(text, text) to anon, authenticated;
+
+create or replace function public.fetch_live_chat_guest_messages(p_token text)
+returns setof live_chat_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from live_chat_sessions where session_token = p_token) then
+    raise exception 'session_not_found';
+  end if;
+  return query
+    select m.*
+    from live_chat_messages m
+    join live_chat_sessions s on s.id = m.session_id
+    where s.session_token = p_token
+    order by m.created_at asc;
+end;
+$$;
+
+revoke all on function public.fetch_live_chat_guest_messages(text) from public;
+grant execute on function public.fetch_live_chat_guest_messages(text) to anon, authenticated;
+
+create or replace function public.reply_live_chat_agent(
+  p_session_id uuid,
+  p_body text
+)
+returns live_chat_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_msg live_chat_messages%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+  if not (public.is_super_admin() or public.current_user_role() = 'staff') then
+    raise exception 'forbidden';
+  end if;
+  if length(trim(coalesce(p_body, ''))) < 1 then
+    raise exception 'empty_body';
+  end if;
+
+  insert into live_chat_messages (session_id, sender_kind, sender_id, body)
+  values (p_session_id, 'agent', v_uid, trim(p_body))
+  returning * into v_msg;
+
+  update live_chat_sessions
+  set last_message_at = now(),
+      assigned_to = coalesce(assigned_to, v_uid)
+  where id = p_session_id;
+
+  return v_msg;
+end;
+$$;
+
+revoke all on function public.reply_live_chat_agent(uuid, text) from public;
+grant execute on function public.reply_live_chat_agent(uuid, text) to authenticated;
+
+create or replace function public.close_live_chat_session(p_session_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (public.is_super_admin() or public.current_user_role() = 'staff') then
+    raise exception 'forbidden';
+  end if;
+  update live_chat_sessions set status = 'closed' where id = p_session_id;
+end;
+$$;
+
+revoke all on function public.close_live_chat_session(uuid) from public;
+grant execute on function public.close_live_chat_session(uuid) to authenticated;
+
+alter table ticket_messages
+  add column if not exists attachment_url text,
+  add column if not exists attachment_name text,
+  add column if not exists attachment_mime text,
+  add column if not exists attachment_size int;
+
+create or replace function public.reply_ticket(
+  p_ticket_id uuid,
+  p_body text,
+  p_mark_answered boolean default true,
+  p_attachment_url text default null,
+  p_attachment_name text default null,
+  p_attachment_mime text default null,
+  p_attachment_size int default null
+)
+returns ticket_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_ticket tickets%rowtype;
+  v_msg ticket_messages%rowtype;
+  v_allowed boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_ticket from tickets where id = p_ticket_id for update;
+  if not found then
+    raise exception 'ticket not found';
+  end if;
+
+  v_allowed :=
+    public.is_super_admin()
+    or v_ticket.assigned_to = v_uid
+    or exists (
+      select 1 from teams t
+      where t.id = v_ticket.team_id
+        and (
+          t.captain_id = v_uid
+          or exists (
+            select 1 from company_members cm
+            where cm.company_id = t.company_id and cm.user_id = v_uid
+          )
+        )
+    )
+    or (
+      v_ticket.league_id is null
+      and public.current_user_role() = 'staff'
+    )
+    or (
+      v_ticket.league_id is not null
+      and exists (
+        select 1 from league_admins la
+        where la.league_id = v_ticket.league_id and la.user_id = v_uid
+      )
+    );
+
+  if not v_allowed then
+    raise exception 'forbidden';
+  end if;
+
+  if length(trim(coalesce(p_body, ''))) < 1 and p_attachment_url is null then
+    raise exception 'empty_body';
+  end if;
+
+  insert into ticket_messages (
+    ticket_id, sender_id, body,
+    attachment_url, attachment_name, attachment_mime, attachment_size
+  )
+  values (
+    p_ticket_id,
+    v_uid,
+    coalesce(nullif(trim(p_body), ''), '📎'),
+    p_attachment_url,
+    p_attachment_name,
+    p_attachment_mime,
+    p_attachment_size
+  )
+  returning * into v_msg;
+
+  if p_mark_answered and public.current_user_role() in ('staff', 'league_admin', 'super_admin') then
+    update tickets set status = 'answered' where id = p_ticket_id and status <> 'closed';
+  elsif v_ticket.status = 'answered' then
+    update tickets set status = 'open' where id = p_ticket_id;
+  end if;
+
+  return v_msg;
+end;
+$$;
+
+revoke all on function public.reply_ticket(uuid, text, boolean, text, text, text, int) from public;
+grant execute on function public.reply_ticket(uuid, text, boolean, text, text, text, int) to authenticated;
+
+insert into storage.buckets (id, name, public)
+values ('ticket-attachments', 'ticket-attachments', false)
+on conflict (id) do nothing;
+
+drop policy if exists "ticket_att_upload" on storage.objects;
+create policy "ticket_att_upload" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'ticket-attachments'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "ticket_att_select" on storage.objects;
+create policy "ticket_att_select" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'ticket-attachments');
+
+drop policy if exists "ticket_att_delete" on storage.objects;
+create policy "ticket_att_delete" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'ticket-attachments'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table live_chat_messages;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table live_chat_sessions;
+  exception when duplicate_object then null;
+  end;
+end $$;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0023_fix_chat_token_footer.sql --
+-- ========================================== --
+
+-- Fix gen_random_bytes (pgcrypto often lives in extensions schema)
+-- Enrich public footer fields
+
+create extension if not exists pgcrypto with schema extensions;
+
+create or replace function public.start_live_chat(
+  p_name text,
+  p_phone text,
+  p_locale text default 'fa'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s site_settings%rowtype;
+  v_token text;
+  v_session live_chat_sessions%rowtype;
+  v_system text;
+  v_mode text := 'online';
+  v_welcome text;
+begin
+  -- Prefer pgcrypto; fallback is UUID concatenation (always available)
+  begin
+    v_token := encode(gen_random_bytes(24), 'hex');
+  exception when undefined_function then
+    v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+  end;
+
+  select * into s from site_settings where id = 1;
+  if not found or coalesce(s.chat_enabled, true) = false then
+    raise exception 'chat_disabled';
+  end if;
+  if length(trim(p_name)) < 2 then
+    raise exception 'invalid_name';
+  end if;
+  if length(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g')) < 10 then
+    raise exception 'invalid_phone';
+  end if;
+
+  insert into live_chat_sessions (guest_name, guest_phone, session_token)
+  values (trim(p_name), regexp_replace(p_phone, '\D', '', 'g'), v_token)
+  returning * into v_session;
+
+  v_welcome := case when p_locale like 'en%' then s.chat_welcome_en else s.chat_welcome_fa end;
+  insert into live_chat_messages (session_id, sender_kind, body)
+  values (v_session.id, 'system', coalesce(v_welcome, 'Welcome'));
+
+  if not public._chat_is_business_hours() then
+    v_mode := 'offline';
+    v_system := case when p_locale like 'en%' then s.chat_offline_en else s.chat_offline_fa end;
+  elsif coalesce(s.agents_online, true) = false then
+    v_mode := 'away';
+    v_system := case when p_locale like 'en%' then s.chat_away_en else s.chat_away_fa end;
+  end if;
+
+  if v_system is not null then
+    insert into live_chat_messages (session_id, sender_kind, body)
+    values (v_session.id, 'system', v_system);
+  end if;
+
+  return jsonb_build_object(
+    'session_id', v_session.id,
+    'session_token', v_token,
+    'mode', v_mode,
+    'guest_name', v_session.guest_name,
+    'guest_phone', v_session.guest_phone
+  );
+end;
+$$;
+
+alter table site_settings
+  add column if not exists copyright_fa text
+    default '© روبوککتوس — تمامی حقوق محفوظ است.',
+  add column if not exists copyright_en text
+    default '© RoboCactus — All rights reserved.',
+  add column if not exists contact_email text,
+  add column if not exists contact_address_fa text,
+  add column if not exists contact_address_en text,
+  add column if not exists trust_seal_url text,
+  add column if not exists trust_seal_href text;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0024_chat_token_uuid_only.sql --
+-- ========================================== --
+
+-- Hard-fix live chat token: never call gen_random_bytes
+
+create or replace function public.start_live_chat(
+  p_name text,
+  p_phone text,
+  p_locale text default 'fa'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s site_settings%rowtype;
+  v_token text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+  v_session live_chat_sessions%rowtype;
+  v_system text;
+  v_mode text := 'online';
+  v_welcome text;
+begin
+  select * into s from site_settings where id = 1;
+  if not found or coalesce(s.chat_enabled, true) = false then
+    raise exception 'chat_disabled';
+  end if;
+  if length(trim(p_name)) < 2 then
+    raise exception 'invalid_name';
+  end if;
+  if length(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g')) < 10 then
+    raise exception 'invalid_phone';
+  end if;
+
+  insert into live_chat_sessions (guest_name, guest_phone, session_token)
+  values (trim(p_name), regexp_replace(p_phone, '\D', '', 'g'), v_token)
+  returning * into v_session;
+
+  v_welcome := case when p_locale like 'en%' then s.chat_welcome_en else s.chat_welcome_fa end;
+  insert into live_chat_messages (session_id, sender_kind, body)
+  values (v_session.id, 'system', coalesce(v_welcome, 'Welcome'));
+
+  if not public._chat_is_business_hours() then
+    v_mode := 'offline';
+    v_system := case when p_locale like 'en%' then s.chat_offline_en else s.chat_offline_fa end;
+  elsif coalesce(s.agents_online, true) = false then
+    v_mode := 'away';
+    v_system := case when p_locale like 'en%' then s.chat_away_en else s.chat_away_fa end;
+  end if;
+
+  if v_system is not null then
+    insert into live_chat_messages (session_id, sender_kind, body)
+    values (v_session.id, 'system', v_system);
+  end if;
+
+  return jsonb_build_object(
+    'session_id', v_session.id,
+    'session_token', v_token,
+    'mode', v_mode,
+    'guest_name', v_session.guest_name,
+    'guest_phone', v_session.guest_phone
+  );
+end;
+$$;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0025_home_sections.sql --
+-- ========================================== --
+
+-- Homepage sections: sponsors, events, partners, why cards, FAQs, display stats
+
+create table if not exists home_sponsors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  logo_url text not null,
+  link_url text,
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists home_events (
+  id uuid primary key default gen_random_uuid(),
+  title_fa text not null,
+  title_en text not null,
+  description_fa text,
+  description_en text,
+  event_date date not null,
+  end_date date,
+  location_fa text,
+  location_en text,
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists home_partners (
+  id uuid primary key default gen_random_uuid(),
+  name_fa text not null,
+  name_en text not null,
+  logo_url text,
+  link_url text,
+  kind text not null default 'university'
+    check (kind in ('university', 'scientific', 'organization')),
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists home_why_cards (
+  id uuid primary key default gen_random_uuid(),
+  title_fa text not null,
+  title_en text not null,
+  body_fa text,
+  body_en text,
+  icon_key text not null default 'star',
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists home_faqs (
+  id uuid primary key default gen_random_uuid(),
+  question_fa text not null,
+  question_en text not null,
+  answer_fa text not null,
+  answer_en text not null,
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists home_stat_cards (
+  id uuid primary key default gen_random_uuid(),
+  label_fa text not null,
+  label_en text not null,
+  value_num int not null default 0,
+  suffix text,
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table home_sponsors enable row level security;
+alter table home_events enable row level security;
+alter table home_partners enable row level security;
+alter table home_why_cards enable row level security;
+alter table home_faqs enable row level security;
+alter table home_stat_cards enable row level security;
+
+drop policy if exists "home_sponsors_public" on home_sponsors;
+create policy "home_sponsors_public" on home_sponsors for select using (is_active = true);
+drop policy if exists "home_sponsors_sa" on home_sponsors;
+create policy "home_sponsors_sa" on home_sponsors for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "home_events_public" on home_events;
+create policy "home_events_public" on home_events for select using (is_active = true);
+drop policy if exists "home_events_sa" on home_events;
+create policy "home_events_sa" on home_events for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "home_partners_public" on home_partners;
+create policy "home_partners_public" on home_partners for select using (is_active = true);
+drop policy if exists "home_partners_sa" on home_partners;
+create policy "home_partners_sa" on home_partners for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "home_why_public" on home_why_cards;
+create policy "home_why_public" on home_why_cards for select using (is_active = true);
+drop policy if exists "home_why_sa" on home_why_cards;
+create policy "home_why_sa" on home_why_cards for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "home_faqs_public" on home_faqs;
+create policy "home_faqs_public" on home_faqs for select using (is_active = true);
+drop policy if exists "home_faqs_sa" on home_faqs;
+create policy "home_faqs_sa" on home_faqs for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+drop policy if exists "home_stats_public" on home_stat_cards;
+create policy "home_stats_public" on home_stat_cards for select using (is_active = true);
+drop policy if exists "home_stats_sa" on home_stat_cards;
+create policy "home_stats_sa" on home_stat_cards for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+-- Seed defaults (idempotent by label)
+insert into home_stat_cards (label_fa, label_en, value_num, sort_order)
+select * from (values
+  ('لیگ', 'Leagues', 35, 1),
+  ('شرکت‌کننده', 'Participants', 4500, 2),
+  ('تیم', 'Teams', 600, 3),
+  ('دانشگاه', 'Universities', 40, 4),
+  ('استان', 'Provinces', 15, 5),
+  ('داور', 'Judges', 20, 6)
+) as v(label_fa, label_en, value_num, sort_order)
+where not exists (select 1 from home_stat_cards limit 1);
+
+insert into home_why_cards (title_fa, title_en, body_fa, body_en, icon_key, sort_order)
+select * from (values
+  ('استاندارد بین‌المللی', 'International standard', 'قوانین و داوری هم‌تراز رویدادهای جهانی رباتیک.', 'Rules and judging aligned with global robotics events.', 'globe', 1),
+  ('داوری تخصصی', 'Specialized judging', 'کمیته فنی و مسیر داوری هر لیگ به‌صورت جداگانه.', 'Dedicated technical committees and judging paths per league.', 'judge', 2),
+  ('گواهینامه معتبر', 'Valid certificates', 'گواهی و تقدیرنامه‌های قابل استناد برای تیم‌ها.', 'Recognized certificates for teams and participants.', 'certificate', 3),
+  ('جوایز', 'Awards', 'جوایز نقدی و غیرنقدی در سطوح مختلف مسابقات.', 'Cash and non-cash awards across competition tiers.', 'trophy', 4),
+  ('شبکه‌سازی', 'Networking', 'ارتباط با تیم‌ها، شرکت‌ها و متخصصان صنعت.', 'Connect with teams, companies, and industry experts.', 'network', 5),
+  ('فرصت جذب سرمایه', 'Investment opportunities', 'معرفی تیم‌های برتر به سرمایه‌گذاران و شتاب‌دهنده‌ها.', 'Showcase top teams to investors and accelerators.', 'rocket', 6)
+) as v(title_fa, title_en, body_fa, body_en, icon_key, sort_order)
+where not exists (select 1 from home_why_cards limit 1);
+
+insert into home_faqs (question_fa, question_en, answer_fa, answer_en, sort_order)
+select * from (values
+  ('چطور در لیگ ثبت‌نام کنم؟', 'How do I register for a league?', 'از پنل شرکت، تیم بسازید، مدارک را بارگذاری کنید و هزینه را پرداخت کنید.', 'From the company panel, create a team, upload documents, and pay the fee.', 1),
+  ('چه کسانی می‌توانند شرکت کنند؟', 'Who can participate?', 'تیم‌های دانشگاهی، مدرسه‌ای و آزاد مطابق قوانین هر لیگ.', 'University, school, and open teams per each league’s rules.', 2),
+  ('نتایج چطور اعلام می‌شود؟', 'How are results published?', 'پس از داوری، نتایج در صفحه رتبه‌بندی و اعلان‌ها منتشر می‌شود.', 'After judging, results appear on rankings and announcements.', 3)
+) as v(question_fa, question_en, answer_fa, answer_en, sort_order)
+where not exists (select 1 from home_faqs limit 1);
+
+insert into home_events (title_fa, title_en, description_fa, description_en, event_date, location_fa, location_en, sort_order)
+select * from (values
+  ('آغاز ثبت‌نام لیگ‌ها', 'League registration opens', 'شروع دوره ثبت‌نام رسمی مسابقات.', 'Official registration period begins.', current_date + 7, 'آنلاین', 'Online', 1),
+  ('کارگاه فنی رباتیک', 'Robotics tech workshop', 'جلسه آموزشی برای تیم‌ها و مربیان.', 'Training session for teams and coaches.', current_date + 21, 'تهران', 'Tehran', 2),
+  ('روز مسابقه نهایی', 'Finals day', 'برگزاری فینال لیگ‌های منتخب.', 'Finals for selected leagues.', current_date + 60, 'تهران', 'Tehran', 3)
+) as v(title_fa, title_en, description_fa, description_en, event_date, location_fa, location_en, sort_order)
+where not exists (select 1 from home_events limit 1);
+
+insert into home_partners (name_fa, name_en, kind, sort_order)
+select * from (values
+  ('دانشگاه تهران', 'University of Tehran', 'university', 1),
+  ('دانشگاه صنعتی شریف', 'Sharif University of Technology', 'university', 2),
+  ('انجمن رباتیک ایران', 'Iran Robotics Society', 'scientific', 3),
+  ('پارک علم و فناوری', 'Science & Technology Park', 'organization', 4)
+) as v(name_fa, name_en, kind, sort_order)
+where not exists (select 1 from home_partners limit 1);
+
+insert into home_sponsors (name, logo_url, sort_order)
+select * from (values
+  ('Sponsor A', 'https://placehold.co/160x64/0f172a/38bdf8?text=Sponsor+A', 1),
+  ('Sponsor B', 'https://placehold.co/160x64/0f172a/fb923c?text=Sponsor+B', 2),
+  ('Sponsor C', 'https://placehold.co/160x64/0f172a/38bdf8?text=Sponsor+C', 3),
+  ('Sponsor D', 'https://placehold.co/160x64/0f172a/fb923c?text=Sponsor+D', 4),
+  ('Sponsor E', 'https://placehold.co/160x64/0f172a/38bdf8?text=Sponsor+E', 5),
+  ('Sponsor F', 'https://placehold.co/160x64/0f172a/fb923c?text=Sponsor+F', 6)
+) as v(name, logo_url, sort_order)
+where not exists (select 1 from home_sponsors limit 1);
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0026_email_auth_notifications.sql --
+-- ========================================== --
+
+-- Email auth + email notifications for international users
+
+alter table profiles
+  add column if not exists email text,
+  add column if not exists auth_channel text not null default 'phone',
+  add column if not exists email_verified_at timestamptz;
+
+alter table profiles drop constraint if exists profiles_auth_channel_check;
+alter table profiles
+  add constraint profiles_auth_channel_check
+  check (auth_channel in ('phone', 'email'));
+
+create unique index if not exists profiles_email_uidx
+  on profiles (lower(email))
+  where email is not null and length(trim(email)) > 0;
+
+alter table notification_log
+  add column if not exists email text;
+
+alter table sms_settings
+  add column if not exists enable_email_account_approved boolean not null default true,
+  add column if not exists enable_email_notifications boolean not null default true;
+
+-- Profile bootstrap: phone stays unique; email-only users get synthetic phone e:{uuid}
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+  v_email text;
+  v_channel text;
+  v_invite captain_invites%rowtype;
+begin
+  v_email := nullif(trim(coalesce(new.email, new.raw_user_meta_data->>'email', '')), '');
+  v_phone := nullif(trim(coalesce(new.raw_user_meta_data->>'phone', new.phone, '')), '');
+  v_channel := coalesce(
+    nullif(new.raw_user_meta_data->>'auth_channel', ''),
+    case when v_email is not null and v_phone is null then 'email' else 'phone' end
+  );
+
+  if v_phone is null then
+    v_phone := 'e:' || new.id::text;
+  end if;
+
+  insert into public.profiles (id, full_name, phone, email, auth_channel, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', 'کاربر جدید'),
+    v_phone,
+    v_email,
+    case when v_channel in ('phone', 'email') then v_channel else 'phone' end,
+    coalesce((new.raw_user_meta_data->>'role')::user_role, 'team_captain')
+  );
+
+  for v_invite in
+    select * from captain_invites
+    where phone = v_phone and accepted_at is null and team_id is not null
+  loop
+    update teams
+    set captain_id = new.id
+    where id = v_invite.team_id;
+
+    update captain_invites
+    set accepted_at = now()
+    where id = v_invite.id;
+  end loop;
+
+  return new;
+end;
+$$;
+
+create or replace function public.is_real_phone(p_phone text)
+returns boolean
+language sql
+immutable
+as $$
+  select p_phone is not null
+    and length(trim(p_phone)) >= 8
+    and p_phone not like 'e:%';
+$$;
+
+create or replace function public.enqueue_user_email(
+  p_user_id uuid,
+  p_template_key text,
+  p_idempotency_key text,
+  p_meta jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_email text;
+  v_enabled boolean;
+begin
+  select coalesce(enable_email_notifications, true) into v_enabled from sms_settings where id = 1;
+  if v_enabled is distinct from true then
+    return;
+  end if;
+
+  if p_template_key = 'account_approved' then
+    select coalesce(enable_email_account_approved, true) into v_enabled from sms_settings where id = 1;
+    if v_enabled is distinct from true then
+      return;
+    end if;
+  end if;
+
+  select nullif(trim(email), '') into v_email from profiles where id = p_user_id;
+  if v_email is null then
+    return;
+  end if;
+
+  insert into notification_log (channel, template_key, email, phone, status, idempotency_key, meta)
+  values (
+    'email',
+    p_template_key,
+    v_email,
+    null,
+    'pending',
+    p_idempotency_key,
+    coalesce(p_meta, '{}'::jsonb) || jsonb_build_object('user_id', p_user_id, 'email', v_email)
+  )
+  on conflict do nothing;
+end;
+$$;
+
+revoke all on function public.enqueue_user_email from public;
+grant execute on function public.enqueue_user_email to authenticated;
+grant execute on function public.enqueue_user_email to service_role;
+
+create or replace function public.activate_user_account(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text;
+  v_email text;
+  v_channel text;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  update profiles
+  set account_status = 'active', activated_at = now(), rejection_reason = null
+  where id = p_user_id
+  returning phone, email, auth_channel into v_phone, v_email, v_channel;
+
+  if public.is_real_phone(v_phone) and public.sms_template_enabled('account_approved') then
+    insert into notification_log (channel, template_key, phone, status, idempotency_key, meta)
+    values (
+      'sms',
+      'account_approved',
+      v_phone,
+      'pending',
+      'account_approved:' || p_user_id::text,
+      jsonb_build_object('user_id', p_user_id)
+    )
+    on conflict do nothing;
+  end if;
+
+  if v_email is not null or v_channel = 'email' then
+    perform public.enqueue_user_email(
+      p_user_id,
+      'account_approved',
+      'account_approved_email:' || p_user_id::text,
+      jsonb_build_object('user_id', p_user_id)
+    );
+  end if;
+end;
+$$;
+
+drop function if exists public.list_pending_notifications(integer);
+drop function if exists public.list_pending_notifications(integer, text);
+
+create function public.list_pending_notifications(
+  p_limit integer default 50,
+  p_channel text default null
+)
+returns setof notification_log
+language sql
+security definer
+set search_path = public
+as $$
+  select *
+  from notification_log
+  where status = 'pending'
+    and (p_channel is null or channel = p_channel)
+  order by created_at asc nulls last
+  limit greatest(1, least(coalesce(p_limit, 50), 200));
+$$;
+
+revoke all on function public.list_pending_notifications(integer, text) from public;
+grant execute on function public.list_pending_notifications(integer, text) to service_role;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0027_live_results_boards.sql --
+-- ========================================== --
+
+-- Live / final results boards for public pages
+
+alter table leagues
+  add column if not exists results_status text not null default 'auto';
+
+alter table leagues drop constraint if exists leagues_results_status_check;
+alter table leagues
+  add constraint leagues_results_status_check
+  check (results_status in ('auto', 'hidden', 'live', 'final'));
+
+comment on column leagues.results_status is
+  'auto=derive from period; live=public live board; final=podium cups; hidden=off';
+
+-- League admin or super admin can flip board mode
+create or replace function public.set_league_results_status(
+  p_league_id uuid,
+  p_status text
+)
+returns leagues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row leagues%rowtype;
+begin
+  if p_status is null or p_status not in ('auto', 'hidden', 'live', 'final') then
+    raise exception 'invalid_status';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = p_league_id and la.user_id = auth.uid()
+    )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  update leagues
+  set results_status = p_status
+  where id = p_league_id
+  returning * into v_row;
+
+  if not found then
+    raise exception 'not_found';
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.set_league_results_status from public;
+grant execute on function public.set_league_results_status to authenticated;
+
+-- Public can read live-board draft scores when league is live/final
+drop policy if exists "results_public_select" on results;
+create policy "results_public_select"
+  on results for select using (
+    published_at is not null
+    or public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = results.league_id and la.user_id = auth.uid()
+    )
+    or exists (
+      select 1 from leagues l
+      where l.id = results.league_id
+        and l.results_status in ('live', 'final')
+    )
+  );
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table results;
+  exception
+    when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table leagues;
+  exception
+    when duplicate_object then null;
+  end;
+end $$;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0028_live_results_realtime.sql --
+-- ========================================== --
+
+-- Realtime for live results boards (idempotent)
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table results;
+  exception
+    when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table leagues;
+  exception
+    when duplicate_object then null;
+  end;
+end $$;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0029_nav_live_results.sql --
+-- ========================================== --
+
+-- Ensure public nav includes Live Results (insert after Home)
+
+update site_settings
+set
+  nav_items = (
+    select coalesce(jsonb_agg(item order by ord), '[]'::jsonb)
+    from (
+      select
+        jsonb_build_object(
+          'id', 'home',
+          'href', '/',
+          'label_fa', coalesce(
+            (select el->>'label_fa' from jsonb_array_elements(nav_items) el where el->>'href' in ('/', '') limit 1),
+            'خانه'
+          ),
+          'label_en', coalesce(
+            (select el->>'label_en' from jsonb_array_elements(nav_items) el where el->>'href' in ('/', '') limit 1),
+            'Home'
+          ),
+          'enabled', true,
+          'order', 1
+        ) as item,
+        1 as ord
+      union all
+      select
+        jsonb_build_object(
+          'id', 'live',
+          'href', '/live',
+          'label_fa', 'نتایج زنده',
+          'label_en', 'Live results',
+          'enabled', true,
+          'order', 2
+        ),
+        2
+      union all
+      select
+        jsonb_set(
+          jsonb_set(el, '{order}', to_jsonb(2 + row_number() over (order by coalesce((el->>'order')::int, 99)))),
+          '{id}',
+          to_jsonb(coalesce(el->>'id', 'nav-' || row_number() over ()))
+        ),
+        2 + row_number() over (order by coalesce((el->>'order')::int, 99))
+      from jsonb_array_elements(nav_items) el
+      where el->>'href' not in ('/', '', '/live', '/live/')
+    ) rebuilt
+  ),
+  updated_at = now()
+where id = 1
+  and not exists (
+    select 1
+    from jsonb_array_elements(nav_items) el
+    where el->>'href' in ('/live', '/live/')
+  );
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0030_team_members_competitions.sql --
+-- ========================================== --
+
+-- Richer team members + review status + profile admin edits
+
+alter table team_members
+  add column if not exists first_name text,
+  add column if not exists last_name text,
+  add column if not exists education text,
+  add column if not exists national_id_doc_path text,
+  add column if not exists review_status text not null default 'pending',
+  add column if not exists rejection_reason text;
+
+alter table team_members drop constraint if exists team_members_review_status_check;
+alter table team_members
+  add constraint team_members_review_status_check
+  check (review_status in ('pending', 'approved', 'rejected'));
+
+update team_members
+set
+  first_name = coalesce(nullif(trim(first_name), ''), split_part(full_name, ' ', 1)),
+  last_name = coalesce(
+    nullif(trim(last_name), ''),
+    nullif(trim(regexp_replace(full_name, '^\S+\s*', '')), '')
+  )
+where first_name is null or last_name is null;
+
+alter table documents
+  add column if not exists team_member_id uuid references team_members(id) on delete set null;
+
+create or replace function public.review_team_member(
+  p_member_id uuid,
+  p_status text,
+  p_reason text default null
+)
+returns team_members
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row team_members%rowtype;
+  v_league_id uuid;
+begin
+  if p_status not in ('pending', 'approved', 'rejected') then
+    raise exception 'invalid_status';
+  end if;
+
+  select t.league_id into v_league_id
+  from team_members tm
+  join teams t on t.id = tm.team_id
+  where tm.id = p_member_id;
+
+  if v_league_id is null then
+    raise exception 'not_found';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from league_admins la
+      where la.league_id = v_league_id and la.user_id = auth.uid()
+    )
+  ) then
+    raise exception 'forbidden';
+  end if;
+
+  update team_members
+  set
+    review_status = p_status,
+    rejection_reason = case when p_status = 'rejected' then nullif(trim(p_reason), '') else null end
+  where id = p_member_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.review_team_member from public;
+grant execute on function public.review_team_member to authenticated;
+
+create or replace function public.admin_update_profile(
+  p_user_id uuid,
+  p_full_name text default null,
+  p_phone text default null,
+  p_national_id text default null,
+  p_address text default null,
+  p_company_name text default null,
+  p_company_national_id text default null,
+  p_economic_code text default null,
+  p_email text default null
+)
+returns profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row profiles%rowtype;
+begin
+  if not public.is_super_admin() then
+    raise exception 'forbidden';
+  end if;
+
+  update profiles
+  set
+    full_name = coalesce(nullif(trim(p_full_name), ''), full_name),
+    phone = coalesce(nullif(trim(p_phone), ''), phone),
+    national_id = case when p_national_id is null then national_id else nullif(trim(p_national_id), '') end,
+    address = case when p_address is null then address else nullif(trim(p_address), '') end,
+    company_name = case when p_company_name is null then company_name else nullif(trim(p_company_name), '') end,
+    company_national_id = case when p_company_national_id is null then company_national_id else nullif(trim(p_company_national_id), '') end,
+    economic_code = case when p_economic_code is null then economic_code else nullif(trim(p_economic_code), '') end,
+    email = case when p_email is null then email else nullif(trim(lower(p_email)), '') end
+  where id = p_user_id
+  returning * into v_row;
+
+  if not found then
+    raise exception 'not_found';
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.admin_update_profile from public;
+grant execute on function public.admin_update_profile to authenticated;
+
+-- ========================================== --
+-- FILE: ./supabase/migrations/0031_gallery_categories.sql --
+-- ========================================== --
+
+-- Standalone gallery categories (CMS + public)
+
+create table if not exists gallery_categories (
+  id uuid primary key default gen_random_uuid(),
+  name_fa text not null,
+  name_en text not null,
+  cover_url text,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table gallery_items
+  add column if not exists category_id uuid references gallery_categories(id) on delete set null;
+
+create index if not exists gallery_items_category_id_idx on gallery_items (category_id);
+
+alter table gallery_categories enable row level security;
+
+drop policy if exists "gallery_categories_public" on gallery_categories;
+create policy "gallery_categories_public"
+  on gallery_categories for select
+  using (is_active = true);
+
+drop policy if exists "gallery_categories_sa" on gallery_categories;
+create policy "gallery_categories_sa"
+  on gallery_categories for all
+  to authenticated
+  using (public.is_super_admin())
+  with check (public.is_super_admin());
+
+insert into gallery_categories (name_fa, name_en, sort_order)
+select * from (values
+  ('عمومی', 'General', 0),
+  ('مراسم افتتاحیه', 'Opening ceremony', 1),
+  ('لیگ‌ها', 'Leagues', 2),
+  ('پشت صحنه', 'Behind the scenes', 3)
+) as v(name_fa, name_en, sort_order)
+where not exists (select 1 from gallery_categories limit 1);

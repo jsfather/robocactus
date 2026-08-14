@@ -1,0 +1,44 @@
+{
+  "name": "robocactous",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run db:migrate:soft && vite",
+    "db:migrate": "node scripts/apply-migrations.mjs",
+    "db:migrate:soft": "node scripts/apply-migrations.mjs --soft",
+    "db:migrate:seed": "node scripts/apply-migrations.mjs --seed",
+    "db:seed-demo-users": "node scripts/seed-demo-users.mjs",
+    "db:rebuild-all-in-one": "node scripts/rebuild-all-in-one.mjs",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "dompurify": "^3.4.12",
+    "framer-motion": "^12.42.2",
+    "i18next": "^26.3.6",
+    "isomorphic-dompurify": "^3.18.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-i18next": "^17.0.9",
+    "react-multi-date-picker": "^4.5.2",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "pg": "^8.16.3",
+    "tailwindcss": "^4.3.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  }
+}
