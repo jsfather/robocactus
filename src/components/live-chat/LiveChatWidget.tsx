@@ -102,20 +102,19 @@ export function LiveChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 start-5 z-[60] flex flex-col items-start gap-3">
+    <div className="fixed bottom-5 start-4 z-[60] flex flex-col items-start gap-3 sm:bottom-7 sm:start-7">
       {open ? (
         <div
           className={[
-            'flex h-[min(32rem,70vh)] w-[min(22rem,calc(100vw-2.5rem))] flex-col overflow-hidden border border-rc-blue/30 bg-rc-navy/95 shadow-2xl shadow-rc-blue/20 backdrop-blur-md transition-all duration-300 ease-out',
+            'flex h-[min(34rem,72vh)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_28px_90px_rgb(12_83_108/0.22)] transition-all duration-300 ease-out',
             mounted ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-4 scale-95 opacity-0',
           ].join(' ')}
         >
-          <div className="relative overflow-hidden border-b border-rc-line bg-gradient-to-l from-rc-blue/20 via-rc-surface/80 to-rc-surface/80 px-4 py-3">
-            <div className="pointer-events-none absolute -top-8 end-0 size-24 rounded-full bg-rc-blue/20 blur-2xl" />
+          <div className="relative overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ba86b] px-5 py-4 text-white">
+            <div className="pointer-events-none absolute -end-8 -top-12 size-36 rounded-full border-[22px] border-white/10" />
             <div className="relative flex items-center justify-between gap-2">
               <div className="flex items-center gap-3">
-                <span className="relative flex size-10 items-center justify-center bg-rc-blue text-white">
-                  <span className="absolute inset-0 animate-rc-ping bg-rc-blue/40" aria-hidden />
+                <span className="relative flex size-12 items-center justify-center rounded-2xl bg-white/18 text-white shadow-inner backdrop-blur-sm">
                   <svg viewBox="0 0 24 24" className="relative size-5" fill="none" aria-hidden>
                     <path
                       d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6A2.5 2.5 0 0 1 16.5 16H11l-3.5 2.8V16H7.5A2.5 2.5 0 0 1 5 13.5v-6Z"
@@ -126,15 +125,13 @@ export function LiveChatWidget() {
                   </svg>
                 </span>
                 <div>
-                  <p className="font-mono text-[10px] tracking-[0.22em] text-rc-blue uppercase">
-                    {t('chat.liveSupport')}
-                  </p>
-                  <p className="text-sm font-semibold">{t('chat.title')}</p>
+                  <p className="text-base font-black">{t('chat.title')}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-white/80"><span className="size-2 rounded-full bg-lime-300" />{settings?.agents_online === false ? 'پیام بگذارید؛ پاسخ می‌دهیم' : 'کارشناس پاسخ‌گو است'}</p>
                 </div>
               </div>
               <button
                 type="button"
-                className="border border-rc-line p-1.5 text-rc-muted transition hover:bg-rc-hover hover:text-rc-text"
+                className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
                 onClick={() => setOpen(false)}
                 aria-label="close"
               >
@@ -146,8 +143,8 @@ export function LiveChatWidget() {
           </div>
 
           {!token ? (
-            <form className="flex flex-1 flex-col gap-3 overflow-y-auto p-4" onSubmit={(e) => void onStart(e)}>
-              <p className="text-sm leading-relaxed text-rc-muted">{t('chat.identifyHint')}</p>
+            <form className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-white to-sky-50/40 p-5" onSubmit={(e) => void onStart(e)}>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4"><p className="text-sm font-bold text-slate-700">سلام! چطور می‌توانیم کمک کنیم؟</p><p className="mt-1.5 text-xs leading-6 text-rc-muted">{t('chat.identifyHint')}</p></div>
               <Input
                 label={t('chat.name')}
                 required
@@ -162,42 +159,42 @@ export function LiveChatWidget() {
                 dir="ltr"
               />
               <FieldError message={error ?? undefined} />
-              <Button type="submit" disabled={busy} className="mt-auto">
+              <Button type="submit" disabled={busy} className="mt-auto !rounded-2xl !bg-gradient-to-l !from-rc-blue !to-rc-accent !py-3 !font-bold !text-white !shadow-lg">
                 {t('chat.start')}
               </Button>
             </form>
           ) : (
             <>
-              <div className="flex-1 space-y-2 overflow-y-auto bg-rc-bg/50 p-3">
+              <div className="flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-sky-50/60 to-white p-4">
                 {messages.map((m) => (
                   <div
                     key={m.id}
                     className={[
-                      'max-w-[90%] px-3 py-2 text-sm shadow-sm animate-rc-fade-up',
+                      'max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm animate-rc-fade-up',
                       m.sender_kind === 'guest'
-                        ? 'ms-auto bg-rc-blue/25 text-rc-text'
+                        ? 'ms-auto rounded-ee-md bg-gradient-to-l from-rc-blue to-sky-500 text-white'
                         : m.sender_kind === 'system'
-                          ? 'mx-auto border border-rc-line/80 bg-rc-surface/60 text-center text-xs text-rc-muted'
-                          : 'me-auto border border-rc-line/50 bg-rc-surface text-rc-text',
+                          ? 'mx-auto border border-sky-100 bg-white text-center text-xs text-rc-muted'
+                          : 'me-auto rounded-es-md border border-emerald-100 bg-white text-slate-700',
                     ].join(' ')}
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>
-                    <p className="mt-1 font-mono text-[9px] text-rc-muted">
+                    <p className={`mt-1 text-[9px] ${m.sender_kind === 'guest' ? 'text-white/70' : 'text-rc-muted'}`}>
                       {new Date(m.created_at).toLocaleTimeString()}
                     </p>
                   </div>
                 ))}
                 <div ref={endRef} />
               </div>
-              <form className="flex gap-2 border-t border-rc-line p-3" onSubmit={(e) => void onSend(e)}>
+              <form className="flex gap-2 border-t border-sky-100 bg-white p-3.5" onSubmit={(e) => void onSend(e)}>
                 <input
-                  className="min-w-0 flex-1 border border-rc-line bg-rc-surface px-3 py-2 text-sm outline-none transition focus:border-rc-blue/50"
+                  className="min-w-0 flex-1 rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2.5 text-sm outline-none transition focus:border-rc-blue/40"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder={t('chat.typeMessage')}
                 />
-                <Button type="submit" disabled={busy || !body.trim()}>
-                  {t('chat.send')}
+                <Button type="submit" disabled={busy || !body.trim()} className="!flex !size-11 !items-center !justify-center !rounded-2xl !bg-rc-accent !p-0 !text-white">
+                  <svg viewBox="0 0 24 24" className="size-5 rtl:rotate-180" fill="none" aria-label={t('chat.send')}><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
                 </Button>
               </form>
               {error ? <p className="px-3 pb-2 text-xs text-red-400">{error}</p> : null}
@@ -209,17 +206,15 @@ export function LiveChatWidget() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="group relative flex size-14 items-center justify-center overflow-hidden bg-rc-blue text-white shadow-lg shadow-rc-blue/35 transition duration-300 hover:scale-105 hover:brightness-110 active:scale-95"
+        className={`group relative flex h-15 items-center justify-center overflow-hidden rounded-[1.4rem] bg-gradient-to-l from-[#087eb8] to-[#13a94d] text-white shadow-[0_16px_40px_rgb(8_126_184/0.3)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgb(8_126_184/0.38)] active:scale-95 ${open ? 'w-15' : 'w-auto gap-3 px-5'}`}
         aria-label={t('chat.title')}
       >
-        <span className="pointer-events-none absolute inset-0 animate-rc-soft-pulse bg-rc-blue" aria-hidden />
-        <span className="pointer-events-none absolute -inset-2 animate-rc-ring rounded-full border border-rc-blue/50" aria-hidden />
         {open ? (
           <svg viewBox="0 0 24 24" className="relative size-6 transition duration-300" fill="none" aria-hidden>
             <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         ) : (
-          <svg viewBox="0 0 24 24" className="relative size-6 transition duration-300 group-hover:rotate-3" fill="none" aria-hidden>
+          <><span className="relative flex size-8 items-center justify-center rounded-xl bg-white/15"><svg viewBox="0 0 24 24" className="size-5 transition duration-300 group-hover:rotate-3" fill="none" aria-hidden>
             <path
               d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6A2.5 2.5 0 0 1 16.5 16H11l-3.5 2.8V16H7.5A2.5 2.5 0 0 1 5 13.5v-6Z"
               stroke="currentColor"
@@ -227,7 +222,7 @@ export function LiveChatWidget() {
               strokeLinejoin="round"
             />
             <path d="M9 10h6M9 13h3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          </svg><span className="absolute -end-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[#159c62] bg-lime-300" /></span><span className="text-sm font-black">گفتگوی آنلاین</span></>
         )}
       </button>
     </div>

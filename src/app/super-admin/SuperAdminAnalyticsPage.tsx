@@ -59,7 +59,7 @@ function ChartBlock({
               <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
               <Tooltip
                 contentStyle={{
-                  background: '#111827',
+                  background: '#ffffff',
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 8,
                 }}

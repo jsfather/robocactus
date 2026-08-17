@@ -1,39 +1,40 @@
 @import "tailwindcss";
 
 :root,
+html.light,
 html.dark {
-  color-scheme: dark;
-  --rc-bg: #0b0f19;
-  --rc-navy: #111827;
-  --rc-text: #e8eef9;
-  --rc-muted: #94a3b8;
-  --rc-blue: #3b82f6;
-  --rc-accent: #fb923c;
-  --rc-orange: #f97316;
-  --rc-line: rgb(255 255 255 / 0.1);
-  --rc-line-soft: rgb(255 255 255 / 0.05);
-  --rc-surface: rgb(255 255 255 / 0.03);
-  --rc-hover: rgb(255 255 255 / 0.05);
-  --rc-glow-blue: rgb(59 130 246 / 0.12);
-  --rc-glow-orange: rgb(251 146 60 / 0.06);
+  color-scheme: light;
+  --rc-bg: #f7fbfa;
+  --rc-navy: #eaf5f4;
+  --rc-text: #123047;
+  --rc-muted: #60798a;
+  --rc-blue: #087eb8;
+  --rc-accent: #13a94d;
+  --rc-orange: #13a94d;
+  --rc-line: rgb(17 86 112 / 0.12);
+  --rc-line-soft: rgb(17 86 112 / 0.07);
+  --rc-surface: rgb(255 255 255 / 0.86);
+  --rc-hover: rgb(8 126 184 / 0.07);
+  --rc-glow-blue: rgb(36 152 216 / 0.10);
+  --rc-glow-orange: rgb(37 211 102 / 0.08);
 }
 
-html.light {
-  color-scheme: light;
-  --rc-bg: #f4f7fb;
-  --rc-navy: #e8eef6;
-  --rc-text: #0f172a;
-  --rc-muted: #64748b;
-  --rc-blue: #2563eb;
-  --rc-accent: #ea580c;
-  --rc-orange: #f97316;
-  --rc-line: rgb(15 23 42 / 0.12);
-  --rc-line-soft: rgb(15 23 42 / 0.06);
-  --rc-surface: rgb(15 23 42 / 0.04);
-  --rc-hover: rgb(15 23 42 / 0.06);
-  --rc-glow-blue: rgb(37 99 235 / 0.1);
-  --rc-glow-orange: rgb(234 88 12 / 0.06);
+.tabarestan-pattern {
+  background-image: linear-gradient(rgb(36 152 216 / .1) 1px, transparent 1px), linear-gradient(90deg, rgb(37 211 102 / .08) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black, transparent 85%);
 }
+
+.tabarestan-button-primary, .tabarestan-button-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: .65rem;
+  min-height: 3.15rem; padding: .7rem 1.35rem; border-radius: .9rem;
+  font-size: .9rem; font-weight: 700;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.tabarestan-button-primary { color: #03150b; background: var(--rc-accent); box-shadow: 0 12px 35px rgb(37 211 102 / .22); }
+.tabarestan-button-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 42px rgb(37 211 102 / .32); }
+.tabarestan-button-secondary { color: white; border: 1px solid rgb(125 211 252 / .38); background: rgb(14 116 144 / .14); backdrop-filter: blur(12px); }
+.tabarestan-button-secondary:hover { transform: translateY(-2px); background: rgb(14 116 144 / .25); }
 
 @theme {
   --color-rc-bg: var(--rc-bg);
@@ -259,4 +260,132 @@ html[dir='rtl'] .animate-rc-marquee {
     transparent 92%,
     transparent 100%
   );
+}
+
+/* Tabarestan 2.0 — light, organic visual language across public and panel surfaces */
+@layer base {
+  body {
+    background:
+      radial-gradient(circle at 8% 5%, rgb(36 152 216 / .09), transparent 25rem),
+      radial-gradient(circle at 94% 18%, rgb(37 211 102 / .08), transparent 28rem),
+      #f7fbfa;
+  }
+
+  button, a, input, select, textarea { border-radius: 1rem; }
+  input, select, textarea {
+    border-color: rgb(17 86 112 / .14) !important;
+    background-color: rgb(255 255 255 / .94) !important;
+    color: #123047 !important;
+    box-shadow: 0 8px 24px rgb(16 75 96 / .04);
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: rgb(8 126 184 / .5) !important;
+    box-shadow: 0 0 0 4px rgb(36 152 216 / .1) !important;
+    outline: none;
+  }
+  table { border-collapse: separate; border-spacing: 0; overflow: hidden; border-radius: 1.25rem; }
+  th { background: #edf7f6 !important; color: #365f72 !important; }
+  tr { border-color: rgb(17 86 112 / .08) !important; }
+}
+
+/* Soften every legacy card without requiring page-by-page exceptions. */
+[class*="rounded-none"], [class*="rounded-sm"], [class*="rounded-md"],
+[class~="rounded"], [class*="border-dashed"] { border-radius: 1rem !important; }
+
+[class*="border-white/"], [class*="border-black/"] { border-color: var(--rc-line) !important; }
+[class*="bg-black/"], [class*="bg-slate-9"], [class*="bg-gray-9"] {
+  background-color: rgb(255 255 255 / .9) !important;
+}
+
+/* Former navy panels become airy white cards with gentle elevation. */
+[class*="bg-rc-navy"] {
+  background-color: rgb(255 255 255 / .82) !important;
+  box-shadow: 0 18px 55px rgb(18 76 98 / .07);
+}
+
+[class*="bg-rc-surface"], [class*="bg-white/"] {
+  background-color: rgb(255 255 255 / .8) !important;
+}
+
+.league-mission { background: transparent !important; }
+.league-mission-grid, .league-mission-scan { display: none !important; }
+.league-node-pulse, .animate-rc-soft-pulse, .animate-rc-ring, .animate-rc-ping { animation: none !important; }
+
+/* Remove the old terminal/HUD typography treatment. */
+.font-mono { font-family: var(--font-sans) !important; }
+.uppercase { text-transform: none !important; letter-spacing: normal !important; }
+
+/* Consistent friendly cards and controls. */
+main :is(article, form, [class*="border"][class*="p-"]) {
+  border-color: var(--rc-line) !important;
+}
+main :is(section, article, form, div, li)[class*="border"] { border-radius: 1.25rem; }
+main :is(button, a[class*="px-"]) { transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease; }
+main :is(button, a[class*="px-"]):hover { transform: translateY(-1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* League detail v2 — editorial competition profile */
+.league-detail-v2 .league-section > div[class*="border"],
+.league-detail-v2 .league-section > article,
+.league-detail-v2 .league-section > div[class*="overflow-hidden"]:not(.league-contact-panel) {
+  border: 1px solid rgb(14 116 144 / .10) !important;
+  border-radius: 2rem !important;
+  background: rgb(255 255 255 / .96) !important;
+  box-shadow: 0 22px 65px rgb(18 76 98 / .08);
+}
+
+.league-detail-v2 .league-section li[class*="border"],
+.league-detail-v2 .league-section a[class*="border"] {
+  border-color: rgb(14 116 144 / .11) !important;
+  border-radius: 1.5rem !important;
+  background-color: white !important;
+  box-shadow: 0 12px 35px rgb(18 76 98 / .055);
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+
+.league-detail-v2 .league-section li[class*="border"]:hover,
+.league-detail-v2 .league-section a[class*="border"]:hover {
+  transform: translateY(-4px);
+  border-color: rgb(19 169 77 / .25) !important;
+  box-shadow: 0 22px 55px rgb(18 76 98 / .11);
+}
+
+.league-detail-v2 .league-section table {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: white;
+}
+
+.league-detail-v2 .league-section thead tr { background: linear-gradient(to left, #e7f7f2, #eaf6fb) !important; }
+.league-detail-v2 .league-section tbody tr { background: white !important; }
+.league-detail-v2 .league-section tbody tr:hover { background: #f5fbfa !important; }
+
+.league-detail-v2 .league-section > div.league-contact-panel {
+  background: linear-gradient(to left, #087eb8, #0ca36a) !important;
+  color: white !important;
+  border: 0 !important;
+  box-shadow: 0 24px 65px rgb(8 126 184 / .20) !important;
+}
+
+.league-detail-v2 .league-contact-panel > div:last-child > * {
+  background-color: rgb(255 255 255 / .14) !important;
+  color: white !important;
+  border-radius: 1rem !important;
+  box-shadow: none !important;
+}
+
+.league-detail-v2 .league-section img,
+.league-detail-v2 .league-section video,
+.league-detail-v2 .league-section iframe { border-radius: 1.5rem; }
+
+.league-detail-v2 .league-section ol[class*="border-s"] {
+  border-color: rgb(19 169 77 / .25) !important;
+}
+
+@media (max-width: 640px) {
+  .league-detail-v2 .league-section > div[class*="border"] { border-radius: 1.5rem !important; }
+  .league-detail-v2 .league-section li[class*="border"] { border-radius: 1.25rem !important; }
 }

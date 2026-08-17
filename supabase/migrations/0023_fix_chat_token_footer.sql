@@ -74,7 +74,7 @@ alter table site_settings
   add column if not exists copyright_fa text
     default '© روبوککتوس — تمامی حقوق محفوظ است.',
   add column if not exists copyright_en text
-    default '© RoboCactus — All rights reserved.',
+    default '© RoboCup Tabarestan — All rights reserved.',
   add column if not exists contact_email text,
   add column if not exists contact_address_fa text,
   add column if not exists contact_address_en text,

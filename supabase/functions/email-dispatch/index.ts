@@ -20,8 +20,8 @@ type NotificationRow = {
 
 const SUBJECTS: Record<string, { en: string; fa: string }> = {
   account_approved: {
-    fa: 'حساب شما فعال شد — RoboCactus',
-    en: 'Your account is active — RoboCactus',
+    fa: 'حساب شما فعال شد — RoboCup Tabarestan',
+    en: 'Your account is active — RoboCup Tabarestan',
   },
   league_joined: {
     fa: 'ثبت‌نام در لیگ تأیید شد',
@@ -49,15 +49,15 @@ function renderBody(templateKey: string, meta: Record<string, unknown> | null): 
       lines.push(
         name ? `Hello ${name},` : 'Hello,',
         '',
-        'Your RoboCactus account has been approved and is now active.',
+        'Your RoboCup Tabarestan account has been approved and is now active.',
         'You can sign in and continue registration from the dashboard.',
         '',
-        'حساب شما در روبوکاکتوس فعال شد. می‌توانید وارد پنل شوید.',
+        'حساب شما در روبوکاپ تبرستان فعال شد. می‌توانید وارد پنل شوید.',
       )
       break
     default:
       lines.push(
-        `RoboCactus notification: ${templateKey}`,
+        `RoboCup Tabarestan notification: ${templateKey}`,
         '',
         meta
           ? Object.entries(meta)
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     const limit = Number(body.limit ?? 50)
     const mockEnv = (Deno.env.get('EMAIL_MOCK') ?? 'true').toLowerCase() === 'true'
     const apiKey = Deno.env.get('RESEND_API_KEY') ?? ''
-    const from = Deno.env.get('EMAIL_FROM') ?? 'RoboCactus <onboarding@resend.dev>'
+    const from = Deno.env.get('EMAIL_FROM') ?? 'RoboCup Tabarestan <onboarding@resend.dev>'
     const mock = mockEnv || !apiKey
 
     const { data, error } = await supabase.rpc('list_pending_notifications', {
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       }
 
       const subject =
-        SUBJECTS[claimedRow.template_key]?.en ?? `RoboCactus · ${claimedRow.template_key}`
+        SUBJECTS[claimedRow.template_key]?.en ?? `RoboCup Tabarestan · ${claimedRow.template_key}`
       const text = renderBody(claimedRow.template_key, claimedRow.meta)
 
       let success = true

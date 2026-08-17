@@ -2,14 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 export function Corners({ className = '' }: { className?: string }) {
-  return (
-    <>
-      <span className={`pointer-events-none absolute start-0 top-0 size-3 border-s-2 border-t-2 border-rc-blue/50 ${className}`} />
-      <span className={`pointer-events-none absolute end-0 top-0 size-3 border-e-2 border-t-2 border-rc-blue/50 ${className}`} />
-      <span className={`pointer-events-none absolute bottom-0 start-0 size-3 border-s-2 border-b-2 border-rc-blue/40 ${className}`} />
-      <span className={`pointer-events-none absolute bottom-0 end-0 size-3 border-e-2 border-b-2 border-rc-blue/40 ${className}`} />
-    </>
-  )
+  return <span className={className} aria-hidden />
 }
 
 export function HudFrame({
@@ -24,12 +17,11 @@ export function HudFrame({
   return (
     <div
       className={[
-        'relative border border-rc-line bg-rc-surface/90',
-        glow ? 'shadow-[0_0_40px_-12px_var(--rc-glow-blue)]' : '',
+        'relative rounded-2xl border border-rc-line bg-white/90 shadow-[0_16px_45px_rgb(18_76_98/0.07)]',
+        glow ? 'shadow-[0_18px_55px_rgb(36_152_216/0.12)]' : '',
         className,
       ].join(' ')}
     >
-      <Corners />
       {children}
     </div>
   )
@@ -53,7 +45,7 @@ export function SectionLabel({
         <h2 className="text-lg font-semibold tracking-tight md:text-xl">{title}</h2>
       </div>
       {hint ? <p className="mt-1 text-sm text-rc-muted">{hint}</p> : null}
-      <div className="mt-3 h-px w-full bg-gradient-to-l from-rc-blue/50 via-rc-line to-transparent" />
+      <div className="mt-3 h-1 w-12 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue" />
     </div>
   )
 }
@@ -111,9 +103,8 @@ export function QuickAction({
   return (
     <Link
       to={to}
-      className="group relative block overflow-hidden border border-rc-line bg-rc-surface/80 p-4 transition hover:border-rc-blue/50 hover:bg-rc-hover"
+      className="group relative block overflow-hidden rounded-2xl border border-rc-line bg-white/90 p-5 shadow-[0_14px_40px_rgb(18_76_98/0.06)] transition hover:-translate-y-1 hover:border-rc-blue/30 hover:shadow-[0_20px_50px_rgb(18_76_98/0.11)]"
     >
-      <Corners />
       <span
         className={[
           'absolute inset-x-0 top-0 h-0.5 opacity-80',

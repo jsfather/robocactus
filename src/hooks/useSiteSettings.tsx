@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { applySiteBrandColors, fetchSiteSettings } from '@/features/settings/api'
+import { applySiteBrandColors, fetchSiteSettings, normalizeSiteBrand } from '@/features/settings/api'
 import type { SiteSettings } from '@/types/database'
 
 type Ctx = {
@@ -24,7 +24,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const s = await fetchSiteSettings()
+      const s = normalizeSiteBrand(await fetchSiteSettings())
       setSettings(s)
       applySiteBrandColors(s)
     } catch {

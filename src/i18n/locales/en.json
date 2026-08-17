@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "RoboCactus",
-    "tagline": "Robotics competition management platform",
+    "name": "RoboCup Tabarestan",
+    "tagline": "Organizer of national and international robotics competitions",
     "loading": "Loading...",
     "supabaseMissing": "Database connection is not configured.",
     "supabaseUnreachable": "Cannot reach the backend server (Failed to fetch).",
@@ -25,8 +25,8 @@
     "dashboard": "Dashboard"
   },
   "auth": {
-    "loginTitle": "Sign in to RoboCactus",
-    "signupTitle": "Create a RoboCactus account",
+    "loginTitle": "Sign in to RoboCup Tabarestan",
+    "signupTitle": "Create a RoboCup Tabarestan account",
     "fullName": "Full name",
     "phone": "Mobile number",
     "email": "Email",
@@ -95,7 +95,7 @@
   },
   "home": {
     "heroTitle": "Science & Robotics Competitions",
-    "heroSubtitle": "Team registration, league management, and result archives in one platform",
+    "heroSubtitle": "Professional robotics competitions at national and international levels",
     "ctaRegister": "Register a team",
     "ctaExplore": "Explore leagues",
     "stats": {
@@ -175,8 +175,8 @@
     "sponsorsTitle": "Sponsors",
     "sponsorsSubtitle": "Partners moving with the arena",
     "competitionStatsTitle": "Competition statistics",
-    "competitionStatsSubtitle": "Live pulse of the RoboCactus network",
-    "whyTitle": "Why RoboCactus?",
+    "competitionStatsSubtitle": "Live pulse of the RoboCup Tabarestan network",
+    "whyTitle": "Why RoboCup Tabarestan?",
     "whySubtitle": "Reasons teams and organizers choose this platform",
     "calendarTitle": "Event calendar",
     "calendarSubtitle": "Upcoming milestones you can manage from the panel",
@@ -817,7 +817,7 @@
       "gallery": "Gallery"
     },
     "blogTitle": "News & blog",
-    "blogSubtitle": "Official updates from RoboCactus",
+    "blogSubtitle": "Official updates from RoboCup Tabarestan",
     "blogEmpty": "No published posts yet.",
     "postNotFound": "Post not found or not published.",
     "draftHiddenHint": "Draft posts are invisible to the public (RLS).",
@@ -892,15 +892,15 @@
     "exportTitle": "Teams & finance export"
   },
   "seo": {
-    "siteName": "RoboCactus",
+    "siteName": "RoboCup Tabarestan",
     "pages": {
       "default": {
-        "title": "RoboCactus",
+        "title": "RoboCup Tabarestan",
         "description": "Robotics competition management — registration, leagues, results, and content."
       },
       "home": {
         "title": "Home",
-        "description": "Register teams, explore leagues, and follow results on RoboCactus."
+        "description": "Register teams, explore leagues, and follow results on RoboCup Tabarestan."
       },
       "leagues": {
         "title": "Leagues",
@@ -920,23 +920,23 @@
       },
       "blog": {
         "title": "News & blog",
-        "description": "Official RoboCactus announcements and stories."
+        "description": "Official RoboCup Tabarestan announcements and stories."
       },
       "blogPost": {
         "title": "Article",
-        "description": "RoboCactus news article."
+        "description": "RoboCup Tabarestan news article."
       },
       "gallery": {
         "title": "Gallery",
-        "description": "Photos and videos from past RoboCactus seasons."
+        "description": "Photos and videos from past RoboCup Tabarestan seasons."
       },
       "about": {
         "title": "About",
-        "description": "About the RoboCactus event and organizers."
+        "description": "About the RoboCup Tabarestan event and organizers."
       },
       "contact": {
         "title": "Contact",
-        "description": "Contact the RoboCactus secretariat."
+        "description": "Contact the RoboCup Tabarestan secretariat."
       },
       "faq": {
         "title": "FAQ",
@@ -944,7 +944,7 @@
       },
       "privacy": {
         "title": "Privacy",
-        "description": "RoboCactus privacy policy."
+        "description": "RoboCup Tabarestan privacy policy."
       },
       "login": {
         "title": "Sign in",
@@ -952,7 +952,7 @@
       },
       "signup": {
         "title": "Sign up",
-        "description": "Create a RoboCactus account with SMS or email."
+        "description": "Create a RoboCup Tabarestan account with SMS or email."
       }
     }
   },
@@ -1085,7 +1085,7 @@
     "trust": "Trust seal",
     "trustPlaceholder": "Upload seal in settings",
     "backToTop": "Back to top",
-    "copyrightDefault": "© RoboCactus — All rights reserved.",
+    "copyrightDefault": "© RoboCup Tabarestan — All rights reserved.",
     "contactEmpty": "Add contact info in site settings"
   }
 }

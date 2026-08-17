@@ -101,7 +101,7 @@ export async function startTeamPayment(input: {
 
   const result = await gateway.startPayment({
     amount: Number(input.invoice.amount),
-    description: `RoboCactus · ${input.league.name} · ${input.team.name}`,
+    description: `RoboCup Tabarestan · ${input.league.name} · ${input.team.name}`,
     callbackUrl,
     metadata,
   })

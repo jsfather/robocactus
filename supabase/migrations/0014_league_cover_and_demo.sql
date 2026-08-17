@@ -49,7 +49,7 @@ set
   participation_mode = coalesce(participation_mode, 'team'),
   team_size_min = coalesce(team_size_min, 2),
   team_size_max = coalesce(team_size_max, 5),
-  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاکتوس'),
+  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاپ تبرستان'),
   venue_address = coalesce(venue_address, 'تهران، مرکز همایش‌های بین‌المللی'),
   difficulty_level = coalesce(difficulty_level, case slug when 'rescue' then 'پیشرفته' when 'soccer' then 'متوسط' else 'پیشرفته' end),
   competition_language = coalesce(competition_language, 'فارسی / English'),

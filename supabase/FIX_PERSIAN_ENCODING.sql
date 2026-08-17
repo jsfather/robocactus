@@ -5,16 +5,16 @@ update leagues set description = 'لیگ امداد و نجات رباتیک' wh
 update leagues set description = 'لیگ فوتبال رباتیک' where slug = 'soccer';
 update leagues set description = 'لیگ ربات انسان‌نما' where slug = 'humanoid';
 
-update static_pages set title = 'درباره ما', body = '<p>روبوکاکتوس پلتفرم مدیریت مسابقات رباتیک است.</p>' where slug = 'about';
+update static_pages set title = 'درباره ما', body = '<p>روبوکاپ تبرستان پلتفرم مدیریت مسابقات رباتیک است.</p>' where slug = 'about';
 update static_pages set title = 'تماس با ما', body = '<p>برای ارتباط با دبیرخانه رویداد از فرم تماس استفاده کنید.</p>' where slug = 'contact';
 update static_pages set title = 'سوالات متداول', body = '<p>پاسخ پرسش‌های پرتکرار به‌زودی اینجا منتشر می‌شود.</p>' where slug = 'faq';
-update static_pages set title = 'حریم خصوصی', body = '<p>سیاست حفظ حریم خصوصی کاربران روبوکاکتوس.</p>' where slug = 'privacy';
+update static_pages set title = 'حریم خصوصی', body = '<p>سیاست حفظ حریم خصوصی کاربران روبوکاپ تبرستان.</p>' where slug = 'privacy';
 
 -- Also fix home_banners sample Persian titles if corrupted
 update home_banners
-set title = 'روبوکاکتوس',
+set title = 'روبوکاپ تبرستان',
     subtitle = 'رقابت رباتیک، یک پلتفرم'
-where title like '%Ù%' or title = 'روبوکاکتوس';
+where title like '%Ù%' or title = 'روبوکاپ تبرستان';
 
 update home_banners
 set title = 'ثبت‌نام تیم‌ها',

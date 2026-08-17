@@ -9,14 +9,14 @@ export function TopCompanies({ companies }: { companies: TopCompany[] }) {
   if (!companies.length) return null
 
   return (
-    <section className="border-y border-white/10 bg-rc-navy/30">
-      <div className="mx-auto max-w-6xl px-4 py-16">
+    <section className="bg-sky-50/70">
+      <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold md:text-3xl">{t('home.topCompaniesTitle')}</h2>
+            <h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.topCompaniesTitle')}</h2>
             <p className="mt-1 text-rc-muted">{t('home.topCompaniesSubtitle')}</p>
           </div>
-          <Link to="/companies" className="text-sm text-rc-blue hover:underline">
+          <Link to="/companies" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-sm">
             {t('home.viewAll')}
           </Link>
         </div>
@@ -32,7 +32,7 @@ export function TopCompanies({ companies }: { companies: TopCompany[] }) {
             >
               <Link
                 to={`/companies/${company.slug}`}
-                className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-rc-blue/40"
+                className="flex items-center gap-5 rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-[0_14px_40px_rgb(18_76_98/0.06)] transition hover:-translate-y-1 hover:shadow-lg"
               >
                 {company.logo_url ? (
                   <img
@@ -43,7 +43,7 @@ export function TopCompanies({ companies }: { companies: TopCompany[] }) {
                   />
                 ) : (
                   <div className="flex size-14 items-center justify-center rounded-lg border border-rc-blue/30 bg-rc-blue/10 font-mono text-rc-blue">
-                    RC
+                    RT
                   </div>
                 )}
                 <div className="min-w-0">

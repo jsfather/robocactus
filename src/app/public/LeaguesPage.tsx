@@ -46,12 +46,9 @@ export function LeaguesPage() {
   }, [leagues, q, category, period])
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <p className="font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">MISSION LIST</p>
-      <h1 className="mt-1 mb-2 text-3xl font-semibold">{t('nav.leagues')}</h1>
-      <p className="mb-6 text-rc-muted">{t('admin.leagues.subtitle')}</p>
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/70 via-white to-emerald-50/30"><section className="relative overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ca36a] px-4 pb-20 pt-32 text-white"><div className="absolute -end-24 -top-24 size-80 rounded-full border-[55px] border-white/10" /><div className="relative mx-auto max-w-7xl sm:px-4"><p className="text-sm font-bold text-emerald-100">مسابقات روبوکاپ تبرستان</p><h1 className="mt-3 text-4xl font-black sm:text-6xl">لیگ خودت را انتخاب کن</h1><p className="mt-5 max-w-2xl text-base leading-8 text-white/75">از میان لیگ‌های فعال، رشته متناسب با توانایی تیم خود را پیدا کنید و برای حضور در رقابت‌های ملی و بین‌المللی آماده شوید.</p></div></section><div className="relative mx-auto -mt-10 max-w-7xl px-4 pb-24 sm:px-8">
 
-      <div className="mb-8 grid gap-3 border border-rc-line bg-rc-surface/50 p-4 md:grid-cols-3">
+      <div className="mb-10 grid gap-4 rounded-[2rem] border border-sky-100 bg-white p-5 shadow-[0_22px_65px_rgb(18_76_98/0.12)] md:grid-cols-3 sm:p-7">
         <label className="block space-y-1.5 md:col-span-1">
           <span className="text-xs text-rc-muted">{t('search.title')}</span>
           <input
@@ -99,7 +96,7 @@ export function LeaguesPage() {
       {!loading && filtered.length === 0 ? (
         <p className="text-rc-muted">{t('search.empty')}</p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((league) => {
             const per = computeLeaguePeriod(league)
             const cover = leagueCoverUrl(league)
@@ -107,37 +104,35 @@ export function LeaguesPage() {
               <li key={league.id}>
                 <Link
                   to={`/leagues/${league.slug}`}
-                  className="group relative block h-full overflow-hidden border border-rc-line bg-rc-surface transition hover:border-rc-blue/50"
+                  className="group relative block h-full overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_18px_55px_rgb(18_76_98/0.08)] transition duration-300 hover:-translate-y-2 hover:border-emerald-200 hover:shadow-[0_28px_75px_rgb(18_76_98/0.15)]"
                 >
-                  <div className="relative aspect-[16/10] bg-rc-navy">
+                  <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-sky-100 to-emerald-100">
                     {cover ? (
                       <img
                         src={cover}
                         alt=""
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center font-mono text-rc-blue/40">
-                        RC
+                      <div className="flex h-full items-center justify-center text-3xl font-black text-rc-blue/30">
+                        RT
                       </div>
                     )}
                     <span
-                      className={`absolute start-3 top-3 inline-flex border px-2 py-0.5 text-xs backdrop-blur ${periodBadgeClass(per)}`}
+                      className={`absolute start-4 top-4 inline-flex rounded-full border px-3 py-1.5 text-xs font-bold shadow-sm backdrop-blur ${periodBadgeClass(per)}`}
                     >
                       {t(`leaguePage.period.${per}`)}
                     </span>
                   </div>
-                  <div className="p-5">
-                    <p className="font-mono text-xs text-rc-blue">{league.slug}</p>
-                    <h2 className="mt-1 text-xl font-semibold">{league.name}</h2>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-rc-blue">{league.category || 'لیگ رباتیک'}</p><span className="text-xs text-slate-400">{league.slug}</span></div>
+                    <h2 className="mt-3 text-xl font-black text-slate-800">{league.name}</h2>
                     {league.short_description || league.description ? (
                       <p className="mt-2 line-clamp-3 text-sm text-rc-muted">
                         {league.short_description || league.description}
                       </p>
                     ) : null}
-                    <p className="mt-4 font-mono text-rc-accent">
-                      {formatAmountToman(Number(league.registration_fee))} {t('payment.currency')}
-                    </p>
+                    <div className="mt-5 flex items-center justify-between border-t border-sky-100 pt-4"><p className="font-black text-emerald-600">{formatAmountToman(Number(league.registration_fee))} <span className="text-xs">{t('payment.currency')}</span></p><span className="flex size-10 items-center justify-center rounded-xl bg-sky-50 text-rc-blue transition group-hover:bg-rc-blue group-hover:text-white">←</span></div>
                   </div>
                 </Link>
               </li>
@@ -145,6 +140,6 @@ export function LeaguesPage() {
           })}
         </ul>
       )}
-    </div>
+    </div></div>
   )
 }

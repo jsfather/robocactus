@@ -15,7 +15,7 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
       title={t('home.calendarTitle')}
       subtitle={t('home.calendarSubtitle')}
     >
-      <ol className="relative space-y-4 border-s border-rc-blue/30 ps-6">
+      <ol className="grid gap-5 md:grid-cols-2">
         {events.map((ev, i) => (
           <motion.li
             key={ev.id}
@@ -25,10 +25,9 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
             transition={{ duration: 0.4, delay: i * 0.06 }}
             className="relative"
           >
-            <span className="absolute -start-[1.9rem] top-2 size-3 rounded-full border-2 border-rc-blue bg-rc-bg" />
-            <article className="border border-rc-line bg-rc-surface/70 p-4 md:p-5">
+            <article className="h-full rounded-[1.75rem] border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgb(18_76_98/0.07)] md:p-7">
               <div className="flex flex-wrap items-center gap-3">
-                <time className="font-mono text-xs tracking-wide text-rc-blue" dir="ltr">
+                <time className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-rc-blue" dir="ltr">
                   {formatAppDate(ev.event_date, i18n.language)}
                   {ev.end_date ? ` → ${formatAppDate(ev.end_date, i18n.language)}` : ''}
                 </time>

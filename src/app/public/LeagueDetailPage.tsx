@@ -35,7 +35,7 @@ function CountdownHud({ target }: { target: string }) {
 
   if (parts.done) {
     return (
-      <p className="font-mono text-sm tracking-widest text-rc-accent uppercase">
+      <p className="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
         {t('leaguePage.countdownDone')}
       </p>
     )
@@ -49,19 +49,19 @@ function CountdownHud({ target }: { target: string }) {
 
   return (
     <div>
-      <p className="mb-2 font-mono text-[10px] tracking-[0.35em] text-rc-blue uppercase">
+      <p className="mb-3 text-sm font-bold text-white/80">
         {t('leaguePage.countdown')}
       </p>
       <div className="flex flex-wrap gap-2">
         {cells.map((cell) => (
           <div
             key={cell.label}
-            className="min-w-[4.5rem] border border-rc-blue/35 bg-black/35 px-3 py-2 text-center backdrop-blur-sm"
+            className="min-w-[4.75rem] rounded-2xl border border-white/30 bg-white/15 px-3 py-3 text-center text-white shadow-lg backdrop-blur-md"
           >
-            <p className="font-mono text-2xl font-semibold tabular-nums text-rc-text md:text-3xl">
+            <p className="text-2xl font-black tabular-nums text-white md:text-3xl">
               {String(cell.value).padStart(2, '0')}
             </p>
-            <p className="font-mono text-[10px] tracking-widest text-rc-muted">{cell.label}</p>
+            <p className="text-[10px] font-bold text-white/65">{cell.label}</p>
           </div>
         ))}
       </div>
@@ -86,19 +86,19 @@ function SectionFrame({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
       transition={{ duration: 0.45, ease: 'easeOut' }}
-      className="relative"
+      className="league-section relative"
     >
-      <div className="mb-6 flex items-end gap-4 border-b border-rc-line pb-3">
+      <div className="mb-7 flex items-center gap-4">
         <span
           className={[
-            'font-mono text-xs tracking-[0.3em]',
-            tone === 'accent' ? 'text-rc-accent' : 'text-rc-blue',
+            'flex size-10 shrink-0 items-center justify-center rounded-2xl text-xs font-black shadow-sm',
+            tone === 'accent' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-rc-blue',
           ].join(' ')}
         >
           {index}
         </span>
-        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h2>
-        <span className="ms-auto hidden h-px flex-1 bg-gradient-to-l from-transparent to-rc-blue/40 sm:block" />
+        <h2 className="text-2xl font-black tracking-tight text-slate-800 md:text-3xl">{title}</h2>
+        <span className="ms-auto hidden h-1 w-16 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue sm:block" />
       </div>
       {children}
     </motion.section>
@@ -106,14 +106,7 @@ function SectionFrame({
 }
 
 function Corners({ className = '' }: { className?: string }) {
-  return (
-    <>
-      <span className={`pointer-events-none absolute start-0 top-0 size-3 border-s-2 border-t-2 border-rc-blue/70 ${className}`} />
-      <span className={`pointer-events-none absolute end-0 top-0 size-3 border-e-2 border-t-2 border-rc-blue/70 ${className}`} />
-      <span className={`pointer-events-none absolute start-0 bottom-0 size-3 border-s-2 border-b-2 border-rc-blue/70 ${className}`} />
-      <span className={`pointer-events-none absolute end-0 bottom-0 size-3 border-e-2 border-b-2 border-rc-blue/70 ${className}`} />
-    </>
-  )
+  return <span className={className} aria-hidden />
 }
 
 export function LeagueDetailPage() {
@@ -151,7 +144,7 @@ export function LeagueDetailPage() {
 
   if (loading) {
     return (
-      <div className="league-mission flex min-h-[50vh] items-center justify-center px-4">
+      <div className="flex min-h-[50vh] items-center justify-center px-4">
         <p className="font-mono text-sm tracking-widest text-rc-muted uppercase">{t('app.loading')}</p>
       </div>
     )
@@ -227,16 +220,15 @@ export function LeagueDetailPage() {
   ].filter(([, v]) => Boolean(v)) as [string, string][]
 
   return (
-    <div className="league-mission relative overflow-hidden">
+    <div className="league-detail-v2 relative overflow-hidden bg-[#f7fbfa]">
       {/* Atmosphere */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--rc-glow-blue),_transparent_55%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--rc-glow-orange),_transparent_50%)]" />
-        <div className="league-mission-grid absolute inset-0" />
       </div>
 
       {/* HERO — full-bleed composition */}
-      <section className="relative min-h-[88vh] overflow-hidden">
+      <section className="relative min-h-[86vh] overflow-hidden rounded-b-[3rem]">
         {league.hero_video_url ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -249,18 +241,12 @@ export function LeagueDetailPage() {
         ) : cover ? (
           <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#07101f] via-rc-bg to-[#1a0f08]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-700 via-teal-700 to-emerald-700" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-rc-bg via-rc-bg/75 to-rc-bg/25" />
-        <div className="league-mission-scan absolute inset-0" />
-        <div className="league-mission-grid absolute inset-0 opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-l from-[#06253b]/95 via-[#073248]/75 to-[#06253b]/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#06253b]/90 via-transparent to-[#06253b]/25" />
 
-        {/* HUD corner frame */}
-        <div className="pointer-events-none absolute inset-4 border border-rc-blue/20 md:inset-8">
-          <Corners />
-        </div>
-
-        <div className="relative mx-auto flex min-h-[88vh] max-w-6xl flex-col justify-end px-4 pb-16 pt-28 md:pb-20">
+        <div className="relative mx-auto flex min-h-[86vh] max-w-7xl flex-col justify-center px-4 pb-16 pt-32 sm:px-8 md:pt-36">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -268,32 +254,32 @@ export function LeagueDetailPage() {
           >
             <div className="mb-5 flex flex-wrap items-center gap-2">
               <span
-                className={`inline-flex items-center gap-2 border px-3 py-1 font-mono text-[11px] tracking-wider uppercase ${periodBadgeClass(period)}`}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold backdrop-blur-md ${periodBadgeClass(period)}`}
               >
                 <span className="size-1.5 rounded-full bg-current league-node-pulse" />
                 {t(`leaguePage.period.${period}`)}
               </span>
               <span
-                className={`inline-flex items-center gap-2 border px-3 py-1 font-mono text-[11px] tracking-wider ${periodBadgeClass(
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold backdrop-blur-md ${periodBadgeClass(
                   period === 'open' ? 'open' : period === 'full' ? 'full' : 'ended',
                 )}`}
               >
                 {statusLabel}
               </span>
               {league.category ? (
-                <span className="border border-rc-line bg-black/30 px-3 py-1 font-mono text-[11px] tracking-wider text-rc-muted uppercase backdrop-blur-sm">
+                <span className="rounded-full border border-rc-line bg-white/85 px-3 py-1 text-[11px] text-rc-muted shadow-sm backdrop-blur-sm">
                   {league.category}
                 </span>
               ) : null}
             </div>
 
-            <p className="font-mono text-[11px] tracking-[0.4em] text-rc-blue uppercase">
-              RoboCactus · Mission Pack
+            <p className="text-sm font-bold text-emerald-300">
+              روبوکاپ تبرستان · معرفی لیگ
             </p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl">
+            <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[1.12] tracking-tight text-white sm:text-5xl md:text-7xl">
               {league.name}
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-rc-muted md:text-lg">
+            <p className="mt-6 max-w-2xl text-base leading-8 text-white/78 md:text-lg">
               {league.short_description || league.description}
             </p>
 
@@ -306,7 +292,7 @@ export function LeagueDetailPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 to={regPath}
-                className="group relative inline-flex items-center gap-2 bg-rc-accent px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+                className="group relative inline-flex items-center gap-2 rounded-2xl bg-rc-accent px-6 py-3.5 text-sm font-bold text-white shadow-[0_14px_35px_rgb(19_169_77/0.3)] transition hover:-translate-y-1"
               >
                 <span className="font-mono text-[10px] tracking-widest opacity-80">01</span>
                 {ctaLabel}
@@ -317,7 +303,7 @@ export function LeagueDetailPage() {
                   href={league.regulation_pdf_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 border border-rc-blue/50 bg-rc-blue/10 px-6 py-3 text-sm text-rc-blue backdrop-blur-sm transition hover:bg-rc-blue/20"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/35 bg-white/12 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-md transition hover:bg-white/20"
                 >
                   <span className="font-mono text-[10px] tracking-widest">02</span>
                   {t('leaguePage.downloadRules')}
@@ -335,7 +321,7 @@ export function LeagueDetailPage() {
         </div>
       </section>
 
-      <div className="relative mx-auto max-w-6xl space-y-20 px-4 py-16 md:py-24">
+      <div className="relative mx-auto max-w-7xl space-y-24 px-4 py-20 sm:px-8 md:py-28">
         {(league.full_description || league.description) && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.about')}>
             <div className="relative border border-rc-line bg-rc-surface/80 p-6 backdrop-blur-sm md:p-8">
@@ -426,25 +412,24 @@ export function LeagueDetailPage() {
 
         {timeline.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.timeline')}>
-            <ol className="relative space-y-0 border-s border-rc-blue/30 ps-8">
+            <ol className="relative grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {timeline.map((step, i) => (
-                <li key={i} className="relative pb-8 last:pb-0">
-                  <span className="absolute -start-[2.15rem] top-1 size-3 border-2 border-rc-blue bg-rc-bg league-node-pulse" />
-                  <p className="font-mono text-[10px] tracking-[0.3em] text-rc-blue">
-                    PHASE {String(i + 1).padStart(2, '0')}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold">{step.title}</p>
+                <motion.li key={i} whileHover={{ y: -6 }} className="group relative overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white p-6 shadow-[0_16px_45px_rgb(18_76_98/0.07)]">
+                  <span className="absolute -end-6 -top-8 text-8xl font-black text-sky-50">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="relative mb-5 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-rc-accent text-lg font-black text-white shadow-lg">{i + 1}</div>
+                  <p className="relative text-xl font-black text-slate-800">{step.title}</p>
                   {step.date ? (
-                    <p className="mt-1 font-mono text-xs text-rc-muted">
+                    <p className="relative mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                       {Number.isNaN(new Date(step.date).getTime())
                         ? step.date
                         : formatAppDateTime(step.date, i18n.language)}
                     </p>
                   ) : null}
                   {step.description ? (
-                    <p className="mt-1 max-w-2xl text-sm text-rc-muted">{step.description}</p>
+                    <p className="relative mt-4 text-sm leading-7 text-rc-muted">{step.description}</p>
                   ) : null}
-                </li>
+                  <div className="absolute inset-x-8 bottom-0 h-1 rounded-t-full bg-gradient-to-l from-rc-accent to-rc-blue opacity-0 transition group-hover:opacity-100" />
+                </motion.li>
               ))}
             </ol>
           </SectionFrame>
@@ -606,26 +591,26 @@ export function LeagueDetailPage() {
 
         {bundle.faqs.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.faq')}>
-            <ul className="divide-y divide-rc-line border border-rc-line">
+            <ul className="mx-auto max-w-4xl space-y-4">
               {bundle.faqs.map((item, i) => {
                 const open = openFaq === item.id
                 return (
-                  <li key={item.id}>
+                  <li key={item.id} className={`overflow-hidden rounded-[1.5rem] border bg-white shadow-[0_12px_35px_rgb(18_76_98/0.06)] transition ${open ? 'border-emerald-200 shadow-[0_18px_50px_rgb(18_76_98/0.1)]' : 'border-sky-100'}`}>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-3 px-4 py-4 text-start text-sm font-medium transition hover:bg-rc-hover"
+                      className="flex w-full items-center gap-4 px-5 py-5 text-start transition hover:bg-sky-50/60 sm:px-6"
                       onClick={() => setOpenFaq(open ? null : item.id)}
                     >
-                      <span className="font-mono text-[10px] text-rc-blue">
-                        Q{String(i + 1).padStart(2, '0')}
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-xs font-black text-rc-blue">
+                        {String(i + 1).padStart(2, '0')}
                       </span>
-                      <span className="flex-1">{item.question}</span>
-                      <span className="font-mono text-rc-blue">{open ? '−' : '+'}</span>
+                      <span className="flex-1 font-bold text-slate-700">{item.question}</span>
+                      <span className={`flex size-9 items-center justify-center rounded-full text-xl transition ${open ? 'rotate-45 bg-emerald-100 text-emerald-700' : 'bg-sky-50 text-rc-blue'}`}>+</span>
                     </button>
                     {open ? (
-                      <p className="border-t border-rc-line-soft bg-rc-navy/50 px-4 py-4 ps-12 text-sm text-rc-muted">
+                      <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="border-t border-emerald-100 bg-emerald-50/35 px-6 py-5 text-sm leading-8 text-rc-muted sm:ps-20">
                         {item.answer}
-                      </p>
+                      </motion.p>
                     ) : null}
                   </li>
                 )
@@ -813,27 +798,27 @@ export function LeagueDetailPage() {
 
         {(league.secretary_name || league.contact_email || league.secretary_phone) && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.contact')}>
-            <div className="relative grid gap-4 border border-rc-line bg-rc-surface p-6 sm:grid-cols-2 md:grid-cols-4">
-              <Corners />
+            <div className="league-contact-panel relative overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#087eb8] to-[#0ca36a] p-6 text-white shadow-[0_24px_65px_rgb(8_126_184/0.2)] sm:p-8">
+              <div className="absolute -end-16 -top-20 size-64 rounded-full border-[40px] border-white/10" />
+              <div className="relative mb-7 flex flex-wrap items-center gap-4"><div className="flex size-14 items-center justify-center rounded-2xl bg-white/15 text-xl font-black backdrop-blur">د</div><div><p className="text-xl font-black">ارتباط مستقیم با دبیر لیگ</p><p className="mt-1 text-sm text-white/70">برای پرسش‌های فنی، ثبت‌نام و هماهنگی تیم‌ها</p></div></div>
+              <div className="relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {league.secretary_name ? (
-                <div>
-                  <p className="font-mono text-[10px] tracking-widest text-rc-muted uppercase">Name</p>
-                  <p className="mt-1 font-medium">{league.secretary_name}</p>
+                <div className="rounded-2xl bg-[rgba(255,255,255,0.14)] p-4 backdrop-blur-sm">
+                  <p className="text-xs font-bold text-white/60">دبیر لیگ</p>
+                  <p className="mt-2 font-bold">{league.secretary_name}</p>
                 </div>
               ) : null}
               {league.secretary_phone ? (
-                <div>
-                  <p className="font-mono text-[10px] tracking-widest text-rc-muted uppercase">Phone</p>
-                  <p className="mt-1 font-mono" dir="ltr">
-                    {league.secretary_phone}
-                  </p>
-                </div>
+                <a href={`tel:${league.secretary_phone}`} className="rounded-2xl bg-[rgba(255,255,255,0.14)] p-4 text-white backdrop-blur-sm hover:bg-[rgba(255,255,255,0.22)]">
+                  <p className="text-xs font-bold text-white/60">تماس تلفنی</p>
+                  <p className="mt-2 font-bold" dir="ltr">{league.secretary_phone}</p>
+                </a>
               ) : null}
               {league.contact_email ? (
-                <div>
-                  <p className="font-mono text-[10px] tracking-widest text-rc-muted uppercase">Email</p>
+                <div className="rounded-2xl bg-[rgba(255,255,255,0.14)] p-4 backdrop-blur-sm">
+                  <p className="text-xs font-bold text-white/60">ایمیل رسمی</p>
                   <a
-                    className="mt-1 block text-rc-blue hover:underline"
+                    className="mt-2 block break-all font-bold text-white hover:underline"
                     href={`mailto:${league.contact_email}`}
                   >
                     {league.contact_email}
@@ -841,10 +826,10 @@ export function LeagueDetailPage() {
                 </div>
               ) : null}
               {league.secretary_telegram ? (
-                <div>
-                  <p className="font-mono text-[10px] tracking-widest text-rc-muted uppercase">Comms</p>
+                <div className="rounded-2xl bg-[rgba(255,255,255,0.14)] p-4 backdrop-blur-sm">
+                  <p className="text-xs font-bold text-white/60">پیام‌رسان</p>
                   <a
-                    className="mt-1 inline-block text-rc-blue hover:underline"
+                    className="mt-2 inline-block font-bold text-white hover:underline"
                     href={league.secretary_telegram}
                     target="_blank"
                     rel="noreferrer"
@@ -853,6 +838,7 @@ export function LeagueDetailPage() {
                   </a>
                 </div>
               ) : null}
+              </div>
             </div>
           </SectionFrame>
         )}

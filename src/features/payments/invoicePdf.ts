@@ -28,8 +28,8 @@ export function buildInvoiceHtml(input: {
 </head>
 <body>
   <button onclick="window.print()">چاپ / ذخیره PDF</button>
-  <h1>فاکتور روبوکاکتوس</h1>
-  <p class="muted">RoboCactus Invoice</p>
+  <h1>فاکتور روبوکاپ تبرستان</h1>
+  <p class="muted">RoboCup Tabarestan Invoice</p>
   <div class="box">
     <p><strong>شماره فاکتور:</strong> ${invoice.invoice_number ?? '—'}</p>
     <p><strong>وضعیت:</strong> <span class="badge">${invoice.status}</span></p>

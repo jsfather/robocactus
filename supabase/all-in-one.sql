@@ -1,9 +1,9 @@
+-- RoboCup Tabarestan ALL-IN-ONE (UTF-8)
+-- Paste into Supabase SQL Editor and Run once
 
--- ========================================== --
--- FILE: ./supabase/migrations/0001_init.sql --
--- ========================================== --
 
--- RoboCactus Phase 0: initial schema, RLS, profile trigger
+-- >>> BEGIN 0001_init.sql
+-- RoboCup Tabarestan Phase 0: initial schema, RLS, profile trigger
 
 -- ============ ENUM TYPES ============
 create type user_role as enum (
@@ -798,11 +798,9 @@ create policy "team_documents_delete"
       or public.is_super_admin()
     )
   );
+-- <<< END 0001_init.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0002_phase1_companies_teams.sql --
--- ========================================== --
-
+-- >>> BEGIN 0002_phase1_companies_teams.sql
 -- Phase 1: company ownership helpers, captain invites, logos bucket
 
 -- One team per company per league
@@ -1046,11 +1044,9 @@ create policy "company_logos_delete"
 -- Staff/league can still select teams; company_admin update via membership
 
 grant usage on schema public to authenticated;
+-- <<< END 0002_phase1_companies_teams.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0003_phase2_payments.sql --
--- ========================================== --
-
+-- >>> BEGIN 0003_phase2_payments.sql
 -- Phase 2: payments, invoices workflow, secure status transitions
 
 create extension if not exists pgcrypto;
@@ -1343,11 +1339,9 @@ from invoices i
 join teams t on t.id = i.team_id
 join leagues l on l.id = t.league_id
 join companies c on c.id = i.company_id;
+-- <<< END 0003_phase2_payments.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0004_phase3_super_admin.sql --
--- ========================================== --
-
+-- >>> BEGIN 0004_phase3_super_admin.sql
 -- Phase 3: super-admin helpers for roles and league admin assignment
 
 create or replace function public.set_user_role(p_user_id uuid, p_role user_role)
@@ -1455,11 +1449,9 @@ grant execute on function public.remove_league_admin to authenticated;
 
 -- Allow super_admin to select all profiles even if other policies overlap (already covered)
 -- Ensure inactive leagues can be managed (already covered by leagues_super_admin_all)
+-- <<< END 0004_phase3_super_admin.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0005_phase4_judging_tickets.sql --
--- ========================================== --
-
+-- >>> BEGIN 0005_phase4_judging_tickets.sql
 -- Phase 4: judging + staff ticketing helpers and tighter ticket visibility
 
 -- League admins need to download team documents while reviewing
@@ -1918,11 +1910,9 @@ $$;
 
 revoke all on function public.upsert_team_result from public;
 grant execute on function public.upsert_team_result to authenticated;
+-- <<< END 0005_phase4_judging_tickets.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0006_phase5_notifications.sql --
--- ========================================== --
-
+-- >>> BEGIN 0006_phase5_notifications.sql
 -- Phase 5: SMS notifications with idempotent notification_log
 
 alter table notification_log
@@ -2278,11 +2268,9 @@ create policy "notification_log_insert_service"
 drop policy if exists "notification_log_update_super_admin" on notification_log;
 create policy "notification_log_update_super_admin"
   on notification_log for update using (public.is_super_admin());
+-- <<< END 0006_phase5_notifications.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0007_phase6_realtime_tickets.sql --
--- ========================================== --
-
+-- >>> BEGIN 0007_phase6_realtime_tickets.sql
 -- Phase 6: Realtime ticketing + unread receipts
 
 create table if not exists ticket_reads (
@@ -2503,11 +2491,9 @@ end $$;
 alter table ticket_messages replica identity full;
 alter table tickets replica identity full;
 alter table ticket_reads replica identity full;
+-- <<< END 0007_phase6_realtime_tickets.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0008_phase7_public_rankings.sql --
--- ========================================== --
-
+-- >>> BEGIN 0008_phase7_public_rankings.sql
 -- Phase 7: public visibility for teams shown in rankings / company profiles
 
 -- Anonymous visitors need to read team names joined from published results,
@@ -2540,11 +2526,9 @@ join leagues l on l.id = r.league_id
 where r.published_at is not null
   and r.rank is not null
   and r.rank <= 3;
+-- <<< END 0008_phase7_public_rankings.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0009_phase8_content.sql --
--- ========================================== --
-
+-- >>> BEGIN 0009_phase8_content.sql
 -- Phase 8: content media storage for blog covers & gallery
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -2577,11 +2561,9 @@ create policy "content_media_super_admin_delete"
     bucket_id = 'content-media'
     and public.is_super_admin()
   );
+-- <<< END 0009_phase8_content.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0010_phase9_home.sql --
--- ========================================== --
-
+-- >>> BEGIN 0010_phase9_home.sql
 -- Phase 9: home stats RPC + contact form inbox
 
 create or replace function public.home_stats()
@@ -2642,7 +2624,7 @@ create policy "contact_messages_select_admin"
 insert into home_banners (title, subtitle, image_url, link_url, sort_order, is_active)
 select * from (values
   (
-    'روبوکاکتوس',
+    'روبوکاپ تبرستان',
     'رقابت رباتیک، یک پلتفرم',
     'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1600&q=80',
     '/leagues',
@@ -2659,11 +2641,9 @@ select * from (values
   )
 ) as v(title, subtitle, image_url, link_url, sort_order, is_active)
 where not exists (select 1 from home_banners limit 1);
+-- <<< END 0010_phase9_home.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0011_phase10_analytics_otp.sql --
--- ========================================== --
-
+-- >>> BEGIN 0011_phase10_analytics_otp.sql
 -- Phase 10: SMS OTP challenges + analytics + realtime for live dashboards
 
 -- ============ OTP ============
@@ -2828,11 +2808,9 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
+-- <<< END 0011_phase10_analytics_otp.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0012_fix_company_members_rls.sql --
--- ========================================== --
-
+-- >>> BEGIN 0012_fix_company_members_rls.sql
 -- Fix infinite recursion on company_members RLS
 -- Run in Supabase SQL Editor
 
@@ -2904,11 +2882,9 @@ create policy "companies_manage"
     public.is_company_member(id)
     or public.is_super_admin()
   );
+-- <<< END 0012_fix_company_members_rls.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0013_league_detail_pages.sql --
--- ========================================== --
-
+-- >>> BEGIN 0013_league_detail_pages.sql
 -- Phase: full league public page + admin-managed content
 
 alter table leagues
@@ -3058,11 +3034,9 @@ $$;
 
 revoke all on function public.league_registered_count(uuid) from public;
 grant execute on function public.league_registered_count(uuid) to anon, authenticated;
+-- <<< END 0013_league_detail_pages.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0014_league_cover_and_demo.sql --
--- ========================================== --
-
+-- >>> BEGIN 0014_league_cover_and_demo.sql
 -- Cover image column + rich demo content for league public pages
 
 alter table leagues
@@ -3114,7 +3088,7 @@ set
   participation_mode = coalesce(participation_mode, 'team'),
   team_size_min = coalesce(team_size_min, 2),
   team_size_max = coalesce(team_size_max, 5),
-  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاکتوس'),
+  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاپ تبرستان'),
   venue_address = coalesce(venue_address, 'تهران، مرکز همایش‌های بین‌المللی'),
   difficulty_level = coalesce(difficulty_level, case slug when 'rescue' then 'پیشرفته' when 'soccer' then 'متوسط' else 'پیشرفته' end),
   competition_language = coalesce(competition_language, 'فارسی / English'),
@@ -3254,11 +3228,9 @@ where l.slug = 'rescue'
   and not exists (
     select 1 from announcements a where a.league_id = l.id and a.title = 'آغاز ثبت‌نام لیگ امدادگر'
   );
+-- <<< END 0014_league_cover_and_demo.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0015_content_seo_fields.sql --
--- ========================================== --
-
+-- >>> BEGIN 0015_content_seo_fields.sql
 -- SEO + excerpt fields for blog posts and announcements
 
 alter table blog_posts
@@ -3274,11 +3246,9 @@ alter table announcements
   add column if not exists meta_description text,
   add column if not exists cover_image text,
   add column if not exists updated_at timestamptz default now();
+-- <<< END 0015_content_seo_fields.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0016_ticket_departments.sql --
--- ========================================== --
-
+-- >>> BEGIN 0016_ticket_departments.sql
 -- Ticket support departments (queues) + optional FK on tickets
 
 create table if not exists ticket_departments (
@@ -3346,11 +3316,9 @@ $$;
 
 revoke all on function public.ticket_status_counts from public;
 grant execute on function public.ticket_status_counts to authenticated;
+-- <<< END 0016_ticket_departments.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0017_static_pages_seo.sql --
--- ========================================== --
-
+-- >>> BEGIN 0017_static_pages_seo.sql
 -- SEO + media fields for static pages
 
 alter table static_pages
@@ -3359,23 +3327,21 @@ alter table static_pages
   add column if not exists meta_description text,
   add column if not exists og_image text,
   add column if not exists cover_image text;
+-- <<< END 0017_static_pages_seo.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0018_site_settings.sql --
--- ========================================== --
-
+-- >>> BEGIN 0018_site_settings.sql
 -- Global site settings (single-row)
 
 create table if not exists site_settings (
   id int primary key default 1 check (id = 1),
-  site_name_fa text not null default 'روبوکاکتوس',
-  site_name_en text not null default 'RoboCactus',
+  site_name_fa text not null default 'روبوکاپ تبرستان',
+  site_name_en text not null default 'RoboCup Tabarestan',
   tagline_fa text default 'پلتفرم مسابقات رباتیک',
   tagline_en text default 'Robotics competition platform',
   logo_url text,
   favicon_url text,
-  color_primary text default '#3b82f6',
-  color_accent text default '#fb923c',
+  color_primary text default '#2498d8',
+  color_accent text default '#25d366',
   seo_title_fa text,
   seo_title_en text,
   seo_description_fa text,
@@ -3417,11 +3383,9 @@ create policy "site_settings_sa_write"
   to authenticated
   using (public.is_super_admin())
   with check (public.is_super_admin());
+-- <<< END 0018_site_settings.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0019_notify_signup_companies.sql --
--- ========================================== --
-
+-- >>> BEGIN 0019_notify_signup_companies.sql
 -- Notifications hub, signup activation, company cover, league judging path, registration docs
 
 -- ── profiles: account type / activation ──────────────────────────────
@@ -3671,11 +3635,9 @@ $$;
 
 revoke all on function public.activate_user_account from public;
 grant execute on function public.activate_user_account to authenticated;
+-- <<< END 0019_notify_signup_companies.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0020_sms_flags_league_admin.sql --
--- ========================================== --
-
+-- >>> BEGIN 0020_sms_flags_league_admin.sql
 -- Respect sms_settings toggles, league_joined on paid registration,
 -- always promote assign_league_admin role, incomplete-profile enqueue helper
 
@@ -3899,19 +3861,15 @@ $$;
 
 revoke all on function public.enqueue_incomplete_profile_sms from public;
 grant execute on function public.enqueue_incomplete_profile_sms to authenticated;
+-- <<< END 0020_sms_flags_league_admin.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0021_live_chat_sms_tickets.sql --
--- ========================================== --
-
+-- >>> BEGIN 0021_live_chat_sms_tickets.sql
 -- Intentionally no-op: first attempt failed mid-file on reply_ticket revoke.
 -- Full schema is applied in 0022_fix_reply_ticket_chat.sql
 select 1;
+-- <<< END 0021_live_chat_sms_tickets.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0022_fix_reply_ticket_chat.sql --
--- ========================================== --
-
+-- >>> BEGIN 0022_fix_reply_ticket_chat.sql
 -- Fix reply_ticket overload ambiguity + ensure 0021 objects exist
 
 drop function if exists public.reply_ticket(uuid, text, boolean);
@@ -4439,11 +4397,9 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
+-- <<< END 0022_fix_reply_ticket_chat.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0023_fix_chat_token_footer.sql --
--- ========================================== --
-
+-- >>> BEGIN 0023_fix_chat_token_footer.sql
 -- Fix gen_random_bytes (pgcrypto often lives in extensions schema)
 -- Enrich public footer fields
 
@@ -4520,17 +4476,15 @@ alter table site_settings
   add column if not exists copyright_fa text
     default '© روبوککتوس — تمامی حقوق محفوظ است.',
   add column if not exists copyright_en text
-    default '© RoboCactus — All rights reserved.',
+    default '© RoboCup Tabarestan — All rights reserved.',
   add column if not exists contact_email text,
   add column if not exists contact_address_fa text,
   add column if not exists contact_address_en text,
   add column if not exists trust_seal_url text,
   add column if not exists trust_seal_href text;
+-- <<< END 0023_fix_chat_token_footer.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0024_chat_token_uuid_only.sql --
--- ========================================== --
-
+-- >>> BEGIN 0024_chat_token_uuid_only.sql
 -- Hard-fix live chat token: never call gen_random_bytes
 
 create or replace function public.start_live_chat(
@@ -4592,11 +4546,9 @@ begin
   );
 end;
 $$;
+-- <<< END 0024_chat_token_uuid_only.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0025_home_sections.sql --
--- ========================================== --
-
+-- >>> BEGIN 0025_home_sections.sql
 -- Homepage sections: sponsors, events, partners, why cards, FAQs, display stats
 
 create table if not exists home_sponsors (
@@ -4772,11 +4724,9 @@ select * from (values
   ('Sponsor F', 'https://placehold.co/160x64/0f172a/fb923c?text=Sponsor+F', 6)
 ) as v(name, logo_url, sort_order)
 where not exists (select 1 from home_sponsors limit 1);
+-- <<< END 0025_home_sections.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0026_email_auth_notifications.sql --
--- ========================================== --
-
+-- >>> BEGIN 0026_email_auth_notifications.sql
 -- Email auth + email notifications for international users
 
 alter table profiles
@@ -4977,11 +4927,9 @@ $$;
 
 revoke all on function public.list_pending_notifications(integer, text) from public;
 grant execute on function public.list_pending_notifications(integer, text) to service_role;
+-- <<< END 0026_email_auth_notifications.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0027_live_results_boards.sql --
--- ========================================== --
-
+-- >>> BEGIN 0027_live_results_boards.sql
 -- Live / final results boards for public pages
 
 alter table leagues
@@ -5068,11 +5016,9 @@ begin
     when duplicate_object then null;
   end;
 end $$;
+-- <<< END 0027_live_results_boards.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0028_live_results_realtime.sql --
--- ========================================== --
-
+-- >>> BEGIN 0028_live_results_realtime.sql
 -- Realtime for live results boards (idempotent)
 
 do $$
@@ -5088,11 +5034,9 @@ begin
     when duplicate_object then null;
   end;
 end $$;
+-- <<< END 0028_live_results_realtime.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0029_nav_live_results.sql --
--- ========================================== --
-
+-- >>> BEGIN 0029_nav_live_results.sql
 -- Ensure public nav includes Live Results (insert after Home)
 
 update site_settings
@@ -5146,11 +5090,9 @@ where id = 1
     from jsonb_array_elements(nav_items) el
     where el->>'href' in ('/live', '/live/')
   );
+-- <<< END 0029_nav_live_results.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0030_team_members_competitions.sql --
--- ========================================== --
-
+-- >>> BEGIN 0030_team_members_competitions.sql
 -- Richer team members + review status + profile admin edits
 
 alter table team_members
@@ -5275,11 +5217,9 @@ $$;
 
 revoke all on function public.admin_update_profile from public;
 grant execute on function public.admin_update_profile to authenticated;
+-- <<< END 0030_team_members_competitions.sql
 
--- ========================================== --
--- FILE: ./supabase/migrations/0031_gallery_categories.sql --
--- ========================================== --
-
+-- >>> BEGIN 0031_gallery_categories.sql
 -- Standalone gallery categories (CMS + public)
 
 create table if not exists gallery_categories (
@@ -5319,3 +5259,207 @@ select * from (values
   ('پشت صحنه', 'Behind the scenes', 3)
 ) as v(name_fa, name_en, sort_order)
 where not exists (select 1 from gallery_categories limit 1);
+-- <<< END 0031_gallery_categories.sql
+
+-- >>> BEGIN 0032_tabarestan_rebrand.sql
+-- Rebrand existing installations to RoboCup Tabarestan.
+update public.site_settings
+set site_name_fa = 'روبوکاپ تبرستان', site_name_en = 'RoboCup Tabarestan',
+    tagline_fa = coalesce(nullif(tagline_fa, ''), 'از قلب مازندران، رو به آینده'),
+    tagline_en = coalesce(nullif(tagline_en, ''), 'From Mazandaran to the future'),
+    color_primary = '#2498d8', color_accent = '#25d366', updated_at = now()
+where id = 1;
+
+update public.static_pages
+set body = replace(replace(body, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan')
+where body like '%روبوکاکتوس%' or body like '%RoboCactus%';
+
+update public.blog_posts
+set title = replace(replace(title, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
+    excerpt = replace(replace(excerpt, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
+    body = replace(replace(body, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan')
+where title like '%روبوکاکتوس%' or title like '%RoboCactus%'
+   or excerpt like '%روبوکاکتوس%' or excerpt like '%RoboCactus%'
+   or body like '%روبوکاکتوس%' or body like '%RoboCactus%';
+-- <<< END 0032_tabarestan_rebrand.sql
+
+-- >>> BEGIN 0033_competition_brand_positioning.sql
+-- Align existing CMS content with the competition organizer positioning.
+update public.site_settings
+set site_name_fa = 'روبوکاپ تبرستان',
+    site_name_en = 'RoboCup Tabarestan',
+    tagline_fa = 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک',
+    tagline_en = 'Organizer of national and international robotics competitions',
+    footer_fa = replace(replace(replace(coalesce(footer_fa, ''), 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
+    footer_en = replace(coalesce(footer_en, ''), 'RoboCactus', 'RoboCup Tabarestan'),
+    updated_at = now()
+where id = 1;
+
+update public.home_banners
+set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
+    subtitle = case when sort_order = 0 then 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک' else replace(replace(replace(subtitle, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan') end;
+
+update public.static_pages
+set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
+    body = replace(replace(replace(body, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan');
+-- <<< END 0033_competition_brand_positioning.sql
+
+-- >>> BEGIN 0034_replace_competition_leagues.sql
+-- Replace the legacy league catalog with the approved national competition list.
+-- Existing teams/results/content tied to removed leagues are intentionally deleted.
+do $$
+declare
+  sample_league_id uuid;
+  league_ids uuid[];
+  team_ids uuid[];
+  fk record;
+begin
+  -- Keep exactly one legacy league as an inactive/editable panel draft sample.
+  select id into sample_league_id from public.leagues order by created_at, id limit 1;
+  if sample_league_id is not null then
+    update public.leagues
+    set is_active = false,
+        period_override = 'upcoming',
+        name = case when name like 'نمونه پیش‌نویس — %' then name else 'نمونه پیش‌نویس — ' || name end
+    where id = sample_league_id;
+  end if;
+
+  select coalesce(array_agg(id), array[]::uuid[]) into league_ids
+  from public.leagues where id is distinct from sample_league_id;
+  select coalesce(array_agg(id), array[]::uuid[]) into team_ids from public.teams where league_id = any(league_ids);
+
+  for fk in
+    select ns.nspname schema_name, cl.relname table_name, att.attname column_name
+    from pg_constraint con
+    join pg_class cl on cl.oid = con.conrelid
+    join pg_namespace ns on ns.oid = cl.relnamespace
+    join pg_attribute att on att.attrelid = con.conrelid and att.attnum = con.conkey[1]
+    where con.contype = 'f' and con.confrelid = 'public.teams'::regclass and cardinality(con.conkey) = 1
+  loop
+    execute format('delete from %I.%I where %I = any($1)', fk.schema_name, fk.table_name, fk.column_name) using team_ids;
+  end loop;
+
+  delete from public.teams where id = any(team_ids);
+
+  for fk in
+    select ns.nspname schema_name, cl.relname table_name, att.attname column_name
+    from pg_constraint con
+    join pg_class cl on cl.oid = con.conrelid
+    join pg_namespace ns on ns.oid = cl.relnamespace
+    join pg_attribute att on att.attrelid = con.conrelid and att.attnum = con.conkey[1]
+    where con.contype = 'f' and con.confrelid = 'public.leagues'::regclass
+      and cardinality(con.conkey) = 1 and cl.relname <> 'teams'
+  loop
+    execute format('delete from %I.%I where %I = any($1)', fk.schema_name, fk.table_name, fk.column_name) using league_ids;
+  end loop;
+
+  delete from public.leagues where id = any(league_ids);
+end $$;
+
+insert into public.leagues (
+  name, slug, description, short_description, full_description, category, age_range,
+  capacity, registration_fee, registration_open_at, registration_close_at,
+  event_starts_at, event_ends_at, participation_mode, team_size_min, team_size_max,
+  cover_image_url, hero_image_url, venue_name, difficulty_level, competition_language,
+  rules_summary, scoring_rows, timeline_steps, is_active, period_override
+)
+values
+('لیگ ناجی داخل سالن زیر ۱۴ سال','indoor-rescue-u14','رقابت ربات‌های امدادگر خودران در زمین ماز و سناریوهای جست‌وجو و نجات داخل سالن.','مسیریابی، تشخیص مصدوم و اجرای عملیات نجات برای تیم‌های زیر ۱۴ سال.','تیم‌ها باید رباتی خودران طراحی کنند که در یک زمین استاندارد داخل سالن، مسیر را پیمایش کرده، علائم مصدوم را تشخیص دهد و مأموریت نجات را با بیشترین دقت انجام دهد.','امداد و نجات','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/indoor-rescue-cover.png','/images/leagues/indoor-rescue-hero.png','سالن مسابقات روبوکاپ تبرستان','مقدماتی تا متوسط','فارسی', 'ابعاد زمین ۴×۴ متر و کنترل داوری مطابق آیین‌نامه رسمی لیگ است.','[{"label":"تکمیل مأموریت","points":60},{"label":"دقت تشخیص","points":25},{"label":"زمان اجرا","points":15}]','[{"title":"پذیرش فنی"},{"title":"مرحله مقدماتی"},{"title":"مرحله نهایی"}]',true,'open'),
+('لیگ ناجی فضای باز آزاد','outdoor-rescue-open','رقابت ربات‌های امدادگر مقاوم برای عبور از موانع و سناریوهای عملیات در فضای باز.','عملیات امداد و نجات رباتیک در زمین ۵۰ متری فضای باز.','این لیگ توان حرکتی، پایداری، کنترل و سامانه دید ربات‌های امدادگر را در محیط‌های ناهموار و مأموریت‌های نزدیک به شرایط واقعی ارزیابی می‌کند.','امداد و نجات','آزاد',100,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/outdoor-rescue-cover.png','/images/leagues/outdoor-rescue-hero.png','محوطه مسابقات روبوکاپ تبرستان','پیشرفته','فارسی / انگلیسی','زمین مسابقه فضای باز با مسیر ناهموار و طول تقریبی ۵۰ متر است.','[{"label":"عبور از موانع","points":40},{"label":"تکمیل مأموریت","points":40},{"label":"زمان اجرا","points":20}]','[{"title":"بازرسی ایمنی"},{"title":"تست مسیر"},{"title":"فینال عملیات"}]',true,'open'),
+('لیگ Space Race آزاد','space-race-open','مسابقه سرعت و هدایت ربات‌های خودران در پیست فضایی و مسیرهای فنی.','رقابت سرعت رباتیک در پیست استاندارد ۲۰۰ متری.','ربات‌های خودران در پیستی با الهام از مأموریت‌های فضایی، بر اساس سرعت، دقت مسیریابی و پایداری فنی رقابت می‌کنند.','Space Race','آزاد',250,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/space-race-cover.png','/images/leagues/space-race-hero.png','پیست مسابقات روبوکاپ تبرستان','پیشرفته','فارسی / انگلیسی','پیست مسابقه حدود ۲۰۰ متر و کنترل ربات در بخش اصلی خودران است.','[{"label":"بهترین زمان","points":60},{"label":"دقت مسیر","points":25},{"label":"پایداری فنی","points":15}]','[{"title":"تأیید فنی"},{"title":"تایم‌تریال"},{"title":"مسابقه نهایی"}]',true,'open'),
+('لیگ آتش‌نشان آزاد','firefighter-open','رقابت شناسایی و مهار حریق توسط ربات‌های آتش‌نشان در زمین چندطبقه.','شناسایی منبع حریق و اجرای عملیات اطفا در زمین استاندارد.','ربات‌ها باید در زمینی چندبخشی حرکت کنند، منبع حریق را تشخیص دهند و با رعایت کامل الزامات ایمنی عملیات اطفا را انجام دهند.','آتش‌نشان','آزاد',50,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,5,'/images/leagues/firefighter-cover.png','/images/leagues/firefighter-hero.png','سالن مسابقات روبوکاپ تبرستان','پیشرفته','فارسی','زمین سه‌طبقه با سازه MDF و ورق، مطابق آیین‌نامه ایمنی مسابقه آماده می‌شود.','[{"label":"تشخیص حریق","points":30},{"label":"اطفای موفق","points":50},{"label":"زمان اجرا","points":20}]','[{"title":"کنترل ایمنی"},{"title":"مقدماتی"},{"title":"فینال اطفا"}]',true,'open'),
+('لیگ ربات‌های صنعتی دانش‌آموزی زیر ۱۹ سال','industrial-student-u19','چالش طراحی و برنامه‌ریزی ربات صنعتی برای اجرای مأموریت‌های تولید هوشمند.','رقابت صنعتی ویژه دانش‌آموزان زیر ۱۹ سال.','تیم‌ها در یک سلول تولید کوچک، مأموریت‌هایی مانند جابه‌جایی، دسته‌بندی و مونتاژ قطعات را با ربات صنعتی اجرا می‌کنند.','ربات صنعتی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/industrial-student-cover.png','/images/leagues/industrial-student-hero.png','سالن فناوری روبوکاپ تبرستان','متوسط','فارسی','کنسول داوری، میز ربات صنعتی و فضای استاندارد ۱۶ مترمربع برای هر تیم در نظر گرفته می‌شود.','[{"label":"دقت عملیات","points":45},{"label":"زمان چرخه","points":30},{"label":"ایمنی و طراحی","points":25}]','[{"title":"ارائه طراحی"},{"title":"آزمون عملکرد"},{"title":"مرحله نهایی"}]',true,'open'),
+('لیگ ربات‌های صنعتی دانشگاهی آزاد','industrial-university-open','رقابت پیشرفته اتوماسیون، بازوی رباتیک و ربات‌های متحرک صنعتی.','چالش صنعتی آزاد برای تیم‌های دانشگاهی.','تیم‌های دانشگاهی راهکار کامل اتوماسیون شامل ادراک، برنامه‌ریزی حرکت و اجرای دقیق مأموریت‌های صنعتی را ارائه می‌کنند.','ربات صنعتی','آزاد',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/industrial-university-cover.png','/images/leagues/industrial-university-hero.png','سالن فناوری روبوکاپ تبرستان','حرفه‌ای','فارسی / انگلیسی','فضای ۱۶ مترمربع، میز ربات صنعتی و کنسول داوری مستقل برای هر تیم فراهم می‌شود.','[{"label":"کیفیت اتوماسیون","points":45},{"label":"دقت و تکرارپذیری","points":35},{"label":"نوآوری","points":20}]','[{"title":"ارزیابی طرح"},{"title":"دموی صنعتی"},{"title":"فینال تخصصی"}]',true,'open'),
+('لیگ ربات‌های ورزشی زیر ۱۴ سال','sports-robots-u14','رقابت تیمی ربات‌های ورزشی در زمین استاندارد ویژه رده زیر ۱۴ سال.','فوتبال رباتیک و رقابت تیمی برای استعدادهای زیر ۱۴ سال.','سه ربات هر تیم در زمین مسابقه با تمرکز بر همکاری تیمی، کنترل دقیق و استراتژی بازی با یکدیگر رقابت می‌کنند.','ربات ورزشی','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u14-cover.png','/images/leagues/sports-u14-hero.png','سالن ورزشی روبوکاپ تبرستان','مقدماتی تا متوسط','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"بازی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"تست ربات‌ها"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open'),
+('لیگ ربات‌های ورزشی زیر ۱۹ سال','sports-robots-u19','رقابت حرفه‌ای ربات‌های ورزشی برای تیم‌های زیر ۱۹ سال.','فوتبال رباتیک سریع و تاکتیکی در رده زیر ۱۹ سال.','تیم‌ها با سه ربات و راهبردهای کنترلی پیشرفته در زمین استاندارد برای کسب عنوان قهرمانی رقابت می‌کنند.','ربات ورزشی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u19-cover.png','/images/leagues/sports-u19-hero.png','سالن ورزشی روبوکاپ تبرستان','پیشرفته','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"استراتژی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"بازرسی فنی"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open');
+-- <<< END 0034_replace_competition_leagues.sql
+
+-- >>> BEGIN 0035_league_fees_people_event.sql
+-- Complete the active competition catalog with fees, event date, officials and contact details.
+update public.leagues
+set registration_fee = case slug
+      when 'indoor-rescue-u14' then 5000000
+      when 'outdoor-rescue-open' then 7500000
+      when 'space-race-open' then 10000000
+      when 'firefighter-open' then 8500000
+      when 'industrial-student-u19' then 6000000
+      when 'industrial-university-open' then 9500000
+      when 'sports-robots-u14' then 5500000
+      when 'sports-robots-u19' then 7000000
+      else registration_fee
+    end,
+    event_starts_at = timestamptz '2026-10-23 08:00:00+03:30', -- ۱ آبان ۱۴۰۵
+    event_ends_at = timestamptz '2026-10-23 18:00:00+03:30',
+    registration_close_at = timestamptz '2026-10-16 23:59:00+03:30',
+    secretary_name = 'کمیته برگزاری روبوکاپ تبرستان',
+    secretary_phone = coalesce((select support_phone from public.site_settings where id = 1), secretary_phone),
+    contact_email = 'competitions@robocuptabarestan.ir',
+    secretary_telegram = 'https://t.me/robocuptabarestan',
+    technical_committee_notes = 'کمیته فنی مسئول نظارت بر اجرای آیین‌نامه، تأیید فنی ربات‌ها و پاسخ‌گویی تخصصی به تیم‌ها است.',
+    day_schedule = '[{"time":"08:00","title":"پذیرش و کنترل فنی"},{"time":"10:00","title":"آغاز مسابقات"},{"time":"14:00","title":"مرحله نهایی"},{"time":"17:30","title":"اعلام نتایج و اختتامیه"}]'::jsonb
+where slug in (
+  'indoor-rescue-u14','outdoor-rescue-open','space-race-open','firefighter-open',
+  'industrial-student-u19','industrial-university-open','sports-robots-u14','sports-robots-u19'
+);
+
+delete from public.league_people
+where league_id in (
+  select id from public.leagues where slug in (
+    'indoor-rescue-u14','outdoor-rescue-open','space-race-open','firefighter-open',
+    'industrial-student-u19','industrial-university-open','sports-robots-u14','sports-robots-u19'
+  )
+) and role_kind in ('judge', 'committee');
+
+-- Two Iranian judges tailored to each league.
+insert into public.league_people (league_id, full_name, specialty, bio, role_kind, sort_order)
+select l.id, v.full_name, v.specialty, v.bio, 'judge', v.sort_order
+from (values
+  ('indoor-rescue-u14','دکتر مهدی رضایی','رباتیک امداد و ناوبری','داور تخصصی سامانه‌های خودران و مسیریابی ربات‌های امدادگر.',1),
+  ('indoor-rescue-u14','مهندس الهام کریمی','بینایی ماشین','داور فنی تشخیص علائم و ارزیابی دقت مأموریت.',2),
+  ('outdoor-rescue-open','دکتر امیرحسین کاظمی','ربات‌های میدانی','متخصص ربات‌های مقاوم و عملیات در محیط‌های ناهموار.',1),
+  ('outdoor-rescue-open','مهندس سجاد موسوی','مکانیک و کنترل','داور سامانه حرکتی، ایمنی و کنترل ربات.',2),
+  ('space-race-open','دکتر پویا احمدی','سامانه‌های خودران','داور ناوبری، برنامه‌ریزی مسیر و کنترل هوشمند.',1),
+  ('space-race-open','مهندس نگار زمانی','مکاترونیک','داور طراحی فنی، پایداری و عملکرد مسابقه‌ای.',2),
+  ('firefighter-open','دکتر محمدحسین اکبری','رباتیک آتش‌نشان','داور تخصصی تشخیص حریق و عملیات اطفای رباتیک.',1),
+  ('firefighter-open','مهندس علی مرادی','ایمنی و کنترل','ناظر فنی الزامات ایمنی و کنترل سامانه اطفا.',2),
+  ('industrial-student-u19','دکتر فرهاد جعفری','اتوماسیون صنعتی','داور مأموریت‌های تولید هوشمند و اتوماسیون.',1),
+  ('industrial-student-u19','مهندس شیما صادقی','کنترل ربات صنعتی','داور برنامه‌ریزی حرکت و دقت اجرای عملیات.',2),
+  ('industrial-university-open','دکتر آرمان توکلی','رباتیک صنعتی پیشرفته','داور ارشد اتوماسیون، ادراک و همکاری ربات‌ها.',1),
+  ('industrial-university-open','مهندس نازنین رستمی','ساخت هوشمند','داور کیفیت اجرا، نوآوری و یکپارچگی سامانه.',2),
+  ('sports-robots-u14','مهندس حسین محمدی','ربات‌های ورزشی','داور فنی ربات‌ها و اجرای قوانین زمین مسابقه.',1),
+  ('sports-robots-u14','مهندس مریم قاسمی','کنترل و استراتژی بازی','داور بازی تیمی و عملکرد کنترلی ربات‌ها.',2),
+  ('sports-robots-u19','دکتر سعید حیدری','هوش مصنوعی رباتیک','داور راهبرد بازی و تصمیم‌گیری چندرباته.',1),
+  ('sports-robots-u19','مهندس کیان نوروزی','مکاترونیک ورزشی','داور طراحی مکانیکی و عملکرد مسابقه‌ای.',2)
+) as v(slug, full_name, specialty, bio, sort_order)
+join public.leagues l on l.slug = v.slug;
+
+-- Exactly two technical committee members for every active competition league.
+insert into public.league_people (league_id, full_name, specialty, bio, role_kind, sort_order)
+select l.id, c.full_name, c.specialty, c.bio, 'committee', c.sort_order
+from public.leagues l
+cross join (values
+  ('دکتر رضا ابراهیمی','رئیس کمیته فنی','مسئول نظارت عالی بر اجرای فنی، آیین‌نامه‌ها و استانداردهای مسابقات.',1),
+  ('مهندس سارا نادری','هماهنگ‌کننده فنی','مسئول کنترل فنی، هماهنگی داوران و پاسخ‌گویی تخصصی به تیم‌ها.',2)
+) as c(full_name, specialty, bio, sort_order)
+where l.slug in (
+  'indoor-rescue-u14','outdoor-rescue-open','space-race-open','firefighter-open',
+  'industrial-student-u19','industrial-university-open','sports-robots-u14','sports-robots-u19'
+);
+-- <<< END 0035_league_fees_people_event.sql
+
+-- >>> BEGIN seed.sql
+-- Seed static pages and a sample league for local/dev testing
+insert into static_pages (slug, title, body) values
+  ('about', 'درباره ما', '<p>روبوکاپ تبرستان پلتفرم مدیریت مسابقات رباتیک است.</p>'),
+  ('contact', 'تماس با ما', '<p>برای ارتباط با دبیرخانه رویداد از فرم تماس استفاده کنید.</p>'),
+  ('faq', 'سوالات متداول', '<p>پاسخ پرسش‌های پرتکرار به‌زودی اینجا منتشر می‌شود.</p>'),
+  ('privacy', 'حریم خصوصی', '<p>سیاست حفظ حریم خصوصی کاربران روبوکاپ تبرستان.</p>')
+on conflict (slug) do nothing;
+
+insert into leagues (name, slug, description, category, capacity, registration_fee, is_active)
+values
+  ('Rescue', 'rescue', 'لیگ امداد و نجات رباتیک', 'rescue', 64, 2500000, true),
+  ('Soccer', 'soccer', 'لیگ فوتبال رباتیک', 'soccer', 48, 2200000, true),
+  ('Humanoid', 'humanoid', 'لیگ ربات انسان‌نما', 'humanoid', 32, 3000000, true)
+on conflict (slug) do nothing;
+-- <<< END seed.sql

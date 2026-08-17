@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
-import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import type { UserRole } from '@/types/database'
 
 function initials(name: string | null | undefined, email: string | null | undefined): string {
@@ -47,7 +46,6 @@ export function UserMenu({ role }: { role: UserRole }) {
           <div className="mt-3 space-y-2 border-t border-rc-line pt-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-rc-muted">{t('common.theme')}</span>
-              <ThemeToggle />
             </div>
             <button
               type="button"

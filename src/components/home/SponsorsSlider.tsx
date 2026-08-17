@@ -14,9 +14,9 @@ export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
       index="01"
       title={t('home.sponsorsTitle')}
       subtitle={t('home.sponsorsSubtitle')}
-      className="border-y border-rc-line bg-rc-navy/30"
+      className="bg-white"
     >
-      <div className="relative mx-auto max-w-4xl">
+      <div className="relative mx-auto max-w-6xl rounded-[2rem] bg-gradient-to-l from-sky-50 to-emerald-50 p-6 sm:p-10">
         {/* Left / right frame rails — “window” edges */}
         <div
           className="pointer-events-none absolute inset-y-0 start-0 z-20 w-px bg-gradient-to-b from-transparent via-rc-blue/70 to-transparent"
@@ -40,7 +40,7 @@ export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
           <div className="flex w-max animate-rc-marquee gap-10 will-change-transform hover:[animation-play-state:paused]">
             {loop.map((s, i) => {
               const card = (
-                <span className="flex h-16 w-36 items-center justify-center border border-rc-line/80 bg-rc-surface/80 px-3 backdrop-blur-sm sm:w-40">
+                <span className="flex h-20 w-40 items-center justify-center rounded-2xl border border-white bg-white px-4 shadow-sm sm:w-44">
                   <img
                     src={s.logo_url}
                     alt={s.name}

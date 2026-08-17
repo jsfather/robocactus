@@ -1,6 +1,30 @@
 import { supabase } from '@/lib/supabase'
 import type { SiteNavItem, SiteSettings } from '@/types/database'
 
+const LEGACY_BRAND_PATTERN = /روبو\s*کاپ\s*کاکتوس|روبو\s*کاکتوس|Robo\s*(?:Cup\s*)?Cactus/gi
+
+function replaceLegacyBrand(value: string | null | undefined, replacement: string) {
+  return value ? value.replace(LEGACY_BRAND_PATTERN, replacement) : null
+}
+
+/** Prevent stale CMS values from restoring the retired brand after hydration. */
+export function normalizeSiteBrand(settings: SiteSettings | null): SiteSettings | null {
+  if (!settings) return null
+  return {
+    ...settings,
+    site_name_fa: 'روبوکاپ تبرستان',
+    site_name_en: 'RoboCup Tabarestan',
+    tagline_fa: replaceLegacyBrand(settings.tagline_fa, 'روبوکاپ تبرستان') || 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک',
+    tagline_en: replaceLegacyBrand(settings.tagline_en, 'RoboCup Tabarestan') || 'Organizer of national and international robotics competitions',
+    footer_fa: replaceLegacyBrand(settings.footer_fa, 'روبوکاپ تبرستان'),
+    footer_en: replaceLegacyBrand(settings.footer_en, 'RoboCup Tabarestan'),
+    copyright_fa: replaceLegacyBrand(settings.copyright_fa, 'روبوکاپ تبرستان'),
+    copyright_en: replaceLegacyBrand(settings.copyright_en, 'RoboCup Tabarestan'),
+    color_primary: '#087eb8',
+    color_accent: '#13a94d',
+  }
+}
+
 export async function fetchSiteSettings(): Promise<SiteSettings | null> {
   const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).maybeSingle()
   if (error) throw new Error(error.message)
@@ -21,13 +45,11 @@ export async function updateSiteSettings(
 }
 
 export function applySiteBrandColors(settings: SiteSettings | null | undefined) {
-  if (!settings) return
   const root = document.documentElement
-  if (settings.color_primary) root.style.setProperty('--rc-blue', settings.color_primary)
-  if (settings.color_accent) {
-    root.style.setProperty('--rc-accent', settings.color_accent)
-    root.style.setProperty('--rc-orange', settings.color_accent)
-  }
+  root.style.setProperty('--rc-blue', '#087eb8')
+  root.style.setProperty('--rc-accent', '#13a94d')
+  root.style.setProperty('--rc-orange', '#13a94d')
+  if (!settings) return
   if (settings.favicon_url) {
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
     if (!link) {

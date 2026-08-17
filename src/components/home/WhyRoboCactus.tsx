@@ -33,7 +33,7 @@ export function WhyRoboCactus({ cards }: { cards: HomeWhyCard[] }) {
       title={t('home.whyTitle')}
       subtitle={t('home.whySubtitle')}
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card, i) => (
           <motion.article
             key={card.id}
@@ -41,14 +41,14 @@ export function WhyRoboCactus({ cards }: { cards: HomeWhyCard[] }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.45, delay: i * 0.05 }}
-            whileHover={{ y: -4 }}
-            className="group relative overflow-hidden border border-rc-line bg-rc-surface/70 p-5"
+            whileHover={{ y: -6 }}
+            className="group relative overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-white p-7 shadow-[0_18px_50px_rgb(18_76_98/0.07)]"
           >
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-rc-blue/10 via-transparent to-rc-accent/5 opacity-0 transition group-hover:opacity-100" />
-            <div className="relative mb-4 inline-flex size-11 items-center justify-center border border-rc-blue/30 bg-rc-blue/10 text-rc-blue">
+            <div className="relative mb-5 inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-emerald-100 text-rc-blue">
               <WhyIcon iconKey={card.icon_key} />
             </div>
-            <h3 className="relative text-lg font-semibold">
+            <h3 className="relative text-xl font-black text-slate-800">
               {isEn ? card.title_en : card.title_fa}
             </h3>
             {(isEn ? card.body_en : card.body_fa) ? (

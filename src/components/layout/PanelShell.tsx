@@ -182,10 +182,10 @@ export function PanelShell() {
       <aside className="fixed inset-y-0 right-0 z-30 hidden w-64 flex-col border-l border-rc-line bg-rc-navy/95 backdrop-blur-md lg:flex">
         <div className="border-b border-rc-line px-4 py-4">
           <Link to={home} className="block">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-rc-blue uppercase">RoboCactus</p>
+            <p className="font-mono text-[10px] tracking-[0.3em] text-rc-blue uppercase">RoboCup · Tabarestan</p>
             <p className="mt-1 text-sm font-semibold">{t('panel.shellTitle')}</p>
             <p className="mt-1 font-mono text-[9px] tracking-[0.18em] text-rc-muted uppercase">
-              MISSION CONTROL
+              مدیریت مسابقات تبرستان
             </p>
           </Link>
         </div>
@@ -254,7 +254,6 @@ export function PanelShell() {
         </header>
 
         <main className="relative flex-1 px-4 py-6 md:px-6 md:py-8">
-          <div className="pointer-events-none absolute inset-0 league-mission-grid opacity-50" />
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />
@@ -293,7 +292,7 @@ export function PanelPage({
             ) : null}
             {title ? <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1> : null}
             {description ? <p className="mt-1 text-sm text-rc-muted">{description}</p> : null}
-            <div className="mt-3 h-px max-w-md bg-gradient-to-l from-rc-blue/50 via-rc-line to-transparent" />
+            <div className="mt-3 h-1 w-14 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue" />
           </div>
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </div>

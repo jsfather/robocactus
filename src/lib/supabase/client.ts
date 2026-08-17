@@ -28,11 +28,11 @@ const configured = Boolean(
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    '[RoboCactus] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Use Dashboard → Settings → API → anon / publishable key.',
+    '[RoboCup Tabarestan] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Use Dashboard → Settings → API → anon / publishable key.',
   )
 } else if (!isPublicAnonKey(supabaseAnonKey)) {
   console.error(
-    '[RoboCactus] Refusing unsafe/invalid browser key. Use the anon or sb_publishable_ key — never service_role / sb_secret_.',
+    '[RoboCup Tabarestan] Refusing unsafe/invalid browser key. Use the anon or sb_publishable_ key — never service_role / sb_secret_.',
   )
 }
 

@@ -1,115 +1,46 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useTranslation } from 'react-i18next'
+import { motion, useReducedMotion } from 'framer-motion'
 import type { HomeBanner } from '@/types/database'
 
 export function HeroBanner({ banners }: { banners: HomeBanner[] }) {
-  const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
-  const [index, setIndex] = useState(0)
-
-  const slides =
-    banners.length > 0
-      ? banners
-      : [
-          {
-            id: 'fallback',
-            title: t('app.name'),
-            subtitle: t('home.heroSubtitle'),
-            image_url: '',
-            link_url: '/signup',
-            sort_order: 0,
-            is_active: true,
-          } satisfies HomeBanner,
-        ]
-
-  useEffect(() => {
-    if (reduceMotion || slides.length < 2) return
-    const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length)
-    }, 6000)
-    return () => window.clearInterval(id)
-  }, [reduceMotion, slides.length])
-
-  const slide = slides[index] ?? slides[0]
+  const cmsBanner = banners[0]
 
   return (
-    <section className="relative min-h-[min(92dvh,820px)] w-full overflow-hidden">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={slide.id}
-          className="absolute inset-0"
-          initial={reduceMotion ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={reduceMotion ? undefined : { opacity: 0 }}
-          transition={{ duration: 0.7 }}
-        >
-          {slide.image_url ? (
-            <img
-              src={slide.image_url}
-              alt=""
-              className="h-full w-full object-cover"
-              fetchPriority={index === 0 ? 'high' : 'low'}
-              decoding="async"
-            />
-          ) : (
-            <div className="h-full w-full bg-[radial-gradient(ellipse_at_30%_20%,rgba(59,130,246,0.35),transparent_50%),radial-gradient(ellipse_at_80%_70%,rgba(249,115,22,0.22),transparent_45%),linear-gradient(160deg,#0b0f19_0%,#111827_55%,#0b0f19_100%)]" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-rc-bg via-rc-bg/70 to-rc-bg/25" />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.06)_1px,transparent_1px)] bg-[length:36px_36px] opacity-40" />
-        </motion.div>
-      </AnimatePresence>
+    <section className="relative min-h-[min(94dvh,880px)] overflow-hidden bg-[#061624]">
+      <img
+        src="/images/tabarestan-hero.png"
+        alt="چشم‌انداز جنگل‌های هیرکانی و دماوند در هویت روبوکاپ تبرستان"
+        className="absolute inset-0 h-full w-full object-cover object-[62%_center]"
+        fetchPriority="high"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,17,31,.98)_0%,rgba(4,17,31,.78)_42%,rgba(4,17,31,.16)_72%),linear-gradient(0deg,#061624_0%,transparent_35%)] rtl:bg-[linear-gradient(270deg,rgba(4,17,31,.98)_0%,rgba(4,17,31,.76)_43%,rgba(4,17,31,.12)_75%),linear-gradient(0deg,#061624_0%,transparent_35%)]" />
+      <div className="absolute inset-0 tabarestan-pattern opacity-30" />
 
-      <div className="relative mx-auto flex min-h-[min(92dvh,820px)] max-w-6xl flex-col justify-end px-4 pb-16 pt-28 md:justify-center md:pb-24 md:pt-20">
-        <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.1 }}
-          className="max-w-2xl"
-        >
-          <p className="mb-3 font-mono text-sm tracking-[0.28em] text-rc-blue uppercase">
-            RoboCactus
-          </p>
-          <h1 className="text-4xl font-bold leading-tight text-balance text-rc-text md:text-6xl">
-            {slide.title || t('app.name')}
+      <div className="relative mx-auto flex min-h-[min(94dvh,880px)] max-w-7xl items-center px-5 pb-20 pt-32 sm:px-8 lg:px-10">
+        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="max-w-3xl">
+          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-rc-accent/30 bg-rc-accent/10 px-4 py-2 text-xs font-medium text-emerald-200 backdrop-blur-md">
+            <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-rc-accent opacity-70" /><span className="relative inline-flex size-2 rounded-full bg-rc-accent" /></span>
+            از قلب مازندران، رو به آینده
+          </div>
+          <p className="mb-3 font-mono text-xs tracking-[0.28em] text-sky-300 uppercase sm:text-sm">ROBOCUP TABARESTAN · AMOL</p>
+          <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">
+            روبوکاپ تبرستان
+            <span className="mt-2 block text-2xl font-bold text-emerald-300 sm:text-3xl">برگزارکننده مسابقات ملی و بین‌المللی</span>
           </h1>
-          <p className="mt-4 max-w-xl text-base text-rc-muted md:text-lg">
-            {slide.subtitle || t('home.heroSubtitle')}
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              to={slide.link_url || '/signup'}
-              className="rounded-md bg-rc-accent px-5 py-2.5 text-sm font-medium text-rc-bg hover:brightness-110"
-            >
-              {t('home.ctaRegister')}
-            </Link>
-            <Link
-              to="/leagues"
-              className="rounded-md border border-rc-blue/45 bg-rc-blue/10 px-5 py-2.5 text-sm text-rc-blue hover:bg-rc-blue/20"
-            >
-              {t('home.ctaExplore')}
-            </Link>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">مرجع برگزاری رقابت‌های حرفه‌ای رباتیک در سطح کشور و عرصه بین‌المللی؛ از آمل و مازندران، میزبان تیم‌ها و قهرمانان ایران و جهان.</p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link to={cmsBanner?.link_url || '/signup'} className="tabarestan-button-primary">ثبت‌نام در مسابقات <span aria-hidden="true">←</span></Link>
+            <Link to="/leagues" className="tabarestan-button-secondary">مشاهده لیگ‌ها</Link>
+          </div>
+          <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">
+            <span><strong className="me-2 text-white">آمل</strong> شهر علم و طبیعت</span>
+            <span><strong className="me-2 text-white">مازندران</strong> میزبان نوآوری</span>
+            <span><strong className="me-2 text-rc-accent">۱۴۰۵</strong> فصل تازه رقابت</span>
           </div>
         </motion.div>
-
-        {slides.length > 1 ? (
-          <div className="absolute bottom-6 start-4 flex gap-2 md:start-auto md:end-4">
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-label={`slide ${i + 1}`}
-                onClick={() => setIndex(i)}
-                className={[
-                  'h-1.5 w-8 rounded-full transition',
-                  i === index ? 'bg-rc-blue' : 'bg-white/25 hover:bg-white/40',
-                ].join(' ')}
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-rc-bg to-transparent" />
     </section>
   )
 }

@@ -7,13 +7,13 @@ export function LatestNews({ posts }: { posts: BlogPost[] }) {
   const { t } = useTranslation()
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
+    <section className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold md:text-3xl">{t('home.newsTitle')}</h2>
+          <h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.newsTitle')}</h2>
           <p className="mt-1 text-rc-muted">{t('home.newsSubtitle')}</p>
         </div>
-        <Link to="/blog" className="text-sm text-rc-blue hover:underline">
+        <Link to="/blog" className="rounded-2xl bg-sky-50 px-5 py-3 text-sm font-bold text-rc-blue">
           {t('home.viewAll')}
         </Link>
       </div>
@@ -32,18 +32,18 @@ export function LatestNews({ posts }: { posts: BlogPost[] }) {
             >
               <Link
                 to={`/blog/${post.slug}`}
-                className="block overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-rc-blue/40"
+                className="group block overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-[0_18px_50px_rgb(18_76_98/0.08)] transition hover:-translate-y-1 hover:shadow-xl"
               >
                 {post.cover_image ? (
                   <img
                     src={post.cover_image}
                     alt=""
-                    className="h-40 w-full object-cover"
+                    className="h-52 w-full object-cover transition duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="flex h-40 items-center justify-center bg-rc-navy font-mono text-rc-blue">
-                    NEWS
+                  <div className="flex h-52 items-center justify-center bg-gradient-to-br from-sky-100 to-emerald-100 text-lg font-black text-rc-blue">
+                    تازه‌های تبرستان
                   </div>
                 )}
                 <div className="p-4">

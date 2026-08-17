@@ -21,25 +21,29 @@ dns.setDefaultResultOrder('ipv6first')
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const migrationsDir = path.join(root, 'supabase', 'migrations')
-const envPath = path.join(root, '.env')
+const envPaths = [path.join(root, '.env'), path.join(root, '.env.local')]
+const shellEnvKeys = new Set(Object.keys(process.env))
 
 function loadEnvFile() {
-  if (!fs.existsSync(envPath)) return
-  const text = fs.readFileSync(envPath, 'utf8')
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const i = trimmed.indexOf('=')
-    if (i < 0) continue
-    const key = trimmed.slice(0, i).trim()
-    let value = trimmed.slice(i + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1)
+  for (const envPath of envPaths) {
+    if (!fs.existsSync(envPath)) continue
+    const text = fs.readFileSync(envPath, 'utf8')
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const i = trimmed.indexOf('=')
+      if (i < 0) continue
+      const key = trimmed.slice(0, i).trim()
+      let value = trimmed.slice(i + 1).trim()
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+      // Match Vite precedence: .env.local overrides .env, but never override shell env.
+      if (!shellEnvKeys.has(key)) process.env[key] = value
     }
-    if (!(key in process.env)) process.env[key] = value
   }
 }
 
@@ -357,6 +361,18 @@ async function main() {
         await runner.exec(fs.readFileSync(seedPath, 'utf8'))
         console.log('[db:migrate] ok seed.sql')
       }
+    }
+
+    const leagueSummary = await runner.exec(`
+      select
+        count(*) filter (where is_active = true)::int as active,
+        count(*) filter (where is_active = false)::int as drafts,
+        count(*)::int as total
+      from public.leagues;
+    `)
+    if (Array.isArray(leagueSummary) && leagueSummary[0]) {
+      const row = leagueSummary[0]
+      console.log(`[db:migrate] leagues: ${row.active} active, ${row.drafts} draft, ${row.total} total`)
     }
 
     console.log('[db:migrate] done')

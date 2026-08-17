@@ -18,7 +18,7 @@ export function LiveResultsTeaser({ boards }: { boards: LiveLeagueBoard[] }) {
       action={
         <Link
           to="/live"
-          className="inline-flex items-center gap-2 border border-rc-blue/40 bg-rc-blue/10 px-3 py-1.5 text-sm text-rc-blue transition hover:bg-rc-blue/20"
+          className="inline-flex items-center gap-2 rounded-2xl bg-rc-blue px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-1"
         >
           {t('liveResults.openPage')}
           {primary?.mode === 'live' ? (
@@ -35,7 +35,7 @@ export function LiveResultsTeaser({ boards }: { boards: LiveLeagueBoard[] }) {
       }
     >
       {primary ? (
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-6 rounded-[2rem] bg-gradient-to-br from-sky-50 to-emerald-50 p-5 sm:p-8 lg:grid-cols-[1.4fr_1fr]">
           <LiveStandingsTable board={primary} compact />
           <div className="space-y-3">
             {extras.length ? (
@@ -43,7 +43,7 @@ export function LiveResultsTeaser({ boards }: { boards: LiveLeagueBoard[] }) {
                 <Link
                   key={b.league.id}
                   to="/live"
-                  className="flex items-center justify-between gap-3 rounded-xl border border-rc-line/80 bg-rc-navy/30 px-4 py-3 transition hover:border-rc-blue/40"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white bg-white px-5 py-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
                   <div>
                     <p className="font-medium">{b.league.name}</p>

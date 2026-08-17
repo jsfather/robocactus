@@ -2,14 +2,14 @@
 
 create table if not exists site_settings (
   id int primary key default 1 check (id = 1),
-  site_name_fa text not null default 'روبوکاکتوس',
-  site_name_en text not null default 'RoboCactus',
+  site_name_fa text not null default 'روبوکاپ تبرستان',
+  site_name_en text not null default 'RoboCup Tabarestan',
   tagline_fa text default 'پلتفرم مسابقات رباتیک',
   tagline_en text default 'Robotics competition platform',
   logo_url text,
   favicon_url text,
-  color_primary text default '#3b82f6',
-  color_accent text default '#fb923c',
+  color_primary text default '#2498d8',
+  color_accent text default '#25d366',
   seo_title_fa text,
   seo_title_en text,
   seo_description_fa text,

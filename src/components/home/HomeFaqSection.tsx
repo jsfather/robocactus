@@ -12,14 +12,14 @@ export function HomeFaqSection({ faqs }: { faqs: HomeFaq[] }) {
 
   return (
     <HomeSection index="06" title={t('home.faqTitle')} subtitle={t('home.faqHomeSubtitle')}>
-      <ul className="mx-auto max-w-3xl space-y-2">
+      <ul className="mx-auto max-w-4xl space-y-4">
         {faqs.map((faq) => {
           const open = openId === faq.id
           return (
-            <li key={faq.id} className="border border-rc-line bg-rc-surface/60">
+            <li key={faq.id} className="overflow-hidden rounded-[1.5rem] border border-sky-100 bg-white shadow-[0_12px_35px_rgb(18_76_98/0.06)]">
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 px-4 py-4 text-start"
+                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-start"
                 onClick={() => setOpenId(open ? null : faq.id)}
                 aria-expanded={open}
               >
@@ -27,10 +27,7 @@ export function HomeFaqSection({ faqs }: { faqs: HomeFaq[] }) {
                   {isEn ? faq.question_en : faq.question_fa}
                 </span>
                 <span
-                  className={[
-                    'font-mono text-rc-blue transition duration-300',
-                    open ? 'rotate-45' : '',
-                  ].join(' ')}
+                  className={`flex size-9 items-center justify-center rounded-full bg-sky-50 text-xl text-rc-blue transition ${open ? 'rotate-45' : ''}`}
                 >
                   +
                 </span>

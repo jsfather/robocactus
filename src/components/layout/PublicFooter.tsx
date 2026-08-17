@@ -46,7 +46,7 @@ export function PublicFooter() {
       }))
 
   return (
-    <footer className="relative mt-10 overflow-hidden border-t border-rc-line">
+    <footer className="relative mt-16 overflow-hidden rounded-t-[3rem] bg-[#edf8f6]">
       <div
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
@@ -54,33 +54,41 @@ export function PublicFooter() {
             'radial-gradient(ellipse 50% 60% at 20% 0%, var(--rc-glow-blue), transparent), radial-gradient(ellipse 40% 50% at 90% 100%, var(--rc-glow-orange), transparent)',
         }}
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-rc-blue/50 to-transparent" />
+      <div className="pointer-events-none absolute -start-32 -top-40 size-96 rounded-full border-[70px] border-sky-100/70" />
 
-      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <p className="font-mono text-[10px] tracking-[0.3em] text-rc-blue uppercase">RoboCactus</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight">{brand}</p>
-          {about ? <p className="mt-4 max-w-sm text-sm leading-7 text-rc-muted">{about}</p> : null}
-          <div className="mt-5 flex gap-2">
-            <span className="size-2 animate-rc-soft-pulse bg-rc-blue" />
-            <span className="font-mono text-[10px] tracking-wide text-rc-muted uppercase">
-              Live competition platform
+      <div className="relative mx-auto max-w-7xl px-4 pt-16 sm:px-8">
+        <div className="flex flex-col justify-between gap-6 rounded-[2rem] bg-gradient-to-l from-rc-blue to-emerald-500 p-7 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:flex-row sm:items-center sm:p-9">
+          <div><p className="text-sm font-bold text-emerald-100">دبیرخانه روبوکاپ تبرستان</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">سؤالی داری؟ ما کنار تیم شما هستیم.</h2></div>
+          <Link to="/contact" className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-white px-6 py-3 font-bold text-rc-blue shadow-lg">ارتباط با دبیرخانه</Link>
+        </div>
+      </div>
+
+      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 lg:grid-cols-5 sm:px-8">
+        <div className="lg:col-span-2">
+          <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-rc-accent text-lg font-black text-white shadow-lg">RT</div>
+          <p className="mt-5 text-3xl font-black tracking-tight text-slate-800">{brand}</p>
+          <p className="mt-2 text-sm font-bold text-emerald-600">RoboCup Tabarestan · Amol</p>
+          {about ? <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">{about}</p> : <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">رویداد نوآوری و رباتیک شمال ایران؛ از قلب مازندران، رو به آینده.</p>}
+          <div className="mt-6 flex items-center gap-2">
+            <span className="size-2 rounded-full bg-rc-accent" />
+            <span className="text-xs font-semibold text-rc-muted">
+              از مازندران تا آینده
             </span>
           </div>
         </div>
 
-        <div>
+        <div className="lg:col-span-1">
           <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
             {t('footer.usefulLinks')}
           </p>
-          <ul className="grid grid-cols-1 gap-2.5 text-sm text-rc-muted sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 text-sm text-rc-muted">
             {useful.map((item) => (
               <li key={item.id}>
                 <Link
                   to={item.href}
                   className="inline-flex items-center gap-2 transition hover:text-rc-blue"
                 >
-                  <span className="size-1 bg-rc-blue/70" />
+                  <span className="size-1.5 rounded-full bg-rc-accent" />
                   {isEn ? item.label_en : item.label_fa}
                 </Link>
               </li>
@@ -88,7 +96,7 @@ export function PublicFooter() {
           </ul>
         </div>
 
-        <div>
+        <div className="lg:col-span-1">
           <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
             {t('footer.contact')}
           </p>
@@ -115,7 +123,7 @@ export function PublicFooter() {
           </ul>
         </div>
 
-        <div>
+        <div className="lg:col-span-1">
           <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
             {t('footer.trust')}
           </p>
@@ -140,11 +148,11 @@ export function PublicFooter() {
         </div>
       </div>
 
-      <div className="relative border-t border-rc-line/80 bg-rc-navy/40">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-xs text-rc-muted sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative border-t border-emerald-100 bg-white/60">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-rc-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p>{copyright}</p>
           <p className="font-mono text-[10px] tracking-[0.18em] text-rc-blue/80 uppercase">
-            Mission · Public Surface
+            Amol · Mazandaran · Iran
           </p>
         </div>
       </div>
