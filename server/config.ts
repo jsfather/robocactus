@@ -25,6 +25,10 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL ?? '',
   databaseSsl: process.env.DATABASE_SSL === 'true',
   appUrl: (process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`).replace(/\/$/, ''),
+  allowedOrigins: (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   sessionDays: Number(process.env.SESSION_DAYS ?? 30),
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './data/uploads'),
   uploadSecret: process.env.UPLOAD_SIGNING_SECRET ?? process.env.SESSION_SECRET ?? 'change-me-in-production',
@@ -39,4 +43,3 @@ if (!config.databaseUrl && config.isProduction) {
 if (config.isProduction && config.uploadSecret === 'change-me-in-production') {
   throw new Error('UPLOAD_SIGNING_SECRET or SESSION_SECRET is required in production')
 }
-

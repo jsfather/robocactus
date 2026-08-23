@@ -8,6 +8,7 @@ import { db, pool, purgeExpiredSessions } from './db.js'
 import { registerAuthRoutes } from './auth.js'
 import { dispatchNotifications, registerNotificationRoutes } from './notifications.js'
 import { registerOtpRoutes } from './otp.js'
+import { checkRequestOrigin } from './origin.js'
 import { registerPaymentRoutes } from './payment.js'
 import { registerQueryRoutes } from './query.js'
 import { initializeRealtime, registerRealtimeRoutes } from './realtime.js'
@@ -24,8 +25,14 @@ app.use((request, response, next) => {
   response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.setHeader('X-Frame-Options', 'SAMEORIGIN')
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
-    const origin = request.get('origin')
-    if (config.isProduction && origin && origin !== new URL(config.appUrl).origin) {
+    const originCheck = checkRequestOrigin(request, [config.appUrl, ...config.allowedOrigins])
+    if (config.isProduction && !originCheck.allowed) {
+      console.warn('[security] rejected request origin', {
+        method: request.method,
+        path: request.path,
+        receivedOrigin: originCheck.receivedOrigin,
+        allowedOrigins: originCheck.allowedOrigins,
+      })
       response.status(403).json({ error: 'origin_not_allowed' })
       return
     }

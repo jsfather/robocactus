@@ -28,6 +28,12 @@ SESSION_SECRET=a-long-random-secret
 UPLOAD_SIGNING_SECRET=another-long-random-secret
 ```
 
+`APP_URL` must be the canonical public browser origin (including `https://`, with no path). The server also recognizes the public host forwarded by Dokploy's reverse proxy. If the same deployment must accept browser requests from additional domains, add them explicitly as comma-separated origins:
+
+```env
+ALLOWED_ORIGINS=https://www.your-domain.example,https://preview.your-domain.example
+```
+
 Also configure the provider variables you use from `.env.example`. Do not prefix credentials with `VITE_`; every `VITE_*` value is public browser configuration.
 
 Persist `/app/data/uploads` as a volume. Without that volume, uploaded logos, documents, CMS media, and ticket attachments disappear when the application container is replaced.
