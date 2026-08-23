@@ -18,7 +18,7 @@ import {
   setTicketDepartment,
 } from '@/features/tickets/api'
 import { fetchActiveLeagues } from '@/features/companies/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { League, Profile, Ticket, TicketDepartment, TicketMessage } from '@/types/database'
 
 type Mode = 'team' | 'staff' | 'league'
@@ -96,7 +96,7 @@ export function TicketInbox({
   useEffect(() => {
     if (mode !== 'staff') return
     void fetchActiveLeagues().then(setLeagues).catch(() => undefined)
-    void supabase
+    void backend
       .from('profiles')
       .select('*')
       .then(({ data }) => setProfiles((data ?? []) as Profile[]))
@@ -132,7 +132,7 @@ export function TicketInbox({
   useEffect(() => {
     if (!user) return
 
-    const channel = supabase
+    const channel = backend
       .channel(`tickets-inbox:${mode}:${user.id}`)
       .on(
         'postgres_changes',
@@ -170,7 +170,7 @@ export function TicketInbox({
       })
 
     return () => {
-      void supabase.removeChannel(channel)
+      void backend.removeChannel(channel)
     }
   }, [user, mode, reload, refreshUnread])
 

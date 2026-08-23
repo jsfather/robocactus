@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
+import { validateDocumentFile } from '@/lib/validation'
 import { slugify } from '@/lib/validation'
 import type {
   Announcement,
@@ -10,7 +11,7 @@ import type {
 } from '@/types/database'
 
 export async function fetchPublishedPosts(): Promise<BlogPost[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('blog_posts')
     .select('*')
     .eq('status', 'published')
@@ -20,7 +21,7 @@ export async function fetchPublishedPosts(): Promise<BlogPost[]> {
 }
 
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPost | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
@@ -32,7 +33,7 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPost |
 
 /** Admin: all posts including drafts */
 export async function fetchAllPosts(): Promise<BlogPost[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('blog_posts')
     .select('*')
     .order('created_at', { ascending: false })
@@ -58,7 +59,7 @@ export async function upsertBlogPost(input: {
   if (input.status === 'published') {
     publishedAt = new Date().toISOString()
     if (input.id) {
-      const { data: existing } = await supabase
+      const { data: existing } = await backend
         .from('blog_posts')
         .select('published_at')
         .eq('id', input.id)
@@ -83,7 +84,7 @@ export async function upsertBlogPost(input: {
   }
 
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('blog_posts')
       .update(payload)
       .eq('id', input.id)
@@ -93,18 +94,18 @@ export async function upsertBlogPost(input: {
     return data as BlogPost
   }
 
-  const { data, error } = await supabase.from('blog_posts').insert(payload).select('*').single()
+  const { data, error } = await backend.from('blog_posts').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as BlogPost
 }
 
 export async function deleteBlogPost(id: string): Promise<void> {
-  const { error } = await supabase.from('blog_posts').delete().eq('id', id)
+  const { error } = await backend.from('blog_posts').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchPublishedAnnouncements(): Promise<Announcement[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('announcements')
     .select('*')
     .eq('status', 'published')
@@ -114,7 +115,7 @@ export async function fetchPublishedAnnouncements(): Promise<Announcement[]> {
 }
 
 export async function fetchAllAnnouncements(): Promise<Announcement[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('announcements')
     .select('*')
     .order('published_at', { ascending: false, nullsFirst: false })
@@ -138,7 +139,7 @@ export async function upsertAnnouncement(input: {
   if (input.status === 'published') {
     publishedAt = new Date().toISOString()
     if (input.id) {
-      const { data: existing } = await supabase
+      const { data: existing } = await backend
         .from('announcements')
         .select('published_at')
         .eq('id', input.id)
@@ -162,7 +163,7 @@ export async function upsertAnnouncement(input: {
   }
 
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('announcements')
       .update(payload)
       .eq('id', input.id)
@@ -172,13 +173,13 @@ export async function upsertAnnouncement(input: {
     return data as Announcement
   }
 
-  const { data, error } = await supabase.from('announcements').insert(payload).select('*').single()
+  const { data, error } = await backend.from('announcements').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as Announcement
 }
 
 export async function deleteAnnouncement(id: string): Promise<void> {
-  const { error } = await supabase.from('announcements').delete().eq('id', id)
+  const { error } = await backend.from('announcements').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
@@ -187,7 +188,7 @@ export async function fetchGalleryItems(filters?: {
   leagueId?: string
   categoryId?: string
 }): Promise<GalleryItem[]> {
-  let query = supabase.from('gallery_items').select('*').order('created_at', { ascending: false })
+  let query = backend.from('gallery_items').select('*').order('created_at', { ascending: false })
   if (filters?.year) query = query.eq('season_year', filters.year)
   if (filters?.leagueId) query = query.eq('league_id', filters.leagueId)
   if (filters?.categoryId) query = query.eq('category_id', filters.categoryId)
@@ -197,7 +198,7 @@ export async function fetchGalleryItems(filters?: {
 }
 
 export async function fetchGalleryCategories(includeInactive = false): Promise<GalleryCategory[]> {
-  let query = supabase.from('gallery_categories').select('*').order('sort_order').order('created_at')
+  let query = backend.from('gallery_categories').select('*').order('sort_order').order('created_at')
   if (!includeInactive) query = query.eq('is_active', true)
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -220,7 +221,7 @@ export async function upsertGalleryCategory(input: {
     is_active: input.is_active ?? true,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('gallery_categories')
       .update(payload)
       .eq('id', input.id)
@@ -229,13 +230,13 @@ export async function upsertGalleryCategory(input: {
     if (error) throw new Error(error.message)
     return data as GalleryCategory
   }
-  const { data, error } = await supabase.from('gallery_categories').insert(payload).select('*').single()
+  const { data, error } = await backend.from('gallery_categories').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as GalleryCategory
 }
 
 export async function deleteGalleryCategory(id: string): Promise<void> {
-  const { error } = await supabase.from('gallery_categories').delete().eq('id', id)
+  const { error } = await backend.from('gallery_categories').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
@@ -247,7 +248,7 @@ export async function createGalleryItem(input: {
   season_year?: number | null
   caption?: string | null
 }): Promise<GalleryItem> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('gallery_items')
     .insert({
       media_url: input.media_url,
@@ -264,7 +265,7 @@ export async function createGalleryItem(input: {
 }
 
 export async function deleteGalleryItem(id: string): Promise<void> {
-  const { error } = await supabase.from('gallery_items').delete().eq('id', id)
+  const { error } = await backend.from('gallery_items').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
@@ -282,17 +283,30 @@ export async function uploadContentMedia(userId: string, file: File): Promise<st
 
   const ext = file.name.split('.').pop() ?? 'bin'
   const path = `${userId}/${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('content-media').upload(path, file, {
+  const { error } = await backend.storage.from('content-media').upload(path, file, {
     contentType: file.type,
     upsert: false,
   })
   if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('content-media').getPublicUrl(path)
+  const { data } = backend.storage.from('content-media').getPublicUrl(path)
   return data.publicUrl
 }
 
+export async function uploadProfileDocument(userId: string, file: File): Promise<string> {
+  const validation = validateDocumentFile(file)
+  if (validation) throw new Error(validation)
+  const extension = file.name.split('.').pop() ?? 'bin'
+  const path = `${userId}/${Date.now()}.${extension}`
+  const { error } = await backend.storage.from('profile-documents').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  })
+  if (error) throw new Error(error.message)
+  return backend.storage.from('profile-documents').getPrivateUrl(path).data.privateUrl
+}
+
 export async function fetchLeaguesForContent(): Promise<League[]> {
-  const { data, error } = await supabase.from('leagues').select('*').order('name')
+  const { data, error } = await backend.from('leagues').select('*').order('name')
   if (error) throw new Error(error.message)
   return (data ?? []) as League[]
 }

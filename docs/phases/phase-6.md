@@ -2,11 +2,11 @@
 
 ## Delivered
 
-- Supabase Realtime on `ticket_messages` / `tickets` / `ticket_reads`
+- database-backed SSE on `ticket_messages` / `tickets` / `ticket_reads`
 - Live chat in `TicketInbox` (messages appear without page refresh)
 - Unread tracking via `ticket_reads` + `count_unread_tickets` / `list_unread_ticket_ids`
 - Unread badges: header inbox link, Staff tab, League Admin tickets tab, per-ticket dots
-- Migration: `supabase/migrations/0007_phase6_realtime_tickets.sql`
+- Migration: `db/migrations/0007_phase6_realtime_tickets.sql`
 
 ## Acceptance Criteria
 
@@ -17,7 +17,7 @@
 ## Setup
 
 1. Run `0007_phase6_realtime_tickets.sql`
-2. In Supabase Dashboard → Database → Replication: confirm `ticket_messages`, `tickets`, `ticket_reads` are in `supabase_realtime`
+2. Confirm the application server can read `app_private.realtime_events`; migrations install the required triggers automatically.
 3. Ensure RLS is enabled (Realtime respects RLS)
 
 ## Notes

@@ -8,7 +8,7 @@
 - Edge Function `sms-dispatch` with **atomic claim** (`pending` → `sending`) so concurrent invokes cannot double-send
 - IPPanel client (`src/lib/ippanel`) with mock mode
 - Super-admin log: `/super-admin/notifications`
-- Migration: `supabase/migrations/0006_phase5_notifications.sql`
+- Migration: `db/migrations/0006_phase5_notifications.sql`
 
 ## Templates
 
@@ -30,11 +30,11 @@
 
 1. Run `0006_phase5_notifications.sql`
 2. Deploy:
-   - `supabase functions deploy sms-dispatch`
-   - `supabase functions deploy sms-deadline-reminders`
+   - Configure SMS provider secrets on the application service.
+   - Dispatch uses the server route in `server/notifications.ts`.
 3. Secrets: `IPPANEL_API_KEY`, `IPPANEL_ORIGINATOR`, `IPPANEL_MOCK=true` (local), optional `IPPANEL_PATTERNS`
 4. Recommended: Database Webhook on `notification_log` INSERT → `sms-dispatch`
-5. Schedule `sms-deadline-reminders` hourly (Supabase cron / external)
+5. Schedule deadline reminders against the application service if required.
 
 ## Local without webhook
 

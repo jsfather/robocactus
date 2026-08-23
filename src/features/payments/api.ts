@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { createPaymentGateway, buildMockFailUrl, getConfiguredGatewayKind } from '@/lib/payment-gateway'
 import type { Invoice, League, Team } from '@/types/database'
 
@@ -12,7 +12,7 @@ export type FinanceRow = Invoice & {
 }
 
 export async function createInvoiceForTeam(teamId: string): Promise<Invoice> {
-  const { data, error } = await supabase.rpc('create_invoice_for_team', {
+  const { data, error } = await backend.rpc('create_invoice_for_team', {
     p_team_id: teamId,
   })
   if (error) throw new Error(error.message)
@@ -20,7 +20,7 @@ export async function createInvoiceForTeam(teamId: string): Promise<Invoice> {
 }
 
 export async function fetchInvoice(invoiceId: string): Promise<Invoice | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('invoices')
     .select('*')
     .eq('id', invoiceId)
@@ -30,7 +30,7 @@ export async function fetchInvoice(invoiceId: string): Promise<Invoice | null> {
 }
 
 export async function fetchTeamInvoices(teamId: string): Promise<Invoice[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('invoices')
     .select('*')
     .eq('team_id', teamId)
@@ -40,7 +40,7 @@ export async function fetchTeamInvoices(teamId: string): Promise<Invoice[]> {
 }
 
 export async function fetchLatestInvoiceForTeam(teamId: string): Promise<Invoice | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('invoices')
     .select('*')
     .eq('team_id', teamId)
@@ -57,7 +57,7 @@ export async function applyPaymentResult(input: {
   success: boolean
   gatewayRef?: string
 }): Promise<Invoice> {
-  const { data, error } = await supabase.rpc('apply_payment_result', {
+  const { data, error } = await backend.rpc('apply_payment_result', {
     p_invoice_id: input.invoiceId,
     p_authority: input.authority,
     p_success: input.success,
@@ -68,7 +68,7 @@ export async function applyPaymentResult(input: {
 }
 
 export async function issueMockAuthority(invoiceId: string): Promise<string> {
-  const { data, error } = await supabase.rpc('issue_mock_payment_authority', {
+  const { data, error } = await backend.rpc('issue_mock_payment_authority', {
     p_invoice_id: invoiceId,
   })
   if (error) throw new Error(error.message)
@@ -163,7 +163,7 @@ export async function fetchFinanceRows(filters?: {
   leagueId?: string
   companyId?: string
 }): Promise<FinanceRow[]> {
-  let query = supabase
+  let query = backend
     .from('invoice_finance_view')
     .select('*')
     .order('created_at', { ascending: false })

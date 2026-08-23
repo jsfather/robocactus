@@ -4,7 +4,7 @@ import { Button, FieldError, PanelCard, Textarea } from '@/components/ui/FormCon
 import { HudFrame } from '@/components/panel/HudKit'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 export type AccountIssue = {
   id: string
@@ -19,7 +19,7 @@ export type AccountIssue = {
 }
 
 export async function fetchMyAccountIssues(): Promise<AccountIssue[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('account_issues')
     .select('*')
     .order('created_at', { ascending: false })
@@ -28,7 +28,7 @@ export async function fetchMyAccountIssues(): Promise<AccountIssue[]> {
 }
 
 export async function respondToAccountIssue(issueId: string, response: string): Promise<AccountIssue> {
-  const { data, error } = await supabase.rpc('respond_account_issue', {
+  const { data, error } = await backend.rpc('respond_account_issue', {
     p_issue_id: issueId,
     p_response: response,
   })
@@ -37,7 +37,7 @@ export async function respondToAccountIssue(issueId: string, response: string): 
 }
 
 export async function resolveAccountIssue(issueId: string): Promise<AccountIssue> {
-  const { data, error } = await supabase.rpc('resolve_account_issue', {
+  const { data, error } = await backend.rpc('resolve_account_issue', {
     p_issue_id: issueId,
   })
   if (error) throw new Error(error.message)
@@ -45,7 +45,7 @@ export async function resolveAccountIssue(issueId: string): Promise<AccountIssue
 }
 
 export async function fetchAllAccountIssues(): Promise<AccountIssue[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('account_issues')
     .select('*')
     .order('created_at', { ascending: false })

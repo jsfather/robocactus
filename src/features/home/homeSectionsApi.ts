@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 export type HomeSponsor = {
   id: string
@@ -66,7 +66,7 @@ export type HomeStatCard = {
 }
 
 async function fetchActive<T>(table: string): Promise<T[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from(table)
     .select('*')
     .eq('is_active', true)
@@ -76,7 +76,7 @@ async function fetchActive<T>(table: string): Promise<T[]> {
 }
 
 async function fetchAll<T>(table: string): Promise<T[]> {
-  const { data, error } = await supabase.from(table).select('*').order('sort_order')
+  const { data, error } = await backend.from(table).select('*').order('sort_order')
   if (error) throw new Error(error.message)
   return (data ?? []) as T[]
 }
@@ -87,18 +87,18 @@ async function upsertRow<T extends { id?: string }>(
 ): Promise<T> {
   if (row.id) {
     const { id, ...rest } = row
-    const { data, error } = await supabase.from(table).update(rest).eq('id', id).select('*').single()
+    const { data, error } = await backend.from(table).update(rest).eq('id', id).select('*').single()
     if (error) throw new Error(error.message)
     return data as T
   }
   const { id: _id, ...rest } = row
-  const { data, error } = await supabase.from(table).insert(rest).select('*').single()
+  const { data, error } = await backend.from(table).insert(rest).select('*').single()
   if (error) throw new Error(error.message)
   return data as T
 }
 
 async function deleteRow(table: string, id: string): Promise<void> {
-  const { error } = await supabase.from(table).delete().eq('id', id)
+  const { error } = await backend.from(table).delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 

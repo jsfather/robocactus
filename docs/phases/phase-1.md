@@ -9,7 +9,7 @@
 - Captain by phone: existing profile assigned, otherwise invite + interim owner captain
 - Team documents to Storage `team-documents` (`{userId}/{teamId}/…`) with MIME/size checks
 - Captain panel `/team` and `/team/:teamId`
-- Migration `supabase/migrations/0002_phase1_companies_teams.sql`
+- Migration `db/migrations/0002_phase1_companies_teams.sql`
 
 ## Acceptance Criteria
 
@@ -21,7 +21,7 @@
 
 ## Setup after Phase 0
 
-1. Run `0002_phase1_companies_teams.sql` on Supabase.
+1. Run `npm run db:migrate`.
 2. Ensure `seed.sql` leagues exist (rescue / soccer / humanoid).
 3. Soft-refresh session after creating a company (role becomes `company_admin` via `refreshProfile`).
 

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { useAuth } from '@/hooks/useAuth'
 
 type UnreadCtx = {
@@ -24,7 +24,7 @@ export function UnreadTicketsProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth()
   const [count, setCount] = useState(0)
   const [unreadIds, setUnreadIds] = useState<string[]>([])
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const channelRef = useRef<ReturnType<typeof backend.channel> | null>(null)
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -33,8 +33,8 @@ export function UnreadTicketsProvider({ children }: { children: ReactNode }) {
       return
     }
     const [{ data: total, error: countError }, { data: ids, error: idsError }] = await Promise.all([
-      supabase.rpc('count_unread_tickets'),
-      supabase.rpc('list_unread_ticket_ids'),
+      backend.rpc('count_unread_tickets'),
+      backend.rpc('list_unread_ticket_ids'),
     ])
     if (!countError) setCount(Number(total ?? 0))
     if (!idsError) setUnreadIds(((ids as string[] | null) ?? []).map(String))
@@ -47,7 +47,7 @@ export function UnreadTicketsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       if (channelRef.current) {
-        void supabase.removeChannel(channelRef.current)
+        void backend.removeChannel(channelRef.current)
         channelRef.current = null
       }
       return
@@ -55,11 +55,11 @@ export function UnreadTicketsProvider({ children }: { children: ReactNode }) {
 
     // Tear down any previous channel before creating a new one
     if (channelRef.current) {
-      void supabase.removeChannel(channelRef.current)
+      void backend.removeChannel(channelRef.current)
       channelRef.current = null
     }
 
-    const channel = supabase.channel(`unread-tickets:${user.id}`)
+    const channel = backend.channel(`unread-tickets:${user.id}`)
     channel
       .on(
         'postgres_changes',
@@ -80,7 +80,7 @@ export function UnreadTicketsProvider({ children }: { children: ReactNode }) {
 
     return () => {
       if (channelRef.current === channel) {
-        void supabase.removeChannel(channel)
+        void backend.removeChannel(channel)
         channelRef.current = null
       }
     }
@@ -107,8 +107,8 @@ export function useUnreadTicketCount() {
       return
     }
     const [{ data: total }, { data: ids }] = await Promise.all([
-      supabase.rpc('count_unread_tickets'),
-      supabase.rpc('list_unread_ticket_ids'),
+      backend.rpc('count_unread_tickets'),
+      backend.rpc('list_unread_ticket_ids'),
     ])
     setCount(Number(total ?? 0))
     setUnreadIds(((ids as string[] | null) ?? []).map(String))
@@ -127,6 +127,6 @@ export function useUnreadTicketCount() {
 }
 
 export async function markTicketRead(ticketId: string): Promise<void> {
-  const { error } = await supabase.rpc('mark_ticket_read', { p_ticket_id: ticketId })
+  const { error } = await backend.rpc('mark_ticket_read', { p_ticket_id: ticketId })
   if (error) throw new Error(error.message)
 }

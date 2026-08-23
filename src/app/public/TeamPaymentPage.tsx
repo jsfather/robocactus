@@ -12,7 +12,7 @@ import {
   startTeamPayment,
 } from '@/features/payments/api'
 import { downloadInvoicePdf } from '@/features/payments/invoicePdf'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { getConfiguredGatewayKind } from '@/lib/payment-gateway'
 import type { Company, Invoice, League, Team } from '@/types/database'
 
@@ -47,7 +47,7 @@ export function TeamPaymentPage() {
 
         const [leagues, companyRes, existing] = await Promise.all([
           fetchActiveLeagues(),
-          supabase.from('companies').select('*').eq('id', row.company_id).maybeSingle(),
+          backend.from('companies').select('*').eq('id', row.company_id).maybeSingle(),
           fetchLatestInvoiceForTeam(row.id),
         ])
 

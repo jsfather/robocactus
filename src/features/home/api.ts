@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { BlogPost, Company, HomeBanner, League } from '@/types/database'
 
 export type HomeStats = {
@@ -13,7 +13,7 @@ export type TopCompany = Pick<Company, 'id' | 'name' | 'slug' | 'logo_url' | 'bi
 }
 
 export async function fetchActiveBanners(): Promise<HomeBanner[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('home_banners')
     .select('*')
     .eq('is_active', true)
@@ -23,7 +23,7 @@ export async function fetchActiveBanners(): Promise<HomeBanner[]> {
 }
 
 export async function fetchAllBanners(): Promise<HomeBanner[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('home_banners')
     .select('*')
     .order('sort_order', { ascending: true })
@@ -50,7 +50,7 @@ export async function upsertBanner(input: {
   }
 
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('home_banners')
       .update(payload)
       .eq('id', input.id)
@@ -60,18 +60,18 @@ export async function upsertBanner(input: {
     return data as HomeBanner
   }
 
-  const { data, error } = await supabase.from('home_banners').insert(payload).select('*').single()
+  const { data, error } = await backend.from('home_banners').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as HomeBanner
 }
 
 export async function deleteBanner(id: string): Promise<void> {
-  const { error } = await supabase.from('home_banners').delete().eq('id', id)
+  const { error } = await backend.from('home_banners').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchHomeStats(): Promise<HomeStats> {
-  const { data, error } = await supabase.rpc('home_stats')
+  const { data, error } = await backend.rpc('home_stats')
   if (error) throw new Error(error.message)
   const raw = (data ?? {}) as Record<string, unknown>
   return {
@@ -83,7 +83,7 @@ export async function fetchHomeStats(): Promise<HomeStats> {
 }
 
 export async function fetchTopCompanies(limit = 6): Promise<TopCompany[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('results')
     .select('company_id, rank, companies ( id, name, slug, logo_url, bio )')
     .not('published_at', 'is', null)
@@ -118,7 +118,7 @@ export async function fetchTopCompanies(limit = 6): Promise<TopCompany[]> {
 }
 
 export async function fetchLatestNews(limit = 3): Promise<BlogPost[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('blog_posts')
     .select('*')
     .eq('status', 'published')
@@ -135,7 +135,7 @@ export async function submitContactMessage(input: {
   subject: string
   body: string
 }): Promise<void> {
-  const { error } = await supabase.from('contact_messages').insert({
+  const { error } = await backend.from('contact_messages').insert({
     full_name: input.full_name.trim(),
     email: input.email.trim(),
     phone: input.phone?.trim() || null,
@@ -156,7 +156,7 @@ export async function fetchContactMessages(): Promise<
     created_at: string
   }>
 > {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('contact_messages')
     .select('*')
     .order('created_at', { ascending: false })

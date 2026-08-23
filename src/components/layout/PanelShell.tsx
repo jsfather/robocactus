@@ -102,6 +102,24 @@ export function PanelShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    if (!profile?.id || profile.account_status === 'pending') return
+    if (!profileLooksIncomplete(profile)) return
+    const key = `rc-incomplete-sms:${profile.id}:${new Date().toISOString().slice(0, 10)}`
+    if (sessionStorage.getItem(key)) return
+    sessionStorage.setItem(key, '1')
+    void enqueueIncompleteProfileSms(profile.id).catch(() => undefined)
+  }, [profile])
+
   if (loading || (user && !profile && profileLoading)) {
     return (
       <div className="flex min-h-dvh items-center justify-center font-mono text-sm text-rc-muted">
@@ -138,24 +156,6 @@ export function PanelShell() {
   const activeItem = activePanelItem(location.pathname, role)
 
   const redirectTo = canonicalizePanelPath(location.pathname, profile.role)
-
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
-
-  useEffect(() => {
-    if (!profile?.id || profile.account_status === 'pending') return
-    if (!profileLooksIncomplete(profile)) return
-    const key = `rc-incomplete-sms:${profile.id}:${new Date().toISOString().slice(0, 10)}`
-    if (sessionStorage.getItem(key)) return
-    sessionStorage.setItem(key, '1')
-    void enqueueIncompleteProfileSms(profile.id).catch(() => undefined)
-  }, [profile])
 
   if (redirectTo) {
     return <Navigate to={redirectTo} replace />

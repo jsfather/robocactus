@@ -3,9 +3,9 @@
     "name": "RoboCup Tabarestan",
     "tagline": "Organizer of national and international robotics competitions",
     "loading": "Loading...",
-    "supabaseMissing": "Database connection is not configured.",
-    "supabaseUnreachable": "Cannot reach the backend server (Failed to fetch).",
-    "supabaseFixHint": "Open your Supabase project dashboard, update VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env, then restart the dev server."
+    "backendMissing": "Database connection is not configured.",
+    "backendUnreachable": "Cannot reach the backend server (Failed to fetch).",
+    "backendFixHint": "Check that the application server can reach PostgreSQL through DATABASE_URL, then restart it."
   },
   "nav": {
     "home": "Home",
@@ -55,7 +55,7 @@
     "otpCooldown": "Please wait before requesting another code",
     "otpTooMany": "Too many attempts — request a new code",
     "devOtp": "Dev/mock OTP: {{code}}",
-    "supabaseMissing": "Supabase is not configured. Set up your .env file.",
+    "backendMissing": "The backend is not configured. Set up DATABASE_URL in your server environment.",
     "profileLoadFailed": "You are signed in but your profile could not be loaded. Check the connection and retry.",
     "signupMultiHint": "Individual or legal, then SMS (Iran) or email (abroad)",
     "individualHint": "Natural person signup",

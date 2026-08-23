@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { clearSignupDraft, loadSignupDraft, useAuth } from '@/hooks/useAuth'
 import type { AccountType } from '@/types/database'
 
@@ -32,19 +32,19 @@ export function AuthCallbackPage() {
       try {
         const code = params.get('code')
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          const { error } = await backend.auth.exchangeCodeForSession(code)
           if (error) throw error
         } else {
-          const { data } = await supabase.auth.getSession()
+          const { data } = await backend.auth.getSession()
           if (!data.session) {
             // Allow hash fragment session hydration
             await new Promise((r) => window.setTimeout(r, 400))
-            const again = await supabase.auth.getSession()
+            const again = await backend.auth.getSession()
             if (!again.data.session) throw new Error('no_session')
           }
         }
 
-        const { data: userData } = await supabase.auth.getUser()
+        const { data: userData } = await backend.auth.getUser()
         const user = userData.user
         if (!user) throw new Error('no_session')
 
@@ -72,7 +72,7 @@ export function AuthCallbackPage() {
           patch.auth_channel = 'email'
         }
 
-        await supabase.from('profiles').update(patch).eq('id', user.id)
+        await backend.from('profiles').update(patch).eq('id', user.id)
         await refreshProfile()
         clearSignupDraft()
 

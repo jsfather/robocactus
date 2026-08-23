@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 export type LiveChatSession = {
   id: string
@@ -49,7 +49,7 @@ export async function startLiveChat(input: {
   guest_name: string
   guest_phone: string
 }> {
-  const { data, error } = await supabase.rpc('start_live_chat', {
+  const { data, error } = await backend.rpc('start_live_chat', {
     p_name: input.name,
     p_phone: input.phone,
     p_locale: input.locale ?? 'fa',
@@ -67,7 +67,7 @@ export async function startLiveChat(input: {
 }
 
 export async function sendGuestMessage(token: string, body: string): Promise<LiveChatMessage> {
-  const { data, error } = await supabase.rpc('send_live_chat_guest_message', {
+  const { data, error } = await backend.rpc('send_live_chat_guest_message', {
     p_token: token,
     p_body: body,
   })
@@ -76,7 +76,7 @@ export async function sendGuestMessage(token: string, body: string): Promise<Liv
 }
 
 export async function fetchGuestMessages(token: string): Promise<LiveChatMessage[]> {
-  const { data, error } = await supabase.rpc('fetch_live_chat_guest_messages', {
+  const { data, error } = await backend.rpc('fetch_live_chat_guest_messages', {
     p_token: token,
   })
   if (error) throw new Error(error.message)
@@ -84,7 +84,7 @@ export async function fetchGuestMessages(token: string): Promise<LiveChatMessage
 }
 
 export async function fetchStaffChatSessions(): Promise<LiveChatSession[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('live_chat_sessions')
     .select('*')
     .order('last_message_at', { ascending: false })
@@ -94,7 +94,7 @@ export async function fetchStaffChatSessions(): Promise<LiveChatSession[]> {
 }
 
 export async function fetchStaffChatMessages(sessionId: string): Promise<LiveChatMessage[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('live_chat_messages')
     .select('*')
     .eq('session_id', sessionId)
@@ -104,7 +104,7 @@ export async function fetchStaffChatMessages(sessionId: string): Promise<LiveCha
 }
 
 export async function replyLiveChatAgent(sessionId: string, body: string): Promise<LiveChatMessage> {
-  const { data, error } = await supabase.rpc('reply_live_chat_agent', {
+  const { data, error } = await backend.rpc('reply_live_chat_agent', {
     p_session_id: sessionId,
     p_body: body,
   })
@@ -113,6 +113,6 @@ export async function replyLiveChatAgent(sessionId: string, body: string): Promi
 }
 
 export async function closeLiveChatSession(sessionId: string): Promise<void> {
-  const { error } = await supabase.rpc('close_live_chat_session', { p_session_id: sessionId })
+  const { error } = await backend.rpc('close_live_chat_session', { p_session_id: sessionId })
   if (error) throw new Error(error.message)
 }

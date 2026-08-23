@@ -1,9 +1,8 @@
-import { supabase } from '@/lib/supabase'
-import { getPublicEnv } from '@/lib/env'
+import { backend } from '@/lib/backend'
 import type { NotificationLog } from '@/types/database'
 
 export async function fetchNotificationLogs(limit = 100): Promise<NotificationLog[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('notification_log')
     .select('*')
     .order('created_at', { ascending: false })
@@ -14,17 +13,13 @@ export async function fetchNotificationLogs(limit = 100): Promise<NotificationLo
 
 /** Fire-and-forget: process pending SMS via Edge Function (mock-safe). */
 export async function dispatchPendingSms(limit = 50): Promise<{ processed?: number; error?: string }> {
-  const url = getPublicEnv('VITE_SUPABASE_URL')
-  const key = getPublicEnv('VITE_SUPABASE_ANON_KEY')
-  if (!url || !key) return { error: 'supabase_missing' }
-
   try {
-    const res = await fetch(`${url}/functions/v1/sms-dispatch`, {
+    const res = await fetch('/api/notifications/sms/dispatch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
       },
+      credentials: 'include',
       body: JSON.stringify({ limit }),
     })
     const json = (await res.json().catch(() => ({}))) as {
@@ -42,17 +37,13 @@ export async function dispatchPendingSms(limit = 50): Promise<{ processed?: numb
 export async function dispatchPendingEmail(
   limit = 50,
 ): Promise<{ processed?: number; error?: string }> {
-  const url = getPublicEnv('VITE_SUPABASE_URL')
-  const key = getPublicEnv('VITE_SUPABASE_ANON_KEY')
-  if (!url || !key) return { error: 'supabase_missing' }
-
   try {
-    const res = await fetch(`${url}/functions/v1/email-dispatch`, {
+    const res = await fetch('/api/notifications/email/dispatch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
       },
+      credentials: 'include',
       body: JSON.stringify({ limit }),
     })
     const json = (await res.json().catch(() => ({}))) as {
@@ -106,7 +97,7 @@ export type RegistrationDocType = {
 }
 
 export async function fetchSmsSettings(): Promise<SmsSettings | null> {
-  const { data, error } = await supabase.from('sms_settings').select('*').eq('id', 1).maybeSingle()
+  const { data, error } = await backend.from('sms_settings').select('*').eq('id', 1).maybeSingle()
   if (error) throw new Error(error.message)
   return data as SmsSettings | null
 }
@@ -114,7 +105,7 @@ export async function fetchSmsSettings(): Promise<SmsSettings | null> {
 export async function updateSmsSettings(
   patch: Partial<Omit<SmsSettings, 'id' | 'updated_at'>>,
 ): Promise<SmsSettings> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('sms_settings')
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', 1)
@@ -131,7 +122,7 @@ export async function enqueueBroadcastSms(input: {
   targetUserId?: string | null
   bodyHint?: string | null
 }): Promise<number> {
-  const { data, error } = await supabase.rpc('enqueue_broadcast_sms', {
+  const { data, error } = await backend.rpc('enqueue_broadcast_sms', {
     p_template_key: input.templateKey,
     p_audience: input.audience,
     p_target_role: input.targetRole ?? null,
@@ -149,8 +140,8 @@ export async function createSystemNotification(input: {
   targetRole?: string | null
   targetUserId?: string | null
 }): Promise<SystemNotification> {
-  const { data: user } = await supabase.auth.getUser()
-  const { data, error } = await supabase
+  const { data: user } = await backend.auth.getUser()
+  const { data, error } = await backend
     .from('system_notifications')
     .insert({
       title: input.title.trim(),
@@ -167,7 +158,7 @@ export async function createSystemNotification(input: {
 }
 
 export async function fetchMySystemNotifications(): Promise<SystemNotification[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('system_notifications')
     .select('*')
     .order('created_at', { ascending: false })
@@ -177,21 +168,21 @@ export async function fetchMySystemNotifications(): Promise<SystemNotification[]
 }
 
 export async function activateUserAccount(userId: string): Promise<void> {
-  const { error } = await supabase.rpc('activate_user_account', { p_user_id: userId })
+  const { error } = await backend.rpc('activate_user_account', { p_user_id: userId })
   if (error) throw new Error(error.message)
   void dispatchPendingSms()
 }
 
 export async function enqueueIncompleteProfileSms(userId: string): Promise<void> {
-  const { error } = await supabase.rpc('enqueue_incomplete_profile_sms', { p_user_id: userId })
+  const { error } = await backend.rpc('enqueue_incomplete_profile_sms', { p_user_id: userId })
   if (error) throw new Error(error.message)
   void dispatchPendingSms()
 }
 
 export async function markSystemNotificationRead(notificationId: string): Promise<void> {
-  const { data: user } = await supabase.auth.getUser()
+  const { data: user } = await backend.auth.getUser()
   if (!user.user) return
-  const { error } = await supabase.from('system_notification_reads').upsert({
+  const { error } = await backend.from('system_notification_reads').upsert({
     notification_id: notificationId,
     user_id: user.user.id,
     read_at: new Date().toISOString(),
@@ -200,11 +191,11 @@ export async function markSystemNotificationRead(notificationId: string): Promis
 }
 
 export async function fetchUnreadSystemNotificationCount(): Promise<number> {
-  const { data: user } = await supabase.auth.getUser()
+  const { data: user } = await backend.auth.getUser()
   if (!user.user) return 0
   const notes = await fetchMySystemNotifications()
   if (!notes.length) return 0
-  const { data: reads } = await supabase
+  const { data: reads } = await backend
     .from('system_notification_reads')
     .select('notification_id')
     .eq('user_id', user.user.id)
@@ -215,7 +206,7 @@ export async function fetchUnreadSystemNotificationCount(): Promise<number> {
 export async function fetchRegistrationDocTypes(
   accountType?: 'individual' | 'legal',
 ): Promise<RegistrationDocType[]> {
-  let query = supabase
+  let query = backend
     .from('registration_doc_types')
     .select('*')
     .eq('is_active', true)
@@ -228,7 +219,7 @@ export async function fetchRegistrationDocTypes(
 }
 
 export async function fetchAllRegistrationDocTypes(): Promise<RegistrationDocType[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('registration_doc_types')
     .select('*')
     .order('sort_order')
@@ -240,7 +231,7 @@ export async function upsertRegistrationDocType(
   input: Partial<RegistrationDocType> & { label_fa: string; label_en: string; code: string },
 ): Promise<RegistrationDocType> {
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('registration_doc_types')
       .update({
         code: input.code,
@@ -257,7 +248,7 @@ export async function upsertRegistrationDocType(
     if (error) throw new Error(error.message)
     return data as RegistrationDocType
   }
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('registration_doc_types')
     .insert({
       code: input.code,
@@ -279,8 +270,8 @@ export async function createAccountIssue(input: {
   title: string
   body?: string
 }): Promise<void> {
-  const { data: user } = await supabase.auth.getUser()
-  const { error } = await supabase.from('account_issues').insert({
+  const { data: user } = await backend.auth.getUser()
+  const { error } = await backend.from('account_issues').insert({
     user_id: input.userId,
     title: input.title.trim(),
     body: input.body ?? null,
@@ -288,7 +279,7 @@ export async function createAccountIssue(input: {
   })
   if (error) throw new Error(error.message)
 
-  const { data: profile } = await supabase
+  const { data: profile } = await backend
     .from('profiles')
     .select('phone')
     .eq('id', input.userId)
@@ -296,7 +287,7 @@ export async function createAccountIssue(input: {
   if (profile?.phone) {
     const settings = await fetchSmsSettings().catch(() => null)
     if (settings?.enable_account_issue !== false) {
-      await supabase.from('notification_log').insert({
+      await backend.from('notification_log').insert({
         channel: 'sms',
         template_key: 'account_issue',
         phone: profile.phone,

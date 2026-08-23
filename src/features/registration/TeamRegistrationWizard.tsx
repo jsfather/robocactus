@@ -12,7 +12,7 @@ import { DateTimeField } from '@/components/ui/DateTimeField'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { ageFromBirthDate, toDateOnly } from '@/lib/dates'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import {
   clearTeamDraft,
   createCaptainInvite,
@@ -263,7 +263,7 @@ export function TeamRegistrationWizard({
     try {
       const teamId = await ensureTeamRecord()
       await saveMembersWithIdCards(teamId)
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await backend
         .from('teams')
         .select('*')
         .eq('id', teamId)

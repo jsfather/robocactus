@@ -7,8 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import type { BackendSession as Session, BackendUser as User } from '@/lib/backend'
+import { isBackendConfigured, backend } from '@/lib/backend'
 import {
   completeSmsOtpSession,
   requestSmsOtp,
@@ -80,7 +80,7 @@ export function clearSignupDraft() {
 }
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -95,7 +95,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const configured = isSupabaseConfigured()
+  const configured = isBackendConfigured()
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    const userId = (await supabase.auth.getUser()).data.user?.id
+    const userId = (await backend.auth.getUser()).data.user?.id
     if (!userId) {
       setProfile(null)
       setProfileError(null)
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true
 
-    void supabase.auth
+    void backend.auth
       .getSession()
       .then(async ({ data }) => {
         if (!mounted) return
@@ -157,8 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      // Defer client calls — Supabase deadlocks if you await other requests inside this callback.
+    } = backend.auth.onAuthStateChange((event, nextSession) => {
+      // Defer follow-up requests until the authentication state update has settled.
       window.setTimeout(() => {
         if (!mounted) return
         setSession(nextSession)
@@ -183,10 +183,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!configured) {
-      return { error: 'supabase_missing' }
+      return { error: 'backend_missing' }
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await backend.auth.signInWithPassword({ email, password })
     if (error) return { error: error.message }
     await refreshProfile()
     return { error: null }
@@ -196,12 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     async ({ email, password, fullName, phone, authChannel = 'email' }: SignUpInput) => {
       if (!configured) {
-        return { error: 'supabase_missing' }
+        return { error: 'backend_missing' }
       }
 
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/signup?resume=docs')}`
 
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await backend.auth.signUp({
         email,
         password,
         options: {
@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const needsEmailConfirm = !data.session
       if (data.session?.user) {
-        await supabase
+        await backend
           .from('profiles')
           .update({
             email: email.trim().toLowerCase(),
@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const requestPhoneOtp = useCallback(async (phone: string) => {
-    if (!configured) return { error: 'supabase_missing' }
+    if (!configured) return { error: 'backend_missing' }
     const result = await requestSmsOtp(phone)
     if (!result.ok) {
       return {
@@ -249,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyPhoneOtp = useCallback(
     async (input: { phone: string; code: string; fullName?: string }) => {
-      if (!configured) return { error: 'supabase_missing' }
+      if (!configured) return { error: 'backend_missing' }
       const verified = await verifySmsOtp(input)
       if (!verified.ok) return { error: verified.error }
       const sessionResult = await completeSmsOtpSession(verified.token_hash)
@@ -262,8 +262,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestEmailMagicLink = useCallback(
     async (email: string) => {
-      if (!configured) return { error: 'supabase_missing' }
-      const { error } = await supabase.auth.signInWithOtp({
+      if (!configured) return { error: 'backend_missing' }
+      const { error } = await backend.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}`,
@@ -277,7 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    await backend.auth.signOut()
     setProfile(null)
     setProfileError(null)
   }, [])

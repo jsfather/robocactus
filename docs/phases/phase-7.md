@@ -10,7 +10,7 @@
   - curated `company_achievements`
   - active/approved teams
   - full published results table
-- Migration: `supabase/migrations/0008_phase7_public_rankings.sql` (public team select for archive)
+- Migration: `db/migrations/0008_phase7_public_rankings.sql` (public team select for archive)
 
 ## Acceptance Criteria
 

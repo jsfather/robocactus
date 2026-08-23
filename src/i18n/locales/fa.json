@@ -3,9 +3,9 @@
     "name": "روبوکاپ تبرستان",
     "tagline": "برگزارکننده مسابقات ملی و بین‌المللی رباتیک",
     "loading": "در حال بارگذاری...",
-    "supabaseMissing": "اتصال به پایگاه‌داده تنظیم نشده است.",
-    "supabaseUnreachable": "اتصال به سرور برقرار نیست (Failed to fetch).",
-    "supabaseFixHint": "در داشبورد Supabase پروژه را باز کنید و VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY را در فایل .env به‌روز کنید، بعد dev سرور را ری‌استارت کنید."
+    "backendMissing": "اتصال به پایگاه‌داده تنظیم نشده است.",
+    "backendUnreachable": "اتصال به سرور برقرار نیست (Failed to fetch).",
+    "backendFixHint": "اتصال DATABASE_URL بین سرور برنامه و PostgreSQL را بررسی و سپس سرور را راه‌اندازی مجدد کنید."
   },
   "nav": {
     "home": "صفحه اصلی",
@@ -55,7 +55,7 @@
     "otpCooldown": "کمی صبر کنید و دوباره کد بخواهید",
     "otpTooMany": "تلاش بیش از حد — کد جدید بگیرید",
     "devOtp": "کد آزمایشی (mock): {{code}}",
-    "supabaseMissing": "اتصال Supabase پیکربندی نشده است. فایل .env را تنظیم کنید.",
+    "backendMissing": "سرور برنامه پیکربندی نشده است. DATABASE_URL را در محیط سرور تنظیم کنید.",
     "profileLoadFailed": "نشست شما برقرار است ولی پروفایل لود نشد. اتصال را بررسی کنید و دوباره تلاش کنید.",
     "signupMultiHint": "حقیقی یا حقوقی، سپس پیامک (ایران) یا ایمیل (خارج از کشور)",
     "individualHint": "ثبت‌نام شخص حقیقی",

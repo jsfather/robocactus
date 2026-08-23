@@ -8,7 +8,7 @@
 - Static pages CMS: `/super-admin/pages` (`about`, `contact`, `faq`, `privacy`)
 - Public pages load CMS content: `/about`, `/contact`, `/faq`, `/privacy`
 - Public `/leagues` lists active leagues from DB
-- Migration: `supabase/migrations/0004_phase3_super_admin.sql`
+- Migration: `db/migrations/0004_phase3_super_admin.sql`
 
 ## Acceptance Criteria
 

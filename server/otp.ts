@@ -1,0 +1,157 @@
+import { createHash, randomInt, randomUUID } from 'node:crypto'
+import type { Request, Router } from 'express'
+import { eq, sql } from 'drizzle-orm'
+import { users } from '../db/schema.js'
+import { config } from './config.js'
+import { db } from './db.js'
+import { createOneTimeToken } from './auth.js'
+
+const OTP_TTL_MS = 5 * 60 * 1000
+const RESEND_COOLDOWN_MS = 60 * 1000
+const MAX_ATTEMPTS = 5
+const requestWindows = new Map<string, { count: number; resetAt: number }>()
+
+function ipRateLimited(ip: string | undefined): boolean {
+  const key = ip ?? 'unknown'
+  const now = Date.now()
+  if (requestWindows.size > 5000) {
+    for (const [windowKey, value] of requestWindows) {
+      if (value.resetAt <= now) requestWindows.delete(windowKey)
+    }
+  }
+  const current = requestWindows.get(key)
+  if (!current || current.resetAt <= now) {
+    requestWindows.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 })
+    return false
+  }
+  current.count += 1
+  return current.count > 20
+}
+
+function normalizeIranPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('09')) return digits
+  if (digits.length === 12 && digits.startsWith('98')) return `0${digits.slice(2)}`
+  if (digits.length === 10 && digits.startsWith('9')) return `0${digits}`
+  return null
+}
+
+function otpHash(phone: string, code: string): string {
+  return createHash('sha256').update(`${phone}:${code}`).digest('hex')
+}
+
+async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> {
+  const provider = (process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
+  if (config.smsMock) {
+    console.log(`[sms:mock] OTP for ${phone}: ${code}`)
+    return { mock: true }
+  }
+  if (provider === 'kavenegar') {
+    const apiKey = process.env.KAVENEGAR_API_KEY ?? ''
+    const template = JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp ?? 'auth_otp'
+    const query = new URLSearchParams({ receptor: phone, template, token: code })
+    const response = await fetch(`https://api.kavenegar.com/v1/${apiKey}/verify/lookup.json?${query}`)
+    if (!response.ok) throw new Error(`sms_provider_${response.status}`)
+    return { mock: false }
+  }
+  const response = await fetch('https://api2.ippanel.com/api/v1/sms/pattern/normal/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `AccessKey ${process.env.IPPANEL_API_KEY ?? ''}`,
+    },
+    body: JSON.stringify({
+      code: JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}').auth_otp ?? 'auth_otp',
+      sender: process.env.IPPANEL_ORIGINATOR ?? '',
+      recipient: phone,
+      variable: { code },
+    }),
+  })
+  if (!response.ok) throw new Error(`sms_provider_${response.status}`)
+  return { mock: false }
+}
+
+export function registerOtpRoutes(router: Router): void {
+  router.post('/auth/sms-otp', async (request: Request, response) => {
+    try {
+      const action = String(request.body?.action ?? '')
+      const phone = normalizeIranPhone(String(request.body?.phone ?? ''))
+      if (!phone) {
+        response.status(400).json({ error: 'invalid_phone' })
+        return
+      }
+
+      if (action === 'request') {
+        if (ipRateLimited(request.ip)) {
+          response.status(429).json({ error: 'too_many_attempts' })
+          return
+        }
+        const recent = await db.execute(sql`
+          select created_at from public.auth_otp_challenges
+          where phone = ${phone} order by created_at desc limit 1
+        `)
+        if (recent.rows[0]?.created_at) {
+          const age = Date.now() - new Date(String(recent.rows[0].created_at)).getTime()
+          if (age < RESEND_COOLDOWN_MS) {
+            response.status(429).json({
+              error: 'cooldown',
+              retry_after_sec: Math.ceil((RESEND_COOLDOWN_MS - age) / 1000),
+            })
+            return
+          }
+        }
+        const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
+        await db.execute(sql`
+          insert into public.auth_otp_challenges(phone, code_hash, expires_at)
+          values (${phone}, ${otpHash(phone, code)}, ${new Date(Date.now() + OTP_TTL_MS)})
+        `)
+        const sent = await sendOtp(phone, code)
+        response.json({ ok: true, expires_in_sec: OTP_TTL_MS / 1000, ...(sent.mock ? { dev_code: code } : {}) })
+        return
+      }
+
+      if (action === 'verify') {
+        const code = String(request.body?.code ?? '').replace(/\D/g, '')
+        const challengeResult = await db.execute(sql`
+          select * from public.auth_otp_challenges
+          where phone = ${phone} and consumed_at is null
+          order by created_at desc limit 1
+        `)
+        const challenge = challengeResult.rows[0]
+        if (!challenge) throw new Error('no_challenge')
+        if (new Date(String(challenge.expires_at)).getTime() < Date.now()) throw new Error('expired')
+        if (Number(challenge.attempts) >= MAX_ATTEMPTS) throw new Error('too_many_attempts')
+        if (code.length !== 6 || otpHash(phone, code) !== challenge.code_hash) {
+          await db.execute(sql`update public.auth_otp_challenges set attempts = attempts + 1 where id = ${challenge.id}`)
+          throw new Error('invalid_code')
+        }
+        await db.execute(sql`update public.auth_otp_challenges set consumed_at = now() where id = ${challenge.id}`)
+
+        let user = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
+        const fullName = String(request.body?.full_name ?? '').trim()
+        if (!user) {
+          const inserted = await db.insert(users).values({
+            id: randomUUID(),
+            email: `${phone.replace(/^0/, '98')}@phone.robocactus.local`,
+            phone,
+            rawUserMetaData: { full_name: fullName || 'کاربر جدید', phone, auth_channel: 'phone' },
+            emailConfirmedAt: new Date(),
+          }).returning()
+          user = inserted[0]
+        }
+        if (!user) throw new Error('session_failed')
+        if (fullName) {
+          await db.execute(sql`update public.profiles set full_name = ${fullName} where id = ${user.id} and full_name = 'کاربر جدید'`)
+        }
+        const token = await createOneTimeToken(user.id, 'sms_otp')
+        response.json({ ok: true, token_hash: token, email: user.email })
+        return
+      }
+
+      response.status(400).json({ error: 'invalid_action' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      response.status(message === 'too_many_attempts' ? 429 : 400).json({ error: message })
+    }
+  })
+}

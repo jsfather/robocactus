@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { computeLeaguePeriod } from '@/features/leagues/period'
 import type { League, ResultRow } from '@/types/database'
 import type { RankingsRow } from '@/features/rankings/api'
@@ -53,7 +53,7 @@ export function resolveResultsBoardMode(league: League): ResultsBoardMode | null
 }
 
 export async function fetchLiveResultsBoards(): Promise<LiveLeagueBoard[]> {
-  const { data: leaguesRaw, error: leaguesError } = await supabase
+  const { data: leaguesRaw, error: leaguesError } = await backend
     .from('leagues')
     .select('*')
     .eq('is_active', true)
@@ -68,7 +68,7 @@ export async function fetchLiveResultsBoards(): Promise<LiveLeagueBoard[]> {
   if (!candidates.length) return []
 
   const leagueIds = candidates.map((c) => c.league.id)
-  const { data: resultsRaw, error: resultsError } = await supabase
+  const { data: resultsRaw, error: resultsError } = await backend
     .from('results')
     .select(
       `
@@ -130,7 +130,7 @@ export async function setLeagueResultsStatus(
   leagueId: string,
   status: 'auto' | 'hidden' | 'live' | 'final',
 ): Promise<League> {
-  const { data, error } = await supabase.rpc('set_league_results_status', {
+  const { data, error } = await backend.rpc('set_league_results_status', {
     p_league_id: leagueId,
     p_status: status,
   })
@@ -139,7 +139,7 @@ export async function setLeagueResultsStatus(
 }
 
 export async function fetchTeamPublishedResult(teamId: string): Promise<ResultRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('results')
     .select('*')
     .eq('team_id', teamId)
@@ -152,7 +152,7 @@ export async function fetchTeamPublishedResult(teamId: string): Promise<ResultRo
 }
 
 export async function fetchCompanyPublishedResults(companyId: string): Promise<RankingsRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('results')
     .select(
       `

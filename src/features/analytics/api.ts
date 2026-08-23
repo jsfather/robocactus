@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 export type AnalyticsBucket = {
   key: string
@@ -45,13 +45,13 @@ export type AnalyticsExportRow = {
 }
 
 export async function fetchAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
-  const { data, error } = await supabase.rpc('analytics_snapshot')
+  const { data, error } = await backend.rpc('analytics_snapshot')
   if (error) throw new Error(error.message)
   return data as AnalyticsSnapshot
 }
 
 export async function fetchAnalyticsExportRows(): Promise<AnalyticsExportRow[]> {
-  const { data, error } = await supabase.rpc('analytics_export_teams')
+  const { data, error } = await backend.rpc('analytics_export_teams')
   if (error) throw new Error(error.message)
   return (data ?? []) as AnalyticsExportRow[]
 }

@@ -8,7 +8,7 @@
 - Referral RPC `refer_ticket` sets `league_id` (+ optional `assigned_to`)
 - Tight RLS: after referral with assignee, only that league admin + owners + super_admin see the ticket; staff loses access
 - Storage select extended so league admins can open team documents
-- Migration: `supabase/migrations/0005_phase4_judging_tickets.sql`
+- Migration: `db/migrations/0005_phase4_judging_tickets.sql`
 
 ## Acceptance Criteria
 

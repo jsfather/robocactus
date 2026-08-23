@@ -14,7 +14,7 @@ import {
   updateSmsSettings,
   type SmsSettings,
 } from '@/features/notifications/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { NotificationLog, Profile, UserRole } from '@/types/database'
 
 type Tab = 'log' | 'broadcast' | 'sms' | 'inapp'
@@ -45,7 +45,7 @@ export function SuperAdminNotificationsPage() {
       const [logs, settings, profiles] = await Promise.all([
         fetchNotificationLogs(),
         fetchSmsSettings().catch(() => null),
-        supabase.from('profiles').select('*').order('full_name').then((r) => (r.data ?? []) as Profile[]),
+        backend.from('profiles').select('*').order('full_name').then((r) => (r.data ?? []) as Profile[]),
       ])
       setRows(logs)
       setSms(settings)

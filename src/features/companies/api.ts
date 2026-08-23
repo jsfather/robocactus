@@ -1,9 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { Company, CompanyMember, League, Team } from '@/types/database'
 import { validateLogoFile } from '@/lib/validation'
 
 export async function fetchMyCompanies(userId: string): Promise<Company[]> {
-  const { data: memberships, error: memberError } = await supabase
+  const { data: memberships, error: memberError } = await backend
     .from('company_members')
     .select('company_id')
     .eq('user_id', userId)
@@ -12,7 +12,7 @@ export async function fetchMyCompanies(userId: string): Promise<Company[]> {
   if (!memberships?.length) return []
 
   const ids = memberships.map((m: { company_id: string }) => m.company_id)
-  const { data, error } = await supabase.from('companies').select('*').in('id', ids)
+  const { data, error } = await backend.from('companies').select('*').in('id', ids)
 
   if (error) throw new Error(error.message)
   return (data ?? []) as Company[]
@@ -22,7 +22,7 @@ export async function fetchCompanyMembership(
   companyId: string,
   userId: string,
 ): Promise<CompanyMember | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('company_members')
     .select('*')
     .eq('company_id', companyId)
@@ -41,7 +41,7 @@ export async function createCompany(input: {
   website?: string
   logo_url?: string | null
 }): Promise<Company> {
-  const { data, error } = await supabase.rpc('create_company', {
+  const { data, error } = await backend.rpc('create_company', {
     p_name: input.name,
     p_slug: input.slug,
     p_bio: input.bio ?? null,
@@ -60,7 +60,7 @@ export async function updateCompany(
     Pick<Company, 'name' | 'slug' | 'bio' | 'founded_year' | 'website' | 'logo_url' | 'cover_image_url' | 'tagline'>
   >,
 ): Promise<Company> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('companies')
     .update(patch)
     .eq('id', companyId)
@@ -78,19 +78,19 @@ export async function uploadCompanyLogo(userId: string, file: File): Promise<str
   const ext = file.name.split('.').pop() ?? 'png'
   const path = `${userId}/logo-${Date.now()}.${ext}`
 
-  const { error } = await supabase.storage.from('company-logos').upload(path, file, {
+  const { error } = await backend.storage.from('company-logos').upload(path, file, {
     upsert: true,
     contentType: file.type,
   })
 
   if (error) throw new Error(error.message)
 
-  const { data } = supabase.storage.from('company-logos').getPublicUrl(path)
+  const { data } = backend.storage.from('company-logos').getPublicUrl(path)
   return data.publicUrl
 }
 
 export async function fetchActiveLeagues(): Promise<League[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('leagues')
     .select('*')
     .eq('is_active', true)
@@ -101,7 +101,7 @@ export async function fetchActiveLeagues(): Promise<League[]> {
 }
 
 export async function fetchCompanyTeams(companyId: string): Promise<Team[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('teams')
     .select('*')
     .eq('company_id', companyId)

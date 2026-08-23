@@ -33,7 +33,7 @@ export function LoginPage() {
 
   const mapOtpError = (err: string | null) => {
     if (!err) return null
-    if (err === 'supabase_missing') return t('auth.supabaseMissing')
+    if (err === 'backend_missing') return t('auth.backendMissing')
     if (err === 'invalid_phone') return t('auth.invalidPhone')
     if (err === 'invalid_code' || err === 'no_challenge') return t('auth.invalidOtp')
     if (err === 'expired') return t('auth.otpExpired')
@@ -50,8 +50,8 @@ export function LoginPage() {
     if (emailSubMode === 'magic') {
       const result = await requestEmailMagicLink(email.trim())
       setSubmitting(false)
-      if (result.error === 'supabase_missing') {
-        setError(t('auth.supabaseMissing'))
+      if (result.error === 'backend_missing') {
+        setError(t('auth.backendMissing'))
         return
       }
       if (result.error) {
@@ -65,8 +65,8 @@ export function LoginPage() {
     const result = await signIn(email.trim(), password)
     setSubmitting(false)
 
-    if (result.error === 'supabase_missing') {
-      setError(t('auth.supabaseMissing'))
+    if (result.error === 'backend_missing') {
+      setError(t('auth.backendMissing'))
       return
     }
     if (result.error) {
@@ -111,7 +111,7 @@ export function LoginPage() {
 
         {!configured ? (
           <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-            {t('auth.supabaseMissing')}
+            {t('auth.backendMissing')}
           </p>
         ) : null}
 
