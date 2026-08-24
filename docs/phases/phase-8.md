@@ -6,7 +6,7 @@
 - Public announcements: `/news`
 - Public gallery: `/gallery` (filter by year / league)
 - Super-admin CMS: `/super-admin/content` (blog, announcements, gallery + `content-media` upload)
-- Migration: `supabase/migrations/0009_phase8_content.sql` (public storage bucket)
+- Migration: `db/migrations/0009_phase8_content.sql` (public storage bucket)
 
 ## Acceptance Criteria
 

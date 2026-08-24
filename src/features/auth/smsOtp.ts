@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { isBackendConfigured, backend } from '@/lib/backend'
 import { getPublicEnv } from '@/lib/env'
 import { normalizeIranPhone } from '@/lib/ippanel'
 
@@ -11,17 +11,14 @@ type OtpVerifyResult =
   | { ok: false; error: string }
 
 async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const url = getPublicEnv('VITE_SUPABASE_URL')
-  const anon = getPublicEnv('VITE_SUPABASE_ANON_KEY')
-  if (!url || !anon) throw new Error('supabase_missing')
+  const url = getPublicEnv('VITE_API_URL')?.replace(/\/$/, '') ?? ''
 
-  const res = await fetch(`${url}/functions/v1/sms-otp`, {
+  const res = await fetch(`${url}/api/auth/sms-otp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${anon}`,
-      apikey: anon,
     },
+    credentials: 'include',
     body: JSON.stringify(body),
   })
 
@@ -33,7 +30,7 @@ async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string,
 }
 
 export async function requestSmsOtp(phoneRaw: string): Promise<OtpRequestResult> {
-  if (!isSupabaseConfigured()) return { ok: false, error: 'supabase_missing' }
+  if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(phoneRaw)
   if (!phone) return { ok: false, error: 'invalid_phone' }
 
@@ -57,7 +54,7 @@ export async function verifySmsOtp(input: {
   code: string
   fullName?: string
 }): Promise<OtpVerifyResult> {
-  if (!isSupabaseConfigured()) return { ok: false, error: 'supabase_missing' }
+  if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(input.phone)
   if (!phone) return { ok: false, error: 'invalid_phone' }
 
@@ -80,7 +77,7 @@ export async function verifySmsOtp(input: {
 }
 
 export async function completeSmsOtpSession(tokenHash: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.auth.verifyOtp({
+  const { error } = await backend.auth.verifyOtp({
     type: 'email',
     token_hash: tokenHash,
   })

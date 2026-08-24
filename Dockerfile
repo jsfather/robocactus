@@ -1,28 +1,31 @@
 # syntax=docker/dockerfile:1
 
 FROM node:24-alpine AS build
-
 WORKDIR /app
-
 COPY package.json package-lock.json ./
 RUN npm ci
-
 COPY . .
 RUN npm run build
 
-FROM nginx:1.28-alpine AS production
+FROM node:24-alpine AS production
+ENV NODE_ENV=production
+WORKDIR /app
 
-RUN apk add --no-cache jq
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY deploy/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist-server ./dist-server
+COPY db ./db
+COPY scripts ./scripts
 
-RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
+RUN mkdir -p /app/data/uploads && chown -R node:node /app
+USER node
 
-EXPOSE 80
+EXPOSE 3000
+VOLUME ["/app/data/uploads"]
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]

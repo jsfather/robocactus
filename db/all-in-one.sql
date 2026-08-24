@@ -1,8 +1,147 @@
--- RoboCup Tabarestan ALL-IN-ONE (UTF-8)
--- Paste into Supabase SQL Editor and Run once
+-- ===== 0000_postgres_foundation.sql =====
+-- PostgreSQL foundation replacing the managed Supabase platform schemas.
+-- The application server owns authentication, files and realtime delivery; the
+-- compatibility objects below let the established domain schema/functions keep
+-- their RLS behavior unchanged.
 
+create extension if not exists pgcrypto;
 
--- >>> BEGIN 0001_init.sql
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin noinherit;
+  end if;
+end
+$$;
+
+grant anon, authenticated, service_role to current_user;
+
+create schema if not exists auth;
+create schema if not exists storage;
+create schema if not exists app_private;
+
+create or replace function auth.uid()
+returns uuid
+language sql
+stable
+as $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+$$;
+
+create or replace function auth.role()
+returns text
+language sql
+stable
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'anon');
+$$;
+
+create table if not exists auth.users (
+  id uuid primary key default gen_random_uuid(),
+  email text unique,
+  encrypted_password text,
+  phone text unique,
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  email_confirmed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists app_private.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists sessions_user_id_idx on app_private.sessions(user_id);
+
+create table if not exists app_private.one_time_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  token_hash text not null unique,
+  kind text not null,
+  redirect_to text,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists one_time_tokens_hash_idx on app_private.one_time_tokens(token_hash);
+
+create table if not exists app_private.storage_objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket text not null,
+  object_path text not null,
+  disk_path text not null,
+  owner_id uuid references auth.users(id) on delete set null,
+  mime_type text,
+  size integer not null,
+  is_public boolean not null default false,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(bucket, object_path)
+);
+
+create table if not exists app_private.realtime_events (
+  id bigint generated always as identity primary key,
+  table_name text not null,
+  event text not null,
+  record jsonb,
+  old_record jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists storage.buckets (
+  id text primary key,
+  name text not null unique,
+  public boolean not null default false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text not null references storage.buckets(id) on delete cascade,
+  name text not null,
+  owner uuid,
+  metadata jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  last_accessed_at timestamptz,
+  unique(bucket_id, name)
+);
+
+alter table storage.objects enable row level security;
+
+create or replace function storage.foldername(name text)
+returns text[]
+language sql
+immutable
+as $$
+  select case
+    when position('/' in name) = 0 then array[]::text[]
+    else string_to_array(regexp_replace(name, '/[^/]*$', ''), '/')
+  end;
+$$;
+
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    execute 'create publication supabase_realtime';
+  end if;
+end
+$$;
+
+grant usage on schema public, auth, storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.buckets, storage.objects to anon, authenticated, service_role;
+
+-- ===== 0001_init.sql =====
 -- RoboCup Tabarestan Phase 0: initial schema, RLS, profile trigger
 
 -- ============ ENUM TYPES ============
@@ -798,9 +937,8 @@ create policy "team_documents_delete"
       or public.is_super_admin()
     )
   );
--- <<< END 0001_init.sql
 
--- >>> BEGIN 0002_phase1_companies_teams.sql
+-- ===== 0002_phase1_companies_teams.sql =====
 -- Phase 1: company ownership helpers, captain invites, logos bucket
 
 -- One team per company per league
@@ -1044,9 +1182,8 @@ create policy "company_logos_delete"
 -- Staff/league can still select teams; company_admin update via membership
 
 grant usage on schema public to authenticated;
--- <<< END 0002_phase1_companies_teams.sql
 
--- >>> BEGIN 0003_phase2_payments.sql
+-- ===== 0003_phase2_payments.sql =====
 -- Phase 2: payments, invoices workflow, secure status transitions
 
 create extension if not exists pgcrypto;
@@ -1339,9 +1476,8 @@ from invoices i
 join teams t on t.id = i.team_id
 join leagues l on l.id = t.league_id
 join companies c on c.id = i.company_id;
--- <<< END 0003_phase2_payments.sql
 
--- >>> BEGIN 0004_phase3_super_admin.sql
+-- ===== 0004_phase3_super_admin.sql =====
 -- Phase 3: super-admin helpers for roles and league admin assignment
 
 create or replace function public.set_user_role(p_user_id uuid, p_role user_role)
@@ -1449,9 +1585,8 @@ grant execute on function public.remove_league_admin to authenticated;
 
 -- Allow super_admin to select all profiles even if other policies overlap (already covered)
 -- Ensure inactive leagues can be managed (already covered by leagues_super_admin_all)
--- <<< END 0004_phase3_super_admin.sql
 
--- >>> BEGIN 0005_phase4_judging_tickets.sql
+-- ===== 0005_phase4_judging_tickets.sql =====
 -- Phase 4: judging + staff ticketing helpers and tighter ticket visibility
 
 -- League admins need to download team documents while reviewing
@@ -1910,9 +2045,8 @@ $$;
 
 revoke all on function public.upsert_team_result from public;
 grant execute on function public.upsert_team_result to authenticated;
--- <<< END 0005_phase4_judging_tickets.sql
 
--- >>> BEGIN 0006_phase5_notifications.sql
+-- ===== 0006_phase5_notifications.sql =====
 -- Phase 5: SMS notifications with idempotent notification_log
 
 alter table notification_log
@@ -2268,9 +2402,8 @@ create policy "notification_log_insert_service"
 drop policy if exists "notification_log_update_super_admin" on notification_log;
 create policy "notification_log_update_super_admin"
   on notification_log for update using (public.is_super_admin());
--- <<< END 0006_phase5_notifications.sql
 
--- >>> BEGIN 0007_phase6_realtime_tickets.sql
+-- ===== 0007_phase6_realtime_tickets.sql =====
 -- Phase 6: Realtime ticketing + unread receipts
 
 create table if not exists ticket_reads (
@@ -2491,9 +2624,8 @@ end $$;
 alter table ticket_messages replica identity full;
 alter table tickets replica identity full;
 alter table ticket_reads replica identity full;
--- <<< END 0007_phase6_realtime_tickets.sql
 
--- >>> BEGIN 0008_phase7_public_rankings.sql
+-- ===== 0008_phase7_public_rankings.sql =====
 -- Phase 7: public visibility for teams shown in rankings / company profiles
 
 -- Anonymous visitors need to read team names joined from published results,
@@ -2526,9 +2658,8 @@ join leagues l on l.id = r.league_id
 where r.published_at is not null
   and r.rank is not null
   and r.rank <= 3;
--- <<< END 0008_phase7_public_rankings.sql
 
--- >>> BEGIN 0009_phase8_content.sql
+-- ===== 0009_phase8_content.sql =====
 -- Phase 8: content media storage for blog covers & gallery
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -2561,9 +2692,8 @@ create policy "content_media_super_admin_delete"
     bucket_id = 'content-media'
     and public.is_super_admin()
   );
--- <<< END 0009_phase8_content.sql
 
--- >>> BEGIN 0010_phase9_home.sql
+-- ===== 0010_phase9_home.sql =====
 -- Phase 9: home stats RPC + contact form inbox
 
 create or replace function public.home_stats()
@@ -2641,9 +2771,8 @@ select * from (values
   )
 ) as v(title, subtitle, image_url, link_url, sort_order, is_active)
 where not exists (select 1 from home_banners limit 1);
--- <<< END 0010_phase9_home.sql
 
--- >>> BEGIN 0011_phase10_analytics_otp.sql
+-- ===== 0011_phase10_analytics_otp.sql =====
 -- Phase 10: SMS OTP challenges + analytics + realtime for live dashboards
 
 -- ============ OTP ============
@@ -2808,9 +2937,8 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
--- <<< END 0011_phase10_analytics_otp.sql
 
--- >>> BEGIN 0012_fix_company_members_rls.sql
+-- ===== 0012_fix_company_members_rls.sql =====
 -- Fix infinite recursion on company_members RLS
 -- Run in Supabase SQL Editor
 
@@ -2882,9 +3010,8 @@ create policy "companies_manage"
     public.is_company_member(id)
     or public.is_super_admin()
   );
--- <<< END 0012_fix_company_members_rls.sql
 
--- >>> BEGIN 0013_league_detail_pages.sql
+-- ===== 0013_league_detail_pages.sql =====
 -- Phase: full league public page + admin-managed content
 
 alter table leagues
@@ -3034,9 +3161,8 @@ $$;
 
 revoke all on function public.league_registered_count(uuid) from public;
 grant execute on function public.league_registered_count(uuid) to anon, authenticated;
--- <<< END 0013_league_detail_pages.sql
 
--- >>> BEGIN 0014_league_cover_and_demo.sql
+-- ===== 0014_league_cover_and_demo.sql =====
 -- Cover image column + rich demo content for league public pages
 
 alter table leagues
@@ -3228,9 +3354,8 @@ where l.slug = 'rescue'
   and not exists (
     select 1 from announcements a where a.league_id = l.id and a.title = 'آغاز ثبت‌نام لیگ امدادگر'
   );
--- <<< END 0014_league_cover_and_demo.sql
 
--- >>> BEGIN 0015_content_seo_fields.sql
+-- ===== 0015_content_seo_fields.sql =====
 -- SEO + excerpt fields for blog posts and announcements
 
 alter table blog_posts
@@ -3246,9 +3371,8 @@ alter table announcements
   add column if not exists meta_description text,
   add column if not exists cover_image text,
   add column if not exists updated_at timestamptz default now();
--- <<< END 0015_content_seo_fields.sql
 
--- >>> BEGIN 0016_ticket_departments.sql
+-- ===== 0016_ticket_departments.sql =====
 -- Ticket support departments (queues) + optional FK on tickets
 
 create table if not exists ticket_departments (
@@ -3316,9 +3440,8 @@ $$;
 
 revoke all on function public.ticket_status_counts from public;
 grant execute on function public.ticket_status_counts to authenticated;
--- <<< END 0016_ticket_departments.sql
 
--- >>> BEGIN 0017_static_pages_seo.sql
+-- ===== 0017_static_pages_seo.sql =====
 -- SEO + media fields for static pages
 
 alter table static_pages
@@ -3327,9 +3450,8 @@ alter table static_pages
   add column if not exists meta_description text,
   add column if not exists og_image text,
   add column if not exists cover_image text;
--- <<< END 0017_static_pages_seo.sql
 
--- >>> BEGIN 0018_site_settings.sql
+-- ===== 0018_site_settings.sql =====
 -- Global site settings (single-row)
 
 create table if not exists site_settings (
@@ -3383,9 +3505,8 @@ create policy "site_settings_sa_write"
   to authenticated
   using (public.is_super_admin())
   with check (public.is_super_admin());
--- <<< END 0018_site_settings.sql
 
--- >>> BEGIN 0019_notify_signup_companies.sql
+-- ===== 0019_notify_signup_companies.sql =====
 -- Notifications hub, signup activation, company cover, league judging path, registration docs
 
 -- ── profiles: account type / activation ──────────────────────────────
@@ -3635,9 +3756,8 @@ $$;
 
 revoke all on function public.activate_user_account from public;
 grant execute on function public.activate_user_account to authenticated;
--- <<< END 0019_notify_signup_companies.sql
 
--- >>> BEGIN 0020_sms_flags_league_admin.sql
+-- ===== 0020_sms_flags_league_admin.sql =====
 -- Respect sms_settings toggles, league_joined on paid registration,
 -- always promote assign_league_admin role, incomplete-profile enqueue helper
 
@@ -3861,15 +3981,13 @@ $$;
 
 revoke all on function public.enqueue_incomplete_profile_sms from public;
 grant execute on function public.enqueue_incomplete_profile_sms to authenticated;
--- <<< END 0020_sms_flags_league_admin.sql
 
--- >>> BEGIN 0021_live_chat_sms_tickets.sql
+-- ===== 0021_live_chat_sms_tickets.sql =====
 -- Intentionally no-op: first attempt failed mid-file on reply_ticket revoke.
 -- Full schema is applied in 0022_fix_reply_ticket_chat.sql
 select 1;
--- <<< END 0021_live_chat_sms_tickets.sql
 
--- >>> BEGIN 0022_fix_reply_ticket_chat.sql
+-- ===== 0022_fix_reply_ticket_chat.sql =====
 -- Fix reply_ticket overload ambiguity + ensure 0021 objects exist
 
 drop function if exists public.reply_ticket(uuid, text, boolean);
@@ -4397,9 +4515,8 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
--- <<< END 0022_fix_reply_ticket_chat.sql
 
--- >>> BEGIN 0023_fix_chat_token_footer.sql
+-- ===== 0023_fix_chat_token_footer.sql =====
 -- Fix gen_random_bytes (pgcrypto often lives in extensions schema)
 -- Enrich public footer fields
 
@@ -4482,9 +4599,8 @@ alter table site_settings
   add column if not exists contact_address_en text,
   add column if not exists trust_seal_url text,
   add column if not exists trust_seal_href text;
--- <<< END 0023_fix_chat_token_footer.sql
 
--- >>> BEGIN 0024_chat_token_uuid_only.sql
+-- ===== 0024_chat_token_uuid_only.sql =====
 -- Hard-fix live chat token: never call gen_random_bytes
 
 create or replace function public.start_live_chat(
@@ -4546,9 +4662,8 @@ begin
   );
 end;
 $$;
--- <<< END 0024_chat_token_uuid_only.sql
 
--- >>> BEGIN 0025_home_sections.sql
+-- ===== 0025_home_sections.sql =====
 -- Homepage sections: sponsors, events, partners, why cards, FAQs, display stats
 
 create table if not exists home_sponsors (
@@ -4724,9 +4839,8 @@ select * from (values
   ('Sponsor F', 'https://placehold.co/160x64/0f172a/fb923c?text=Sponsor+F', 6)
 ) as v(name, logo_url, sort_order)
 where not exists (select 1 from home_sponsors limit 1);
--- <<< END 0025_home_sections.sql
 
--- >>> BEGIN 0026_email_auth_notifications.sql
+-- ===== 0026_email_auth_notifications.sql =====
 -- Email auth + email notifications for international users
 
 alter table profiles
@@ -4927,9 +5041,8 @@ $$;
 
 revoke all on function public.list_pending_notifications(integer, text) from public;
 grant execute on function public.list_pending_notifications(integer, text) to service_role;
--- <<< END 0026_email_auth_notifications.sql
 
--- >>> BEGIN 0027_live_results_boards.sql
+-- ===== 0027_live_results_boards.sql =====
 -- Live / final results boards for public pages
 
 alter table leagues
@@ -5016,9 +5129,8 @@ begin
     when duplicate_object then null;
   end;
 end $$;
--- <<< END 0027_live_results_boards.sql
 
--- >>> BEGIN 0028_live_results_realtime.sql
+-- ===== 0028_live_results_realtime.sql =====
 -- Realtime for live results boards (idempotent)
 
 do $$
@@ -5034,9 +5146,8 @@ begin
     when duplicate_object then null;
   end;
 end $$;
--- <<< END 0028_live_results_realtime.sql
 
--- >>> BEGIN 0029_nav_live_results.sql
+-- ===== 0029_nav_live_results.sql =====
 -- Ensure public nav includes Live Results (insert after Home)
 
 update site_settings
@@ -5090,9 +5201,8 @@ where id = 1
     from jsonb_array_elements(nav_items) el
     where el->>'href' in ('/live', '/live/')
   );
--- <<< END 0029_nav_live_results.sql
 
--- >>> BEGIN 0030_team_members_competitions.sql
+-- ===== 0030_team_members_competitions.sql =====
 -- Richer team members + review status + profile admin edits
 
 alter table team_members
@@ -5217,9 +5327,8 @@ $$;
 
 revoke all on function public.admin_update_profile from public;
 grant execute on function public.admin_update_profile to authenticated;
--- <<< END 0030_team_members_competitions.sql
 
--- >>> BEGIN 0031_gallery_categories.sql
+-- ===== 0031_gallery_categories.sql =====
 -- Standalone gallery categories (CMS + public)
 
 create table if not exists gallery_categories (
@@ -5259,9 +5368,8 @@ select * from (values
   ('پشت صحنه', 'Behind the scenes', 3)
 ) as v(name_fa, name_en, sort_order)
 where not exists (select 1 from gallery_categories limit 1);
--- <<< END 0031_gallery_categories.sql
 
--- >>> BEGIN 0032_tabarestan_rebrand.sql
+-- ===== 0032_tabarestan_rebrand.sql =====
 -- Rebrand existing installations to RoboCup Tabarestan.
 update public.site_settings
 set site_name_fa = 'روبوکاپ تبرستان', site_name_en = 'RoboCup Tabarestan',
@@ -5281,9 +5389,8 @@ set title = replace(replace(title, 'روبوکاکتوس', 'روبوکاپ تب�
 where title like '%روبوکاکتوس%' or title like '%RoboCactus%'
    or excerpt like '%روبوکاکتوس%' or excerpt like '%RoboCactus%'
    or body like '%روبوکاکتوس%' or body like '%RoboCactus%';
--- <<< END 0032_tabarestan_rebrand.sql
 
--- >>> BEGIN 0033_competition_brand_positioning.sql
+-- ===== 0033_competition_brand_positioning.sql =====
 -- Align existing CMS content with the competition organizer positioning.
 update public.site_settings
 set site_name_fa = 'روبوکاپ تبرستان',
@@ -5302,9 +5409,8 @@ set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوک�
 update public.static_pages
 set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
     body = replace(replace(replace(body, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan');
--- <<< END 0033_competition_brand_positioning.sql
 
--- >>> BEGIN 0034_replace_competition_leagues.sql
+-- ===== 0034_replace_competition_leagues.sql =====
 -- Replace the legacy league catalog with the approved national competition list.
 -- Existing teams/results/content tied to removed leagues are intentionally deleted.
 do $$
@@ -5372,9 +5478,8 @@ values
 ('لیگ ربات‌های صنعتی دانشگاهی آزاد','industrial-university-open','رقابت پیشرفته اتوماسیون، بازوی رباتیک و ربات‌های متحرک صنعتی.','چالش صنعتی آزاد برای تیم‌های دانشگاهی.','تیم‌های دانشگاهی راهکار کامل اتوماسیون شامل ادراک، برنامه‌ریزی حرکت و اجرای دقیق مأموریت‌های صنعتی را ارائه می‌کنند.','ربات صنعتی','آزاد',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/industrial-university-cover.png','/images/leagues/industrial-university-hero.png','سالن فناوری روبوکاپ تبرستان','حرفه‌ای','فارسی / انگلیسی','فضای ۱۶ مترمربع، میز ربات صنعتی و کنسول داوری مستقل برای هر تیم فراهم می‌شود.','[{"label":"کیفیت اتوماسیون","points":45},{"label":"دقت و تکرارپذیری","points":35},{"label":"نوآوری","points":20}]','[{"title":"ارزیابی طرح"},{"title":"دموی صنعتی"},{"title":"فینال تخصصی"}]',true,'open'),
 ('لیگ ربات‌های ورزشی زیر ۱۴ سال','sports-robots-u14','رقابت تیمی ربات‌های ورزشی در زمین استاندارد ویژه رده زیر ۱۴ سال.','فوتبال رباتیک و رقابت تیمی برای استعدادهای زیر ۱۴ سال.','سه ربات هر تیم در زمین مسابقه با تمرکز بر همکاری تیمی، کنترل دقیق و استراتژی بازی با یکدیگر رقابت می‌کنند.','ربات ورزشی','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u14-cover.png','/images/leagues/sports-u14-hero.png','سالن ورزشی روبوکاپ تبرستان','مقدماتی تا متوسط','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"بازی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"تست ربات‌ها"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open'),
 ('لیگ ربات‌های ورزشی زیر ۱۹ سال','sports-robots-u19','رقابت حرفه‌ای ربات‌های ورزشی برای تیم‌های زیر ۱۹ سال.','فوتبال رباتیک سریع و تاکتیکی در رده زیر ۱۹ سال.','تیم‌ها با سه ربات و راهبردهای کنترلی پیشرفته در زمین استاندارد برای کسب عنوان قهرمانی رقابت می‌کنند.','ربات ورزشی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u19-cover.png','/images/leagues/sports-u19-hero.png','سالن ورزشی روبوکاپ تبرستان','پیشرفته','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"استراتژی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"بازرسی فنی"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open');
--- <<< END 0034_replace_competition_leagues.sql
 
--- >>> BEGIN 0035_league_fees_people_event.sql
+-- ===== 0035_league_fees_people_event.sql =====
 -- Complete the active competition catalog with fees, event date, officials and contact details.
 update public.leagues
 set registration_fee = case slug
@@ -5445,21 +5550,81 @@ where l.slug in (
   'indoor-rescue-u14','outdoor-rescue-open','space-race-open','firefighter-open',
   'industrial-student-u19','industrial-university-open','sports-robots-u14','sports-robots-u19'
 );
--- <<< END 0035_league_fees_people_event.sql
 
--- >>> BEGIN seed.sql
--- Seed static pages and a sample league for local/dev testing
-insert into static_pages (slug, title, body) values
-  ('about', 'درباره ما', '<p>روبوکاپ تبرستان پلتفرم مدیریت مسابقات رباتیک است.</p>'),
-  ('contact', 'تماس با ما', '<p>برای ارتباط با دبیرخانه رویداد از فرم تماس استفاده کنید.</p>'),
-  ('faq', 'سوالات متداول', '<p>پاسخ پرسش‌های پرتکرار به‌زودی اینجا منتشر می‌شود.</p>'),
-  ('privacy', 'حریم خصوصی', '<p>سیاست حفظ حریم خصوصی کاربران روبوکاپ تبرستان.</p>')
-on conflict (slug) do nothing;
+-- ===== 9999_application_runtime.sql =====
+-- Runtime privileges and database-backed realtime event capture.
 
-insert into leagues (name, slug, description, category, capacity, registration_fee, is_active)
-values
-  ('Rescue', 'rescue', 'لیگ امداد و نجات رباتیک', 'rescue', 64, 2500000, true),
-  ('Soccer', 'soccer', 'لیگ فوتبال رباتیک', 'soccer', 48, 2200000, true),
-  ('Humanoid', 'humanoid', 'لیگ ربات انسان‌نما', 'humanoid', 32, 3000000, true)
-on conflict (slug) do nothing;
--- <<< END seed.sql
+grant usage on schema public to anon, authenticated, service_role;
+grant select, insert, update, delete on all tables in schema public to anon, authenticated, service_role;
+grant usage, select on all sequences in schema public to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to anon, authenticated, service_role;
+alter default privileges in schema public
+  grant usage, select on sequences to anon, authenticated, service_role;
+
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'profile-documents', 'profile-documents', false, 5242880,
+  array['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do nothing;
+
+create policy "profile_documents_storage_select" on storage.objects for select to authenticated
+using (
+  bucket_id = 'profile-documents'
+  and ((storage.foldername(name))[1] = auth.uid()::text or public.is_super_admin())
+);
+create policy "profile_documents_storage_insert" on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'profile-documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+create policy "profile_documents_storage_delete" on storage.objects for delete to authenticated
+using (
+  bucket_id = 'profile-documents'
+  and ((storage.foldername(name))[1] = auth.uid()::text or public.is_super_admin())
+);
+
+create or replace function app_private.capture_realtime_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = app_private, public
+as $$
+begin
+  insert into app_private.realtime_events(table_name, event, record, old_record)
+  values (
+    tg_table_name,
+    tg_op,
+    case when tg_op = 'DELETE' then null else to_jsonb(new) end,
+    case when tg_op = 'INSERT' then null else to_jsonb(old) end
+  );
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'teams', 'invoices', 'tickets', 'ticket_messages', 'ticket_reads',
+    'results', 'leagues', 'live_chat_sessions', 'live_chat_messages',
+    'system_notifications', 'account_issues'
+  ]
+  loop
+    if to_regclass('public.' || table_name) is not null then
+      execute format('drop trigger if exists app_realtime_capture on public.%I', table_name);
+      execute format(
+        'create trigger app_realtime_capture after insert or update or delete on public.%I for each row execute function app_private.capture_realtime_event()',
+        table_name
+      );
+    end if;
+  end loop;
+end
+$$;
+

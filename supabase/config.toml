@@ -1,7 +1,0 @@
-project_id = "robocactus"
-
-[api]
-enabled = true
-
-[db]
-major_version = 15

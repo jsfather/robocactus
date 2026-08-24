@@ -26,7 +26,7 @@
 ## Setup
 
 1. Apply `0011_phase10_analytics_otp.sql`
-2. `supabase functions deploy sms-otp`
+2. Configure SMS secrets; OTP is served by `server/otp.ts`.
 3. Secrets: same IPPanel keys; add `auth_otp` to `IPPANEL_PATTERNS`
 4. Ensure Realtime enabled for `teams` and `invoices` (migration adds to publication)
 

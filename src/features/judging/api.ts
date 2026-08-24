@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { validateDocumentFile } from '@/lib/validation'
 import type {
   DocumentRow,
@@ -15,7 +15,7 @@ export type TeamWithMeta = Team & {
 }
 
 export async function fetchMyLeagueIds(userId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_admins')
     .select('league_id')
     .eq('user_id', userId)
@@ -27,7 +27,7 @@ export async function fetchTeamsForReview(filters?: {
   leagueIds?: string[]
   statuses?: RegistrationStatus[]
 }): Promise<Team[]> {
-  let query = supabase.from('teams').select('*').order('submitted_at', { ascending: true })
+  let query = backend.from('teams').select('*').order('submitted_at', { ascending: true })
 
   if (filters?.leagueIds?.length) {
     query = query.in('league_id', filters.leagueIds)
@@ -48,7 +48,7 @@ export async function reviewTeam(input: {
   status: Extract<RegistrationStatus, 'under_review' | 'approved' | 'rejected' | 'waitlisted'>
   rejectionReason?: string
 }): Promise<Team> {
-  const { data, error } = await supabase.rpc('review_team', {
+  const { data, error } = await backend.rpc('review_team', {
     p_team_id: input.teamId,
     p_status: input.status,
     p_rejection_reason: input.rejectionReason ?? null,
@@ -58,7 +58,7 @@ export async function reviewTeam(input: {
 }
 
 export async function getDocumentSignedUrl(filePath: string): Promise<string> {
-  const { data, error } = await supabase.storage
+  const { data, error } = await backend.storage
     .from('team-documents')
     .createSignedUrl(filePath, 60 * 10)
   if (error) throw new Error(error.message)
@@ -66,7 +66,7 @@ export async function getDocumentSignedUrl(filePath: string): Promise<string> {
 }
 
 export async function fetchTeamDocuments(teamId: string): Promise<DocumentRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('documents')
     .select('*')
     .eq('team_id', teamId)
@@ -83,7 +83,7 @@ export async function upsertTeamResult(input: {
   notes?: string | null
   publish?: boolean
 }): Promise<ResultRow> {
-  const { data, error } = await supabase.rpc('upsert_team_result', {
+  const { data, error } = await backend.rpc('upsert_team_result', {
     p_team_id: input.teamId,
     p_season_year: input.seasonYear,
     p_rank: input.rank ?? null,
@@ -99,7 +99,7 @@ export async function fetchTeamResult(
   teamId: string,
   seasonYear: number,
 ): Promise<ResultRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('results')
     .select('*')
     .eq('team_id', teamId)
@@ -115,7 +115,7 @@ export async function createTicket(input: {
   body: string
   leagueId?: string | null
 }): Promise<Ticket> {
-  const { data, error } = await supabase.rpc('create_ticket', {
+  const { data, error } = await backend.rpc('create_ticket', {
     p_team_id: input.teamId,
     p_subject: input.subject,
     p_body: input.body,
@@ -131,7 +131,7 @@ export async function fetchTickets(filters?: {
   teamId?: string
   departmentId?: string | null
 }): Promise<Ticket[]> {
-  let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
+  let query = backend.from('tickets').select('*').order('created_at', { ascending: false })
 
   if (filters?.generalOnly) query = query.is('league_id', null)
   if (filters?.leagueIds?.length) query = query.in('league_id', filters.leagueIds)
@@ -144,7 +144,7 @@ export async function fetchTickets(filters?: {
 }
 
 export async function fetchTicketMessages(ticketId: string): Promise<TicketMessage[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('ticket_messages')
     .select('*')
     .eq('ticket_id', ticketId)
@@ -162,7 +162,7 @@ export async function replyTicket(input: {
   attachmentMime?: string | null
   attachmentSize?: number | null
 }): Promise<TicketMessage> {
-  const { data, error } = await supabase.rpc('reply_ticket', {
+  const { data, error } = await backend.rpc('reply_ticket', {
     p_ticket_id: input.ticketId,
     p_body: input.body,
     p_mark_answered: input.markAnswered ?? true,
@@ -187,13 +187,13 @@ export async function uploadTicketAttachment(userId: string, file: File): Promis
 
   const ext = file.name.split('.').pop() ?? 'bin'
   const path = `${userId}/${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('ticket-attachments').upload(path, file, {
+  const { error } = await backend.storage.from('ticket-attachments').upload(path, file, {
     contentType: file.type,
     upsert: false,
   })
   if (error) throw new Error(error.message)
 
-  const { data, error: signedError } = await supabase.storage
+  const { data, error: signedError } = await backend.storage
     .from('ticket-attachments')
     .createSignedUrl(path, 60 * 60 * 24 * 7)
   if (signedError) throw new Error(signedError.message)
@@ -211,7 +211,7 @@ export async function referTicket(input: {
   leagueId: string
   assignedTo?: string | null
 }): Promise<Ticket> {
-  const { data, error } = await supabase.rpc('refer_ticket', {
+  const { data, error } = await backend.rpc('refer_ticket', {
     p_ticket_id: input.ticketId,
     p_league_id: input.leagueId,
     p_assigned_to: input.assignedTo ?? null,
@@ -221,14 +221,14 @@ export async function referTicket(input: {
 }
 
 export async function closeTicket(ticketId: string): Promise<void> {
-  const { error } = await supabase.from('tickets').update({ status: 'closed' }).eq('id', ticketId)
+  const { error } = await backend.from('tickets').update({ status: 'closed' }).eq('id', ticketId)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeagueAdminsForLeague(
   leagueId: string,
 ): Promise<Array<{ user_id: string }>> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_admins')
     .select('user_id')
     .eq('league_id', leagueId)

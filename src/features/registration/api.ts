@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { normalizePhone, validateDocumentFile } from '@/lib/validation'
 import { toDateOnly } from '@/lib/dates'
 import type { DocumentRow, Team, TeamMember } from '@/types/database'
@@ -97,12 +97,12 @@ export async function resolveCaptainId(
   fullNameHint?: string,
 ): Promise<{ captainId: string; alreadyRegistered: boolean }> {
   const normalized = normalizePhone(phone)
-  const { data: exists, error: existsError } = await supabase.rpc('profile_exists_by_phone', {
+  const { data: exists, error: existsError } = await backend.rpc('profile_exists_by_phone', {
     p_phone: normalized,
   })
   if (existsError) throw new Error(existsError.message)
 
-  const { data: captainId, error } = await supabase.rpc('resolve_team_captain', {
+  const { data: captainId, error } = await backend.rpc('resolve_team_captain', {
     p_company_id: companyId,
     p_phone: normalized,
     p_full_name_hint: fullNameHint ?? null,
@@ -121,7 +121,7 @@ export async function createDraftTeam(input: {
   captainId: string
   memberCount: number
 }): Promise<Team> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('teams')
     .insert({
       company_id: input.companyId,
@@ -146,7 +146,7 @@ export async function updateDraftTeam(
     Pick<Team, 'name' | 'province' | 'city' | 'league_id' | 'captain_id' | 'member_count'>
   >,
 ): Promise<Team> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('teams')
     .update(patch)
     .eq('id', teamId)
@@ -161,7 +161,7 @@ export async function replaceTeamMembers(
   teamId: string,
   members: TeamMemberDraft[],
 ): Promise<TeamMember[]> {
-  const { error: deleteError } = await supabase.from('team_members').delete().eq('team_id', teamId)
+  const { error: deleteError } = await backend.from('team_members').delete().eq('team_id', teamId)
   if (deleteError) throw new Error(deleteError.message)
 
   if (!members.length) return []
@@ -188,7 +188,7 @@ export async function replaceTeamMembers(
 
   if (!rows.length) return []
 
-  const { data, error } = await supabase.from('team_members').insert(rows).select('*')
+  const { data, error } = await backend.from('team_members').insert(rows).select('*')
   if (error) throw new Error(error.message)
   return (data ?? []) as TeamMember[]
 }
@@ -205,19 +205,19 @@ export async function uploadMemberNationalId(input: {
   const ext = input.file.name.split('.').pop() ?? 'bin'
   const path = `${input.userId}/${input.teamId}/member-${input.memberId}-id-${Date.now()}.${ext}`
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await backend.storage
     .from('team-documents')
     .upload(path, input.file, { contentType: input.file.type, upsert: false })
   if (uploadError) throw new Error(uploadError.message)
 
-  await supabase.from('documents').insert({
+  await backend.from('documents').insert({
     team_id: input.teamId,
     file_path: path,
     doc_type: 'member_national_id',
     team_member_id: input.memberId,
   })
 
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('team_members')
     .update({ national_id_doc_path: path })
     .eq('id', input.memberId)
@@ -235,12 +235,12 @@ export async function createCaptainInvite(input: {
   invitedBy: string
 }): Promise<void> {
   const phone = normalizePhone(input.phone)
-  const { data: exists } = await supabase.rpc('profile_exists_by_phone', { p_phone: phone })
+  const { data: exists } = await backend.rpc('profile_exists_by_phone', { p_phone: phone })
   if (exists) return
 
-  await supabase.from('captain_invites').delete().eq('team_id', input.teamId)
+  await backend.from('captain_invites').delete().eq('team_id', input.teamId)
 
-  const { error } = await supabase.from('captain_invites').insert({
+  const { error } = await backend.from('captain_invites').insert({
     company_id: input.companyId,
     team_id: input.teamId,
     phone,
@@ -263,13 +263,13 @@ export async function uploadTeamDocument(input: {
   const ext = input.file.name.split('.').pop() ?? 'bin'
   const path = `${input.userId}/${input.teamId}/${input.docType}-${Date.now()}.${ext}`
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await backend.storage
     .from('team-documents')
     .upload(path, input.file, { contentType: input.file.type, upsert: false })
 
   if (uploadError) throw new Error(uploadError.message)
 
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('documents')
     .insert({
       team_id: input.teamId,
@@ -284,7 +284,7 @@ export async function uploadTeamDocument(input: {
 }
 
 export async function fetchTeamDocuments(teamId: string): Promise<DocumentRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('documents')
     .select('*')
     .eq('team_id', teamId)
@@ -295,7 +295,7 @@ export async function fetchTeamDocuments(teamId: string): Promise<DocumentRow[]>
 }
 
 export async function fetchTeamMembers(teamId: string): Promise<TeamMember[]> {
-  const { data, error } = await supabase.from('team_members').select('*').eq('team_id', teamId)
+  const { data, error } = await backend.from('team_members').select('*').eq('team_id', teamId)
   if (error) throw new Error(error.message)
   return (data ?? []) as TeamMember[]
 }
@@ -305,7 +305,7 @@ export async function reviewTeamMember(
   status: 'pending' | 'approved' | 'rejected',
   reason?: string,
 ): Promise<TeamMember> {
-  const { data, error } = await supabase.rpc('review_team_member', {
+  const { data, error } = await backend.rpc('review_team_member', {
     p_member_id: memberId,
     p_status: status,
     p_reason: reason ?? null,
@@ -315,7 +315,7 @@ export async function reviewTeamMember(
 }
 
 export async function fetchCaptainTeams(userId: string): Promise<Team[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('teams')
     .select('*')
     .eq('captain_id', userId)
@@ -326,14 +326,14 @@ export async function fetchCaptainTeams(userId: string): Promise<Team[]> {
 }
 
 export async function fetchTeamById(teamId: string): Promise<Team | null> {
-  const { data, error } = await supabase.from('teams').select('*').eq('id', teamId).maybeSingle()
+  const { data, error } = await backend.from('teams').select('*').eq('id', teamId).maybeSingle()
   if (error) throw new Error(error.message)
   return data as Team | null
 }
 
 export async function deleteTeamDocument(doc: DocumentRow): Promise<void> {
-  await supabase.storage.from('team-documents').remove([doc.file_path])
-  const { error } = await supabase.from('documents').delete().eq('id', doc.id)
+  await backend.storage.from('team-documents').remove([doc.file_path])
+  const { error } = await backend.from('documents').delete().eq('id', doc.id)
   if (error) throw new Error(error.message)
 }
 
@@ -341,7 +341,7 @@ export async function fetchCompanyTeamForLeague(
   companyId: string,
   leagueId: string,
 ): Promise<Team | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('teams')
     .select('*')
     .eq('company_id', companyId)

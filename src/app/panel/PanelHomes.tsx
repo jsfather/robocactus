@@ -5,7 +5,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { HudFrame, QuickAction, SectionLabel, StatCard } from '@/components/panel/HudKit'
 import { fetchAnalyticsSnapshot, type AnalyticsSnapshot } from '@/features/analytics/api'
 import { fetchTicketStatusCounts } from '@/features/tickets/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { formatAppDate } from '@/lib/dates'
 import { useAuth } from '@/hooks/useAuth'
 import { useUnreadTicketCount } from '@/hooks/useUnreadTickets'
@@ -87,14 +87,14 @@ export function SuperAdminHomePage() {
         const [s, tc, u, c, tm, pr] = await Promise.all([
           fetchAnalyticsSnapshot(),
           fetchTicketStatusCounts(),
-          supabase
+          backend
             .from('profiles')
             .select('id, full_name, phone, role, created_at')
             .order('created_at', { ascending: false })
             .limit(6),
-          supabase.from('companies').select('id, name, slug, created_at').order('created_at', { ascending: false }).limit(6),
-          supabase.from('teams').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(6),
-          supabase
+          backend.from('companies').select('id, name, slug, created_at').order('created_at', { ascending: false }).limit(6),
+          backend.from('teams').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(6),
+          backend
             .from('teams')
             .select('id', { count: 'exact', head: true })
             .in('status', ['submitted', 'under_review']),

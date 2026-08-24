@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type {
   Announcement,
   GalleryItem,
@@ -25,7 +25,7 @@ export type LeagueDetailBundle = {
 }
 
 export async function fetchLeagueBySlug(slug: string): Promise<League | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('leagues')
     .select('*')
     .eq('slug', slug)
@@ -49,29 +49,29 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     newsRes,
     countRes,
   ] = await Promise.all([
-    supabase.from('league_files').select('*').eq('league_id', league.id).order('sort_order'),
-    supabase.from('league_people').select('*').eq('league_id', league.id).order('sort_order'),
-    supabase.from('league_sponsors').select('*').eq('league_id', league.id).order('sort_order'),
-    supabase.from('league_faqs').select('*').eq('league_id', league.id).order('sort_order'),
-    supabase
+    backend.from('league_files').select('*').eq('league_id', league.id).order('sort_order'),
+    backend.from('league_people').select('*').eq('league_id', league.id).order('sort_order'),
+    backend.from('league_sponsors').select('*').eq('league_id', league.id).order('sort_order'),
+    backend.from('league_faqs').select('*').eq('league_id', league.id).order('sort_order'),
+    backend
       .from('league_past_results')
       .select('*')
       .eq('league_id', league.id)
       .order('season_year', { ascending: false }),
-    supabase
+    backend
       .from('gallery_items')
       .select('*')
       .eq('league_id', league.id)
       .order('created_at', { ascending: false })
       .limit(12),
-    supabase
+    backend
       .from('announcements')
       .select('*')
       .eq('league_id', league.id)
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(5),
-    supabase.rpc('league_registered_count', { p_league_id: league.id }),
+    backend.rpc('league_registered_count', { p_league_id: league.id }),
   ])
 
   for (const res of [filesRes, peopleRes, sponsorsRes, faqsRes, pastRes, galleryRes, newsRes]) {
@@ -83,7 +83,7 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
   const relatedIds = (league.related_league_ids ?? []) as string[]
   let related: League[] = []
   if (relatedIds.length) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('leagues')
       .select('*')
       .in('id', relatedIds)

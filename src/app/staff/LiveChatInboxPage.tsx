@@ -10,7 +10,7 @@ import {
   type LiveChatMessage,
   type LiveChatSession,
 } from '@/features/live-chat/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 export function LiveChatInboxPage() {
   const { t } = useTranslation()
@@ -50,7 +50,7 @@ export function LiveChatInboxPage() {
         if (!cancelled) setError(err.message)
       })
 
-    const channel = supabase
+    const channel = backend
       .channel(`live-chat-${selectedId}`)
       .on(
         'postgres_changes',
@@ -69,7 +69,7 @@ export function LiveChatInboxPage() {
 
     return () => {
       cancelled = true
-      void supabase.removeChannel(channel)
+      void backend.removeChannel(channel)
     }
   }, [selectedId])
 

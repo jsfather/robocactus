@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getPublicEnv } from '@/lib/env'
-import { isSupabaseConfigured } from '@/lib/supabase'
+import { isBackendConfigured } from '@/lib/backend'
 
 type Status = 'checking' | 'ok' | 'missing' | 'unreachable'
 
@@ -9,20 +9,20 @@ type Status = 'checking' | 'ok' | 'missing' | 'unreachable'
  * Surfaces backend connectivity failures (DNS / network / deleted project)
  * instead of silent empty pages and opaque "Failed to fetch" errors.
  */
-export function SupabaseStatusBanner() {
+export function BackendStatusBanner() {
   const { t } = useTranslation()
   const [status, setStatus] = useState<Status>(() =>
-    isSupabaseConfigured() ? 'checking' : 'missing',
+    isBackendConfigured() ? 'checking' : 'missing',
   )
   const [host, setHost] = useState('')
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
+    if (!isBackendConfigured()) {
       setStatus('missing')
       return
     }
 
-    const base = getPublicEnv('VITE_SUPABASE_URL')?.trim() ?? ''
+    const base = getPublicEnv('VITE_API_URL')?.trim() ?? ''
     let hostname = base
     try {
       hostname = new URL(base).host
@@ -31,18 +31,15 @@ export function SupabaseStatusBanner() {
     }
     setHost(hostname)
 
-    const key = getPublicEnv('VITE_SUPABASE_ANON_KEY')?.trim() ?? ''
     const ctrl = new AbortController()
     const timer = window.setTimeout(() => ctrl.abort(), 8000)
 
-    void fetch(`${base.replace(/\/$/, '')}/rest/v1/`, {
+    void fetch(`${base.replace(/\/$/, '')}/api/health`, {
       method: 'HEAD',
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
       signal: ctrl.signal,
     })
       .then((res) => {
-        // Any HTTP response means DNS/TLS/network reached the project.
-        setStatus(res.status > 0 ? 'ok' : 'unreachable')
+        setStatus(res.ok ? 'ok' : 'unreachable')
       })
       .catch(() => setStatus('unreachable'))
       .finally(() => window.clearTimeout(timer))
@@ -61,14 +58,14 @@ export function SupabaseStatusBanner() {
       className="border-b border-amber-500/40 bg-amber-500/15 px-4 py-2.5 text-center text-sm text-amber-100"
     >
       <p className="font-medium">
-        {status === 'missing' ? t('app.supabaseMissing') : t('app.supabaseUnreachable')}
+        {status === 'missing' ? t('app.backendMissing') : t('app.backendUnreachable')}
       </p>
       {status === 'unreachable' && host ? (
         <p className="mt-1 font-mono text-xs text-amber-100/70" dir="ltr">
           {host}
         </p>
       ) : null}
-      <p className="mt-1 text-xs text-amber-100/80">{t('app.supabaseFixHint')}</p>
+      <p className="mt-1 text-xs text-amber-100/80">{t('app.backendFixHint')}</p>
     </div>
   )
 }

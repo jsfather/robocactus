@@ -8,8 +8,8 @@
 - Payment UI: `/payments/teams/:teamId` + `/payments/callback`
 - Invoice download (print-ready HTML / Save as PDF)
 - Super-admin finance: `/super-admin/finance`
-- Edge Function skeleton: `supabase/functions/payment-verify`
-- Migration: `supabase/migrations/0003_phase2_payments.sql`
+- Server payment routes: `server/payment.ts`
+- Migration: `db/migrations/0003_phase2_payments.sql`
 
 ## Acceptance Criteria
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import {
   fetchLiveResultsBoards,
   type LiveLeagueBoard,
@@ -31,7 +31,7 @@ export function LiveResultsPage() {
   }, [])
 
   useEffect(() => {
-    const channel = supabase
+    const channel = backend
       .channel('live-results-public')
       .on(
         'postgres_changes',
@@ -55,7 +55,7 @@ export function LiveResultsPage() {
     const poll = window.setInterval(() => void reload(), 20000)
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
+      void backend.removeChannel(channel)
     }
   }, [])
 

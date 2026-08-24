@@ -9,7 +9,7 @@
 - Contact page: form → `contact_messages` + OSM map embed
 - FAQ page: categorized accordion (i18n) + CMS intro
 - Super-admin: `/super-admin/home` (banners CRUD + contact inbox)
-- Migration: `supabase/migrations/0010_phase9_home.sql`
+- Migration: `db/migrations/0010_phase9_home.sql`
 - Footer navigation for public pages
 
 ## Acceptance Criteria

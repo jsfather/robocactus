@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { SiteNavItem, SiteSettings } from '@/types/database'
 
 const LEGACY_BRAND_PATTERN = /روبو\s*کاپ\s*کاکتوس|روبو\s*کاکتوس|Robo\s*(?:Cup\s*)?Cactus/gi
@@ -26,7 +26,7 @@ export function normalizeSiteBrand(settings: SiteSettings | null): SiteSettings 
 }
 
 export async function fetchSiteSettings(): Promise<SiteSettings | null> {
-  const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).maybeSingle()
+  const { data, error } = await backend.from('site_settings').select('*').eq('id', 1).maybeSingle()
   if (error) throw new Error(error.message)
   return data as SiteSettings | null
 }
@@ -34,7 +34,7 @@ export async function fetchSiteSettings(): Promise<SiteSettings | null> {
 export async function updateSiteSettings(
   patch: Partial<Omit<SiteSettings, 'id' | 'updated_at'>>,
 ): Promise<SiteSettings> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('site_settings')
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', 1)

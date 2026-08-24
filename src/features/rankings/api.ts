@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import type { Company, CompanyAchievement, League, ResultRow, Team } from '@/types/database'
 
 export type RankingsRow = ResultRow & {
@@ -22,7 +22,7 @@ export async function fetchPublishedRankings(filters?: {
   leagueId?: string
   q?: string
 }): Promise<RankingsRow[]> {
-  let query = supabase
+  let query = backend
     .from('results')
     .select(
       `
@@ -90,7 +90,7 @@ export async function fetchPublishedRankings(filters?: {
 }
 
 export async function fetchRankingYears(): Promise<number[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('results')
     .select('season_year')
     .not('published_at', 'is', null)
@@ -104,7 +104,7 @@ export async function fetchRankingYears(): Promise<number[]> {
 }
 
 export async function fetchPublicCompanies(q?: string): Promise<Company[]> {
-  let query = supabase.from('companies').select('*').order('name')
+  let query = backend.from('companies').select('*').order('name')
   const { data, error } = await query
   if (error) throw new Error(error.message)
 
@@ -120,7 +120,7 @@ export async function fetchPublicCompanies(q?: string): Promise<Company[]> {
 }
 
 export async function fetchCompanyBySlug(slug: string): Promise<Company | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('companies')
     .select('*')
     .eq('slug', slug)
@@ -134,19 +134,19 @@ export async function fetchCompanyProfile(slug: string): Promise<CompanyProfileB
   if (!company) return null
 
   const [achievementsRes, results, teamsRes, leagues] = await Promise.all([
-    supabase
+    backend
       .from('company_achievements')
       .select('*')
       .eq('company_id', company.id)
       .order('year', { ascending: false }),
     fetchPublishedRankings({}),
-    supabase
+    backend
       .from('teams')
       .select('*')
       .eq('company_id', company.id)
       .in('status', ['submitted', 'under_review', 'approved', 'waitlisted'])
       .order('created_at', { ascending: false }),
-    supabase.from('leagues').select('id, name'),
+    backend.from('leagues').select('id, name'),
   ])
 
   if (achievementsRes.error) throw new Error(achievementsRes.error.message)
@@ -180,7 +180,7 @@ export function championshipsFromResults(results: RankingsRow[]): RankingsRow[] 
 }
 
 export async function fetchLeaguesForFilter(): Promise<League[]> {
-  const { data, error } = await supabase.from('leagues').select('*').order('name')
+  const { data, error } = await backend.from('leagues').select('*').order('name')
   if (error) throw new Error(error.message)
   return (data ?? []) as League[]
 }

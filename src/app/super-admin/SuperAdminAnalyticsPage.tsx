@@ -18,7 +18,7 @@ import {
   openAnalyticsPdf,
   type AnalyticsSnapshot,
 } from '@/features/analytics/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 const emptySnapshot: AnalyticsSnapshot = {
   generated_at: '',
@@ -100,7 +100,7 @@ export function SuperAdminAnalyticsPage() {
 
   // Realtime + short polling fallback
   useEffect(() => {
-    const channel = supabase
+    const channel = backend
       .channel('analytics-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
         void load()
@@ -118,7 +118,7 @@ export function SuperAdminAnalyticsPage() {
 
     return () => {
       window.clearInterval(poll)
-      void supabase.removeChannel(channel)
+      void backend.removeChannel(channel)
     }
   }, [load])
 

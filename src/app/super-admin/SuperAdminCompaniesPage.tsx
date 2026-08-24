@@ -6,7 +6,7 @@ import { HudFrame, SectionLabel, StatCard } from '@/components/panel/HudKit'
 import { Button, FieldError, Input } from '@/components/ui/FormControls'
 import { CompanyForm } from '@/features/companies/CompanyForm'
 import { useToast } from '@/components/ui/Toast'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { formatAppDate } from '@/lib/dates'
 import type { Company } from '@/types/database'
 
@@ -23,7 +23,7 @@ export function SuperAdminCompaniesPage() {
   const reload = async () => {
     setLoading(true)
     setError(null)
-    const { data, error: err } = await supabase
+    const { data, error: err } = await backend
       .from('companies')
       .select('*')
       .order('created_at', { ascending: false })

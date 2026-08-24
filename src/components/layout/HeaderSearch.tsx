@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchActiveLeagues } from '@/features/companies/api'
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 
 type Hit =
   | { kind: 'league'; title: string; href: string; hint?: string }
@@ -38,8 +38,8 @@ export function HeaderSearch() {
           const like = `%${term}%`
           const [leagues, companies, posts] = await Promise.all([
             fetchActiveLeagues().catch(() => []),
-            supabase.from('companies').select('name, slug').ilike('name', like).limit(6),
-            supabase
+            backend.from('companies').select('name, slug').ilike('name', like).limit(6),
+            backend
               .from('blog_posts')
               .select('title, slug')
               .eq('status', 'published')

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { backend } from '@/lib/backend'
 import { slugify } from '@/lib/validation'
 import type {
   League,
@@ -127,7 +127,7 @@ function leaguePayload(input: LeagueInput) {
 }
 
 export async function fetchAllLeagues(): Promise<League[]> {
-  const { data, error } = await supabase.from('leagues').select('*').order('created_at', {
+  const { data, error } = await backend.from('leagues').select('*').order('created_at', {
     ascending: false,
   })
   if (error) throw new Error(error.message)
@@ -135,13 +135,13 @@ export async function fetchAllLeagues(): Promise<League[]> {
 }
 
 export async function fetchLeagueById(id: string): Promise<League | null> {
-  const { data, error } = await supabase.from('leagues').select('*').eq('id', id).maybeSingle()
+  const { data, error } = await backend.from('leagues').select('*').eq('id', id).maybeSingle()
   if (error) throw new Error(error.message)
   return data as League | null
 }
 
 export async function createLeague(input: LeagueInput): Promise<League> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('leagues')
     .insert(leaguePayloadBasic(input))
     .select('*')
@@ -168,7 +168,7 @@ export async function updateLeague(id: string, input: LeagueInput): Promise<Leag
     input.technical_committee_notes != null
 
   const payload = hasDetail ? leaguePayload(input) : leaguePayloadBasic(input)
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('leagues')
     .update(payload)
     .eq('id', id)
@@ -179,12 +179,12 @@ export async function updateLeague(id: string, input: LeagueInput): Promise<Leag
 }
 
 export async function deleteLeague(id: string): Promise<void> {
-  const { error } = await supabase.from('leagues').delete().eq('id', id)
+  const { error } = await backend.from('leagues').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeagueFiles(leagueId: string): Promise<LeagueFile[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_files')
     .select('*')
     .eq('league_id', leagueId)
@@ -209,7 +209,7 @@ export async function upsertLeagueFile(input: {
     sort_order: input.sort_order ?? 0,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('league_files')
       .update(payload)
       .eq('id', input.id)
@@ -218,18 +218,18 @@ export async function upsertLeagueFile(input: {
     if (error) throw new Error(error.message)
     return data as LeagueFile
   }
-  const { data, error } = await supabase.from('league_files').insert(payload).select('*').single()
+  const { data, error } = await backend.from('league_files').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as LeagueFile
 }
 
 export async function deleteLeagueFile(id: string): Promise<void> {
-  const { error } = await supabase.from('league_files').delete().eq('id', id)
+  const { error } = await backend.from('league_files').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeaguePeople(leagueId: string): Promise<LeaguePerson[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_people')
     .select('*')
     .eq('league_id', leagueId)
@@ -258,7 +258,7 @@ export async function upsertLeaguePerson(input: {
     sort_order: input.sort_order ?? 0,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('league_people')
       .update(payload)
       .eq('id', input.id)
@@ -267,18 +267,18 @@ export async function upsertLeaguePerson(input: {
     if (error) throw new Error(error.message)
     return data as LeaguePerson
   }
-  const { data, error } = await supabase.from('league_people').insert(payload).select('*').single()
+  const { data, error } = await backend.from('league_people').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as LeaguePerson
 }
 
 export async function deleteLeaguePerson(id: string): Promise<void> {
-  const { error } = await supabase.from('league_people').delete().eq('id', id)
+  const { error } = await backend.from('league_people').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeagueSponsors(leagueId: string): Promise<LeagueSponsor[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_sponsors')
     .select('*')
     .eq('league_id', leagueId)
@@ -303,7 +303,7 @@ export async function upsertLeagueSponsor(input: {
     sort_order: input.sort_order ?? 0,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('league_sponsors')
       .update(payload)
       .eq('id', input.id)
@@ -312,18 +312,18 @@ export async function upsertLeagueSponsor(input: {
     if (error) throw new Error(error.message)
     return data as LeagueSponsor
   }
-  const { data, error } = await supabase.from('league_sponsors').insert(payload).select('*').single()
+  const { data, error } = await backend.from('league_sponsors').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as LeagueSponsor
 }
 
 export async function deleteLeagueSponsor(id: string): Promise<void> {
-  const { error } = await supabase.from('league_sponsors').delete().eq('id', id)
+  const { error } = await backend.from('league_sponsors').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeagueFaqs(leagueId: string): Promise<LeagueFaq[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_faqs')
     .select('*')
     .eq('league_id', leagueId)
@@ -346,7 +346,7 @@ export async function upsertLeagueFaq(input: {
     sort_order: input.sort_order ?? 0,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('league_faqs')
       .update(payload)
       .eq('id', input.id)
@@ -355,18 +355,18 @@ export async function upsertLeagueFaq(input: {
     if (error) throw new Error(error.message)
     return data as LeagueFaq
   }
-  const { data, error } = await supabase.from('league_faqs').insert(payload).select('*').single()
+  const { data, error } = await backend.from('league_faqs').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   return data as LeagueFaq
 }
 
 export async function deleteLeagueFaq(id: string): Promise<void> {
-  const { error } = await supabase.from('league_faqs').delete().eq('id', id)
+  const { error } = await backend.from('league_faqs').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchLeaguePastResults(leagueId: string): Promise<LeaguePastResult[]> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_past_results')
     .select('*')
     .eq('league_id', leagueId)
@@ -391,7 +391,7 @@ export async function upsertLeaguePastResult(input: {
     third_place: input.third_place || null,
   }
   if (input.id) {
-    const { data, error } = await supabase
+    const { data, error } = await backend
       .from('league_past_results')
       .update(payload)
       .eq('id', input.id)
@@ -400,7 +400,7 @@ export async function upsertLeaguePastResult(input: {
     if (error) throw new Error(error.message)
     return data as LeaguePastResult
   }
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('league_past_results')
     .insert(payload)
     .select('*')
@@ -410,12 +410,12 @@ export async function upsertLeaguePastResult(input: {
 }
 
 export async function deleteLeaguePastResult(id: string): Promise<void> {
-  const { error } = await supabase.from('league_past_results').delete().eq('id', id)
+  const { error } = await backend.from('league_past_results').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function fetchAllProfiles(): Promise<Profile[]> {
-  const { data, error } = await supabase.from('profiles').select('*').order('created_at', {
+  const { data, error } = await backend.from('profiles').select('*').order('created_at', {
     ascending: false,
   })
   if (error) throw new Error(error.message)
@@ -423,7 +423,7 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
 }
 
 export async function setUserRole(userId: string, role: UserRole): Promise<Profile> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('profiles')
     .update({ role })
     .eq('id', userId)
@@ -444,7 +444,7 @@ export async function adminUpdateProfile(input: {
   economicCode?: string | null
   email?: string | null
 }): Promise<Profile> {
-  const { data, error } = await supabase.rpc('admin_update_profile', {
+  const { data, error } = await backend.rpc('admin_update_profile', {
     p_user_id: input.userId,
     p_full_name: input.fullName ?? null,
     p_phone: input.phone ?? null,
@@ -460,7 +460,7 @@ export async function adminUpdateProfile(input: {
 }
 
 export async function fetchLeagueAdmins(leagueId?: string): Promise<LeagueAdminRow[]> {
-  let query = supabase.from('league_admins').select('*')
+  let query = backend.from('league_admins').select('*')
   if (leagueId) query = query.eq('league_id', leagueId)
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -468,14 +468,14 @@ export async function fetchLeagueAdmins(leagueId?: string): Promise<LeagueAdminR
 }
 
 export async function assignLeagueAdmin(leagueId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await backend
     .from('league_admins')
     .upsert({ league_id: leagueId, user_id: userId })
   if (error) throw new Error(error.message)
 }
 
 export async function removeLeagueAdmin(leagueId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await backend
     .from('league_admins')
     .delete()
     .eq('league_id', leagueId)
@@ -484,13 +484,13 @@ export async function removeLeagueAdmin(leagueId: string, userId: string): Promi
 }
 
 export async function fetchStaticPages(): Promise<StaticPage[]> {
-  const { data, error } = await supabase.from('static_pages').select('*').order('slug')
+  const { data, error } = await backend.from('static_pages').select('*').order('slug')
   if (error) throw new Error(error.message)
   return (data ?? []) as StaticPage[]
 }
 
 export async function fetchStaticPage(slug: string): Promise<StaticPage | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('static_pages')
     .select('*')
     .eq('slug', slug)
@@ -509,7 +509,7 @@ export async function upsertStaticPage(input: {
   og_image?: string | null
   cover_image?: string | null
 }): Promise<StaticPage> {
-  const { data, error } = await supabase
+  const { data, error } = await backend
     .from('static_pages')
     .upsert({
       slug: input.slug,

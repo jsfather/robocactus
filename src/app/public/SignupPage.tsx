@@ -10,8 +10,8 @@ import {
 } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { fetchRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
-import { uploadContentMedia } from '@/features/content/api'
-import { supabase } from '@/lib/supabase'
+import { uploadProfileDocument } from '@/features/content/api'
+import { backend } from '@/lib/backend'
 import type { AccountType } from '@/types/database'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
@@ -68,7 +68,7 @@ export function SignupPage() {
 
   const mapOtpError = (err: string | null) => {
     if (!err) return null
-    if (err === 'supabase_missing') return t('auth.supabaseMissing')
+    if (err === 'backend_missing') return t('auth.backendMissing')
     if (err === 'invalid_phone') return t('auth.invalidPhone')
     if (err === 'invalid_code' || err === 'no_challenge') return t('auth.invalidOtp')
     if (err === 'expired') return t('auth.otpExpired')
@@ -119,7 +119,7 @@ export function SignupPage() {
   }
 
   const persistProfileFields = async (uid: string) => {
-    await supabase
+    await backend
       .from('profiles')
       .update({
         account_type: accountType,
@@ -166,7 +166,7 @@ export function SignupPage() {
       return
     }
     try {
-      const { data: auth } = await supabase.auth.getUser()
+      const { data: auth } = await backend.auth.getUser()
       const uid = auth.user?.id
       if (!uid) throw new Error(t('common.error'))
       await persistProfileFields(uid)
@@ -211,7 +211,7 @@ export function SignupPage() {
     setSubmitting(false)
 
     if (result.error) {
-      setError(result.error === 'supabase_missing' ? t('auth.supabaseMissing') : result.error)
+      setError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error)
       return
     }
 
@@ -223,7 +223,7 @@ export function SignupPage() {
     }
 
     try {
-      const { data: auth } = await supabase.auth.getUser()
+      const { data: auth } = await backend.auth.getUser()
       const uid = auth.user?.id
       if (!uid) throw new Error(t('common.error'))
       await persistProfileFields(uid)
@@ -243,9 +243,9 @@ export function SignupPage() {
     if (!uid) return
     setSubmitting(true)
     try {
-      const url = await uploadContentMedia(uid, file)
+      const url = await uploadProfileDocument(uid, file)
       setUploads((prev) => ({ ...prev, [docId]: url }))
-      await supabase.from('profile_documents').insert({
+      await backend.from('profile_documents').insert({
         user_id: uid,
         doc_type_id: docId,
         file_url: url,
@@ -280,7 +280,7 @@ export function SignupPage() {
       <p className="mt-2 text-sm text-rc-muted">{t('auth.signupMultiHint')}</p>
 
       {!configured ? (
-        <p className="mt-6 text-sm text-red-400">{t('auth.supabaseMissing')}</p>
+        <p className="mt-6 text-sm text-red-400">{t('auth.backendMissing')}</p>
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3 font-mono text-[10px] tracking-wide text-rc-muted">
