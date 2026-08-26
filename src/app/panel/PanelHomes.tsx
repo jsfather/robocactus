@@ -121,8 +121,8 @@ export function SuperAdminHomePage() {
       title={t('panel.dashboardTitle')}
       description={t('admin.home.subtitle')}
     >
-      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] via-[#087eb8] to-[#0b9365] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.2)] sm:p-8">
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5"><div><p className="text-sm font-bold text-white/65">مرکز عملیات جام تبرستان</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">خوش آمدید، {profile?.full_name ?? user?.email}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">وضعیت ثبت‌نام‌ها، امور مالی، پشتیبانی و محتوای سایت را از یک نمای یکپارچه مدیریت کنید.</p></div><Link to="/super-admin/analytics" className="rounded-2xl border border-white/20 bg-white/12 px-5 py-3 text-sm font-bold text-white backdrop-blur hover:bg-white/20">مشاهده گزارش تحلیلی</Link></div>
+      <div className="role-welcome dashboard-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#07374d] via-[#087eb8] to-[#087a58] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.24)] sm:p-8">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5"><div><p className="text-sm font-black text-emerald-200">مرکز عملیات جام تبرستان</p><h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">خوش آمدید، {profile?.full_name ?? user?.email}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">وضعیت ثبت‌نام‌ها، امور مالی، پشتیبانی و محتوای سایت را از یک نمای یکپارچه مدیریت کنید.</p></div><Link to="/super-admin/analytics" className="rounded-2xl border border-white/25 bg-[#ffffff18] px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-[#ffffff2b]">مشاهده گزارش تحلیلی</Link></div>
         <span className="absolute -start-12 -top-20 size-64 rounded-full border-[35px] border-white/5" /><span className="absolute -bottom-24 end-10 size-60 rounded-full bg-white/5" />
       </div>
       {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
@@ -257,7 +257,7 @@ export function LeagueAdminHomePage() {
   const { profile } = useAuth()
   return (
     <PanelPage index="LA.00" title={t('judging.title')} description={t('judging.subtitle')}>
-      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#123d55] to-[#087eb8] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-bold text-sky-200">داشبورد مسئول لیگ</p><h2 className="mt-2 text-2xl font-black">{profile?.full_name ?? 'مدیر لیگ'}، جریان بررسی آماده است</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">پرونده تیم‌ها را بررسی کنید، مدارک ناقص را پیگیری کنید و پاسخ شرکت‌کنندگان را از یک فضای متمرکز مدیریت کنید.</p></div>
+      <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#123d55] to-[#087eb8] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-sky-200">داشبورد مسئول لیگ</p><h2 className="mt-2 text-2xl font-black text-white">{profile?.full_name ?? 'مدیر لیگ'}، جریان بررسی آماده است</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">پرونده تیم‌ها را بررسی کنید، مدارک ناقص را پیگیری کنید و پاسخ شرکت‌کنندگان را از یک فضای متمرکز مدیریت کنید.</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <QuickAction
           to="/league-admin/review"
@@ -285,7 +285,7 @@ export function StaffHomePage() {
   const { profile } = useAuth()
   return (
     <PanelPage index="ST.00" title={t('staff.title')} description={t('staff.subtitle')}>
-      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0b4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(11_147_101/0.18)] sm:p-8"><p className="text-sm font-bold text-emerald-200">میز کار کارشناسان</p><h2 className="mt-2 text-2xl font-black">روز بخیر، {profile?.full_name ?? 'کارشناس'}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">گفتگوهای آنلاین، درخواست‌های پشتیبانی و موارد نیازمند پیگیری در دسترس شما هستند.</p></div>
+      <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0b4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(11_147_101/0.18)] sm:p-8"><p className="text-sm font-black text-emerald-200">میز کار کارشناسان</p><h2 className="mt-2 text-2xl font-black text-white">روز بخیر، {profile?.full_name ?? 'کارشناس'}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">گفتگوهای آنلاین، درخواست‌های پشتیبانی و موارد نیازمند پیگیری در دسترس شما هستند.</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <QuickAction
           to="/staff/tickets"

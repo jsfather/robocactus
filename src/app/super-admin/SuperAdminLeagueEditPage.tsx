@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
+import { PanelPage } from '@/components/layout/PanelShell'
 import {
   deleteLeagueFaq,
   deleteLeagueFile,
@@ -274,12 +275,11 @@ export function SuperAdminLeagueEditPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">{t('admin.leagueDetail.title')}</h1>
-          <p className="mt-1 text-rc-muted">{league.name}</p>
-        </div>
+    <PanelPage
+      index="REG.02"
+      title={t('admin.leagueDetail.title')}
+      description={league.name}
+      actions={
         <div className="flex gap-3 text-sm">
           <Link to={`/leagues/${league.slug}`} className="text-rc-blue hover:underline">
             {t('admin.leagueDetail.preview')}
@@ -288,9 +288,10 @@ export function SuperAdminLeagueEditPage() {
             {t('admin.leagueDetail.back')}
           </Link>
         </div>
-      </div>
+      }
+    >
 
-      <div className="flex flex-wrap gap-2">
+      <div className="panel-tabs sticky top-24 z-10 flex flex-wrap gap-2 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_12px_40px_rgb(18_76_98/0.09)] backdrop-blur">
         {tabs.map((key) => (
           <Button
             key={key}
@@ -738,6 +739,6 @@ export function SuperAdminLeagueEditPage() {
           </ul>
         </PanelCard>
       )}
-    </div>
+    </PanelPage>
   )
 }

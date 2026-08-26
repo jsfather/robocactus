@@ -58,6 +58,7 @@ function MenuIcon({ open }: { open: boolean }) {
 
 function PanelNavIcon({ path }: { path: string }) {
   const common = { className: 'size-[1.15rem]', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, viewBox: '0 0 24 24', 'aria-hidden': true }
+  if (path.includes('kavenegar')) return <svg {...common}><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/><path d="M8 18v2m8-2v2"/></svg>
   if (path.includes('settings') || path.includes('access') || path.includes('registration')) return <svg {...common}><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
   if (path.includes('ticket') || path.includes('chat')) return <svg {...common}><path d="M5 5h14v11H9l-4 3V5Z"/><path d="M8 9h8M8 12h5"/></svg>
   if (path.includes('league') || path.includes('competition')) return <svg {...common}><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z"/><path d="M8 6H4v1a4 4 0 0 0 4 4m8-5h4v1a4 4 0 0 1-4 4M12 12v5m-4 3h8"/></svg>
@@ -85,7 +86,7 @@ function SidebarNav({
     <nav className="panel-nav-scroll flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
       {groups.map((group) => (
         <div key={group.id}>
-          <p className="mb-2.5 px-3 text-[10px] font-bold tracking-[0.12em] text-white/40 uppercase">
+          <p className="mb-2.5 px-3 text-[11px] font-black tracking-[0.08em] text-sky-200 uppercase">
             {t(group.titleKey)}
           </p>
           <ul className="space-y-1">
@@ -100,7 +101,7 @@ function SidebarNav({
                       'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
                       isActive
                         ? 'is-active border-white/10 bg-white text-[#0b5875] shadow-[0_10px_25px_rgb(0_20_35/0.18)]'
-                        : 'text-white/65 hover:border-white/10 hover:bg-white/8 hover:text-white',
+                        : 'text-slate-200 hover:border-white/15 hover:bg-white/10 hover:text-white',
                     ].join(' ')
                   }
                 >
@@ -223,7 +224,7 @@ export function PanelShell() {
           </Link>
         </div>
         <SidebarNav role={role} />
-        <div className="m-3 rounded-2xl border border-white/10 bg-white/7 p-3.5">
+        <div className="panel-sidebar-profile m-3 rounded-2xl border border-white/10 p-3.5">
           <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-emerald-400/15 text-sm font-black text-emerald-300">{(profile?.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-white">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] text-white/45">{t(`dashboard.roles.${role}`)}</p></span></div>
         </div>
       </aside>
@@ -253,7 +254,7 @@ export function PanelShell() {
       ) : null}
 
       <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19.5rem]">
-        <header className="panel-topbar panel-topbar-v4 sticky top-3 z-20 mx-3 mt-3 rounded-2xl border border-white/80 bg-white/82 backdrop-blur-xl lg:mx-5">
+        <header className="panel-topbar panel-topbar-v5 sticky top-3 z-20 mx-3 mt-3 overflow-visible rounded-2xl border border-white/10 lg:mx-5">
           <div className="flex min-h-[4.5rem] items-center gap-3 px-4 md:px-5">
             <button
               type="button"
@@ -265,18 +266,18 @@ export function PanelShell() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-extrabold tracking-[0.1em] text-emerald-600 uppercase">
+              <p className="text-[10px] font-extrabold tracking-[0.1em] text-emerald-300 uppercase">
                 {active ? t(active.titleKey) : 'SYS'}
               </p>
-              <p className="truncate text-base font-black text-slate-800 md:text-lg">{title}</p>
+              <p className="truncate text-base font-black text-white md:text-lg">{title}</p>
               {activeItem?.helpKey ? (
-                <p className="mt-0.5 line-clamp-2 text-xs text-rc-muted">{t(activeItem.helpKey)}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs text-slate-300">{t(activeItem.helpKey)}</p>
               ) : null}
             </div>
 
-            <Link to="/" className="hidden items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue md:flex">مشاهده سایت</Link>
-            <div className="hidden items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
-              <span className="font-mono text-[10px] tracking-wide text-rc-muted tabular-nums">
+            <Link to="/" className="hidden items-center rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 md:flex">مشاهده سایت</Link>
+            <div className="hidden items-center rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:flex">
+              <span className="font-mono text-[10px] tracking-wide text-slate-200 tabular-nums">
                 {dateLabel}
               </span>
             </div>
@@ -286,7 +287,7 @@ export function PanelShell() {
           </div>
         </header>
 
-        <main className="relative flex-1 px-3 py-6 sm:px-5 md:py-8 lg:px-7">
+        <main data-panel-section={active?.id ?? 'account'} className="relative flex-1 px-3 py-6 sm:px-5 md:py-8 lg:px-7">
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />
@@ -320,7 +321,7 @@ export function PanelPage({
           <div className="pointer-events-none absolute inset-y-0 start-0 w-1.5 bg-gradient-to-b from-rc-blue via-cyan-400 to-emerald-400" />
           <div className="flex flex-wrap items-center justify-between gap-5"><div>
             {index ? (
-              <p className="mb-1 font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">
+              <p className="mb-2 inline-flex rounded-lg bg-sky-50 px-2.5 py-1 text-[10px] font-black tracking-[0.08em] text-rc-blue uppercase">
                 {index}
               </p>
             ) : null}
@@ -330,7 +331,7 @@ export function PanelPage({
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}</div>
         </div>
       )}
-      {children}
+      <div className="panel-page-body space-y-6">{children}</div>
     </div>
   )
 }

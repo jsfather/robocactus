@@ -42,6 +42,7 @@ export async function startLiveChat(input: {
   name: string
   phone: string
   locale?: string
+  captchaToken?: string
 }): Promise<{
   session_id: string
   session_token: string
@@ -49,13 +50,12 @@ export async function startLiveChat(input: {
   guest_name: string
   guest_phone: string
 }> {
-  const { data, error } = await backend.rpc('start_live_chat', {
-    p_name: input.name,
-    p_phone: input.phone,
-    p_locale: input.locale ?? 'fa',
+  const response = await fetch('/api/forms/live-chat/start', {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: input.name, phone: input.phone, locale: input.locale ?? 'fa', captchaToken: input.captchaToken }),
   })
-  if (error) throw new Error(error.message)
-  const row = data as Record<string, string>
+  const row = await response.json().catch(() => ({})) as Record<string, string>
+  if (!response.ok) throw new Error(row.error ?? `HTTP ${response.status}`)
   saveChatToken(row.session_token)
   return {
     session_id: row.session_id,

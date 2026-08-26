@@ -11,6 +11,7 @@ import {
   type LiveChatMessage,
 } from '@/features/live-chat/api'
 import { normalizePhone } from '@/lib/validation'
+import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 
 export function LiveChatWidget() {
   const { t, i18n } = useTranslation()
@@ -21,6 +22,8 @@ export function LiveChatWidget() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [body, setBody] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -91,11 +94,15 @@ export function LiveChatWidget() {
         name,
         phone: normalizePhone(phone),
         locale: i18n.language,
+        captchaToken,
       })
       setToken(session.session_token)
       setMessages(await fetchGuestMessages(session.session_token))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message.startsWith('captcha_') ? captchaErrorMessage(message) : message)
+      setCaptchaToken('')
+      setCaptchaReset((value) => value + 1)
     } finally {
       setBusy(false)
     }
@@ -174,6 +181,7 @@ export function LiveChatWidget() {
                 onChange={(e) => setPhone(e.target.value)}
                 dir="ltr"
               />
+              <ArcaptchaField context="live_chat" onToken={setCaptchaToken} resetKey={captchaReset} />
               <FieldError message={error ?? undefined} />
               <Button type="submit" disabled={busy} className="mt-auto !rounded-2xl !bg-gradient-to-l !from-rc-blue !to-rc-accent !py-3 !font-bold !text-white !shadow-lg">
                 {t('chat.start')}

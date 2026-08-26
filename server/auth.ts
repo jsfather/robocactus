@@ -5,6 +5,7 @@ import { and, eq, gt, isNull, or, sql } from 'drizzle-orm'
 import { oneTimeTokens, sessions, users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, hashToken, type AuthUser, userFromRequest } from './db.js'
+import { verifyCaptcha } from './captcha.js'
 
 const scrypt = promisify(scryptCallback)
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -96,6 +97,20 @@ export type AuthSettings = {
   ippanel_api_key?: string | null
   ippanel_originator?: string | null
   kavenegar_api_key?: string | null
+  kavenegar_sender?: string | null
+  kavenegar_default_type?: number
+  kavenegar_default_tag?: string | null
+  kavenegar_default_policy?: string | null
+  kavenegar_webhook_secret?: string | null
+  captcha_provider?: 'arcaptcha'
+  captcha_enabled?: boolean
+  arcaptcha_site_key?: string | null
+  arcaptcha_secret_key?: string | null
+  captcha_on_login?: boolean
+  captcha_on_signup?: boolean
+  captcha_on_password_reset?: boolean
+  captcha_on_contact?: boolean
+  captcha_on_live_chat?: boolean
   sms_patterns?: Record<string, string> | null
   zarinpal_merchant_id?: string | null
   zarinpal_sandbox?: boolean
@@ -126,6 +141,12 @@ export async function getAuthSettings(includeSecrets = false): Promise<AuthSetti
     delete settings.ippanel_api_key
     delete settings.ippanel_originator
     delete settings.kavenegar_api_key
+    delete settings.kavenegar_sender
+    delete settings.kavenegar_default_type
+    delete settings.kavenegar_default_tag
+    delete settings.kavenegar_default_policy
+    delete settings.kavenegar_webhook_secret
+    delete settings.arcaptcha_secret_key
     delete settings.sms_patterns
     delete settings.sms_provider
     delete settings.zarinpal_merchant_id
@@ -220,6 +241,8 @@ export function registerAuthRoutes(router: Router): void {
       response.status(403).json({ error: 'password_login_disabled' })
       return
     }
+    const captcha = await verifyCaptcha(request, 'login')
+    if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     if (rateLimited(`sign-in:${request.ip}`, 15, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
@@ -244,6 +267,8 @@ export function registerAuthRoutes(router: Router): void {
       response.status(403).json({ error: 'email_signup_disabled' })
       return
     }
+    const captcha = await verifyCaptcha(request, 'signup')
+    if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     if (rateLimited(`sign-up:${request.ip}`, 10, 60 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
@@ -302,6 +327,8 @@ export function registerAuthRoutes(router: Router): void {
       response.status(403).json({ error: 'email_magic_login_disabled' })
       return
     }
+    const captcha = await verifyCaptcha(request, 'login')
+    if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const email = String(request.body?.email ?? '').trim().toLowerCase()
     if (rateLimited(`magic-link:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
@@ -324,6 +351,8 @@ export function registerAuthRoutes(router: Router): void {
   })
 
   router.post('/auth/password-reset/request', async (request, response) => {
+    const captcha = await verifyCaptcha(request, 'password_reset')
+    if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const email = String(request.body?.email ?? '').trim().toLowerCase()
     if (rateLimited(`password-reset:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })

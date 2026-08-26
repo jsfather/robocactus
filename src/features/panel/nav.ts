@@ -57,6 +57,7 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     matchPrefix: '/super-admin',
     items: [
       { to: '/super-admin/notifications', labelKey: 'notifications.title', helpKey: 'panel.help.sa.notifications' },
+      { to: '/super-admin/kavenegar', labelKey: 'kavenegar.title', helpKey: 'kavenegar.help' },
       { to: '/super-admin/registration', labelKey: 'registrationSettings.title', helpKey: 'panel.help.sa.registration' },
       { to: '/super-admin/finance', labelKey: 'finance.title', helpKey: 'panel.help.sa.finance' },
       { to: '/super-admin/analytics', labelKey: 'analytics.title', helpKey: 'panel.help.sa.analytics' },

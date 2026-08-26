@@ -174,7 +174,7 @@ export function SuperAdminNotificationsPage() {
         <StatCard index="N03" label={t('notifications.total')} value={rows.length} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="panel-tabs mb-4 flex flex-wrap gap-2 rounded-2xl border border-white/80 bg-white p-2 shadow-[0_12px_40px_rgb(18_76_98/0.07)]">
         {(['log', 'broadcast', 'inapp', 'sms'] as Tab[]).map((key) => (
           <Button
             key={key}

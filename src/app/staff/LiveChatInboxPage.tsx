@@ -97,9 +97,9 @@ export function LiveChatInboxPage() {
   return (
     <PanelPage title={t('chat.inboxTitle')} description={t('chat.inboxHint')} index="CHAT">
       <FieldError message={error ?? undefined} />
-      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <PanelCard title={t('chat.sessions')}>
-          <ul className="max-h-[32rem] space-y-1 overflow-y-auto">
+          <ul className="max-h-[38rem] space-y-2 overflow-y-auto pe-1">
             {sessions.length === 0 ? (
               <li className="text-sm text-rc-muted">{t('chat.noSessions')}</li>
             ) : (
@@ -108,8 +108,8 @@ export function LiveChatInboxPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(s.id)}
-                    className={`w-full px-3 py-2.5 text-start text-sm transition ${
-                      selectedId === s.id ? 'bg-rc-blue/15 text-rc-blue' : 'hover:bg-rc-hover'
+                    className={`w-full rounded-2xl border px-4 py-3 text-start text-sm transition ${
+                      selectedId === s.id ? 'border-sky-200 bg-gradient-to-l from-sky-50 to-cyan-50 text-sky-800 shadow-sm' : 'border-slate-100 bg-slate-50/70 hover:border-sky-100 hover:bg-sky-50/60'
                     }`}
                   >
                     <span className="block font-medium">{s.guest_name}</span>
@@ -127,8 +127,8 @@ export function LiveChatInboxPage() {
         </PanelCard>
 
         {selected ? (
-          <div className="flex min-h-[28rem] flex-col border border-rc-line bg-rc-surface/80">
-            <div className="flex items-center justify-between border-b border-rc-line px-4 py-3">
+          <div className="flex min-h-[36rem] flex-col overflow-hidden rounded-[1.6rem] border border-white/80 bg-white shadow-[0_18px_55px_rgb(18_76_98/0.09)]">
+            <div className="flex items-center justify-between border-b border-sky-100 bg-gradient-to-l from-slate-900 to-sky-900 px-5 py-4 text-white">
               <div>
                 <p className="font-semibold">{selected.guest_name}</p>
                 <p className="font-mono text-xs text-rc-muted" dir="ltr">
@@ -151,17 +151,17 @@ export function LiveChatInboxPage() {
               ) : null}
             </div>
 
-            <div className="flex-1 space-y-2 overflow-y-auto bg-rc-bg/30 p-4">
+            <div className="flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgb(239_248_252),_rgb(248_250_252)_55%)] p-5">
               {messages.map((m) => (
                 <div
                   key={m.id}
                   className={[
-                    'max-w-[85%] px-3 py-2 text-sm',
+                    'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
                     m.sender_kind === 'agent'
-                      ? 'ms-auto bg-rc-blue/20'
+                      ? 'ms-auto rounded-ee-md bg-gradient-to-br from-sky-600 to-cyan-600 text-white'
                       : m.sender_kind === 'system'
-                        ? 'mx-auto border border-rc-line text-center text-xs text-rc-muted'
-                        : 'me-auto bg-white/5',
+                        ? 'mx-auto border border-slate-200 bg-white text-center text-xs text-slate-500'
+                        : 'me-auto rounded-es-md border border-slate-100 bg-white text-slate-700',
                   ].join(' ')}
                 >
                   <p className="whitespace-pre-wrap">{m.body}</p>
@@ -174,9 +174,9 @@ export function LiveChatInboxPage() {
             </div>
 
             {selected.status === 'open' ? (
-              <form className="flex gap-2 border-t border-rc-line p-3" onSubmit={(e) => void onReply(e)}>
+              <form className="flex gap-3 border-t border-slate-100 bg-white p-4" onSubmit={(e) => void onReply(e)}>
                 <input
-                  className="min-w-0 flex-1 border border-rc-line bg-rc-navy px-3 py-2 text-sm outline-none focus:border-rc-blue/50"
+                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-50"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
                   placeholder={t('chat.typeMessage')}

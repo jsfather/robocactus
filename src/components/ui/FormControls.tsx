@@ -20,7 +20,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
     'rounded-xl border border-sky-200 bg-sky-50 text-rc-blue shadow-sm hover:bg-sky-100 disabled:opacity-50',
   ghost: 'rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50',
   danger:
-    'rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50',
+    'rounded-xl border border-red-200 bg-red-50 text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-50',
 }
 
 export function Button({
@@ -104,7 +104,7 @@ export function Select({ label, error, id, className = '', children, ...props }:
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null
-  return <p className="text-sm text-red-400">{message}</p>
+  return <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</p>
 }
 
 export function PanelCard({
@@ -124,11 +124,11 @@ export function PanelCard({
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-rc-blue/50 to-transparent"
         aria-hidden
       />
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="panel-card-heading -mx-5 -mt-5 mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-l from-slate-50/90 to-white px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6">
+        <div className="flex items-start gap-3"><span className="mt-1 h-9 w-1 rounded-full bg-gradient-to-b from-rc-blue to-emerald-400" /><div>
           <h2 className="text-lg font-black tracking-tight text-slate-800">{title}</h2>
           {description ? <p className="mt-1.5 text-sm leading-6 text-slate-500">{description}</p> : null}
-        </div>
+        </div></div>
         {actions}
       </div>
       {children}
@@ -144,16 +144,16 @@ export function StatusBadge({
   label: string
 }) {
   const colors: Record<string, string> = {
-    draft: 'border-white/20 bg-white/5 text-rc-muted',
-    submitted: 'border-rc-blue/40 bg-rc-blue/10 text-rc-blue',
-    under_review: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
-    approved: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
-    rejected: 'border-red-500/40 bg-red-500/10 text-red-300',
-    waitlisted: 'border-rc-orange/40 bg-rc-orange/10 text-rc-orange',
+    draft: 'border-slate-200 bg-slate-50 text-slate-600',
+    submitted: 'border-sky-200 bg-sky-50 text-sky-700',
+    under_review: 'border-amber-200 bg-amber-50 text-amber-700',
+    approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    rejected: 'border-red-200 bg-red-50 text-red-700',
+    waitlisted: 'border-orange-200 bg-orange-50 text-orange-700',
   }
   return (
     <span
-      className={`inline-flex rounded-md border px-2 py-0.5 font-mono text-xs ${colors[status] ?? colors.draft}`}
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-extrabold ${colors[status] ?? colors.draft}`}
     >
       {label}
     </span>

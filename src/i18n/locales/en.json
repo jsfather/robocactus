@@ -1086,6 +1086,10 @@
     "title": "Access, email & payments",
     "help": "Manage login, signup, email delivery, and card-transfer payments."
   },
+  "kavenegar": {
+    "title": "Kavenegar operations",
+    "help": "SMS delivery, reports, inbox, templates, media, and Kavenegar account controls."
+  },
   "footer": {
     "usefulLinks": "Useful links",
     "contact": "Contact",

@@ -15,6 +15,7 @@ import { uploadProfileDocument } from '@/features/content/api'
 import { backend } from '@/lib/backend'
 import type { AccountType } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
+import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
 type AuthChannel = 'phone' | 'email'
@@ -59,6 +60,8 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [authOptions, setAuthOptions] = useState<BackendAuthOptions | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => setAuthOptions(data))
@@ -89,6 +92,7 @@ export function SignupPage() {
     if (err === 'expired') return t('auth.otpExpired')
     if (err === 'cooldown') return t('auth.otpCooldown')
     if (err === 'too_many_attempts') return t('auth.otpTooMany')
+    if (err.startsWith('captcha_')) return captchaErrorMessage(err)
     return err
   }
 
@@ -172,8 +176,10 @@ export function SignupPage() {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
-    const result = await requestPhoneOtp(phone.trim(), 'signup')
+    const result = await requestPhoneOtp(phone.trim(), 'signup', captchaToken)
     setSubmitting(false)
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
     if (result.error) {
       setError(mapOtpError(result.error))
       return
@@ -249,11 +255,14 @@ export function SignupPage() {
       username: username.trim(),
       phone: phone.trim() || undefined,
       authChannel: 'email',
+      captchaToken,
     })
     setSubmitting(false)
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
 
     if (result.error) {
-      setError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error)
+      setError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error.startsWith('captcha_') ? captchaErrorMessage(result.error) : result.error)
       return
     }
 
@@ -490,6 +499,7 @@ export function SignupPage() {
             </>
           )}
 
+          {authChannel === 'email' ? <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={() => setStep('channel')}>
               {t('common.cancel')}
@@ -511,6 +521,7 @@ export function SignupPage() {
             <form onSubmit={(e) => void onRequestOtp(e)} className="space-y-3">
               <p className="text-sm text-rc-muted">{t('auth.verifyPhoneHint')}</p>
               <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
+              <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} />
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => setStep('identity')}>
                   {t('team.back')}

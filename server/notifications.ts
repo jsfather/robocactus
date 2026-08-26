@@ -1,8 +1,9 @@
 import type { Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { config } from './config.js'
-import { db, userFromRequest } from './db.js'
+import { db } from './db.js'
 import { getAuthSettings } from './auth.js'
+import { requireSuperAdminRequest, sendKavenegarLookup } from './kavenegar.js'
 
 type Notification = {
   id: string
@@ -26,16 +27,16 @@ async function sendSms(row: Notification): Promise<string> {
   }
   if (provider === 'kavenegar') {
     const values = Object.values(row.meta ?? {}).map(String)
-    const query = new URLSearchParams({
+    const result = await sendKavenegarLookup({
       receptor: row.phone,
       template: patterns[row.template_key] ?? row.template_key,
       token: values[0] ?? row.template_key,
       token2: values[1] ?? '',
       token3: values[2] ?? '',
     })
-    const response = await fetch(`https://api.kavenegar.com/v1/${settings.kavenegar_api_key ?? process.env.KAVENEGAR_API_KEY ?? ''}/verify/lookup.json?${query}`)
-    if (!response.ok) throw new Error(`sms_provider_${response.status}`)
-    return `kavenegar-${Date.now()}`
+    const entries = Array.isArray(result.entries) ? result.entries : [result.entries]
+    const messageId = (entries[0] as Record<string, unknown> | undefined)?.messageid
+    return messageId ? String(messageId) : `kavenegar-${Date.now()}`
   }
   const response = await fetch('https://api2.ippanel.com/api/v1/sms/pattern/normal/send', {
     method: 'POST',
@@ -118,7 +119,7 @@ export async function dispatchNotifications(limit = 50): Promise<void> {
 export function registerNotificationRoutes(router: Router): void {
   router.post('/notifications/:channel/dispatch', async (request, response) => {
     const channel = request.params.channel
-    if ((channel !== 'sms' && channel !== 'email') || !(await userFromRequest(request))) {
+    if ((channel !== 'sms' && channel !== 'email') || !(await requireSuperAdminRequest(request))) {
       response.status(403).json({ error: 'forbidden' })
       return
     }

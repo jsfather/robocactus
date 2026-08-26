@@ -102,6 +102,24 @@ export function SuperAdminAccessSettingsPage() {
           </HudFrame>
 
           <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="CAP.05" title="کپچای امنیتی ArCaptcha" hint="محافظت از ورود، ثبت‌نام و فرم‌های عمومی؛ Secret Key فقط در سرور استفاده می‌شود." />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Toggle checked={form.captcha_enabled ?? false} label="فعال‌سازی کپچا" hint="پس از ثبت هر دو کلید فعال کنید تا کاربران قفل نشوند" onChange={(value) => patch({ captcha_enabled: value })} />
+              <Select label="ارائه‌دهنده کپچا" value={form.captcha_provider ?? 'arcaptcha'} onChange={() => patch({ captcha_provider: 'arcaptcha' })}><option value="arcaptcha">ArCaptcha / ابر آروان</option></Select>
+              <Input label="Site Key عمومی" value={form.arcaptcha_site_key ?? ''} onChange={(event) => patch({ arcaptcha_site_key: event.target.value })} dir="ltr" />
+              <Input label="Secret Key محرمانه" type="password" value={form.arcaptcha_secret_key ?? ''} onChange={(event) => patch({ arcaptcha_secret_key: event.target.value })} dir="ltr" autoComplete="new-password" />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <Toggle checked={form.captcha_on_login ?? true} label="ورود کاربران" hint="رمز عبور، لینک ایمیل و درخواست OTP" onChange={(value) => patch({ captcha_on_login: value })} />
+              <Toggle checked={form.captcha_on_signup ?? true} label="ثبت‌نام" hint="ثبت‌نام ایمیلی و درخواست کد موبایل" onChange={(value) => patch({ captcha_on_signup: value })} />
+              <Toggle checked={form.captcha_on_password_reset ?? true} label="بازیابی رمز" hint="فرم فراموشی رمز عبور" onChange={(value) => patch({ captcha_on_password_reset: value })} />
+              <Toggle checked={form.captcha_on_contact ?? true} label="فرم تماس" hint="ارسال پیام به صندوق دبیرخانه" onChange={(value) => patch({ captcha_on_contact: value })} />
+              <Toggle checked={form.captcha_on_live_chat ?? true} label="شروع چت آنلاین" hint="پیش از ساخت گفتگوی مهمان" onChange={(value) => patch({ captcha_on_live_chat: value })} />
+            </div>
+            <p className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs leading-6 text-amber-800">ابتدا Site Key و Secret Key را ذخیره و اتصال را بررسی کنید؛ سپس گزینه فعال‌سازی کلی را روشن کنید.</p>
+          </HudFrame>
+
+          <HudFrame className="space-y-4 p-5">
             <SectionLabel index="API.04" title="کلیدهای سرویس پیامک" hint="مقادیر از دیتابیس خوانده می‌شوند و نیازی به تعریف آن‌ها در فایل env نیست." />
             <div className="grid gap-4 md:grid-cols-2">
               <Select label="سرویس‌دهنده پیامک" value={form.sms_provider ?? 'ippanel'} onChange={(event) => patch({ sms_provider: event.target.value as 'ippanel' | 'kavenegar' })}>

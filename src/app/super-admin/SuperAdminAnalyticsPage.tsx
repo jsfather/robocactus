@@ -10,6 +10,8 @@ import {
   YAxis,
 } from 'recharts'
 import { Button, PanelCard } from '@/components/ui/FormControls'
+import { PanelPage } from '@/components/layout/PanelShell'
+import { StatCard } from '@/components/panel/HudKit'
 import { formatAmountToman } from '@/features/payments/api'
 import {
   downloadCsv,
@@ -149,30 +151,19 @@ export function SuperAdminAnalyticsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">{t('analytics.title')}</h1>
-          <p className="mt-1 text-rc-muted">{t('analytics.subtitle')}</p>
-          <p className="mt-2 font-mono text-xs text-rc-blue">
+    <PanelPage index="DATA.01" title={t('analytics.title')} description={t('analytics.subtitle')} actions={
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => void load()} disabled={loading}>{t('analytics.refresh')}</Button>
+          <Button type="button" variant="secondary" disabled={exportBusy} onClick={() => void onExportCsv()}>{t('analytics.exportExcel')}</Button>
+          <Button type="button" disabled={exportBusy} onClick={() => void onExportPdf()}>{t('analytics.exportPdf')}</Button>
+        </div>
+      }>
+          <p className="inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
             {live ? t('analytics.liveOn') : t('analytics.livePolling')}
             {snap.generated_at
               ? ` · ${new Date(snap.generated_at).toLocaleTimeString()}`
               : null}
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={() => void load()} disabled={loading}>
-            {t('analytics.refresh')}
-          </Button>
-          <Button type="button" variant="secondary" disabled={exportBusy} onClick={() => void onExportCsv()}>
-            {t('analytics.exportExcel')}
-          </Button>
-          <Button type="button" disabled={exportBusy} onClick={() => void onExportPdf()}>
-            {t('analytics.exportPdf')}
-          </Button>
-        </div>
-      </div>
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       {loading ? <p className="text-rc-muted">{t('app.loading')}</p> : null}
@@ -186,15 +177,7 @@ export function SuperAdminAnalyticsPage() {
             label: t('analytics.paidAmount'),
             value: formatAmountToman(Number(snap.totals?.paid_amount ?? 0)),
           },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-rc-line bg-rc-surface px-4 py-3"
-          >
-            <p className="text-xs text-rc-muted">{card.label}</p>
-            <p className="mt-1 font-mono text-lg text-rc-blue">{card.value}</p>
-          </div>
-        ))}
+        ].map((card, index) => <StatCard key={card.label} index={`K0${index + 1}`} label={card.label} value={card.value} accent={index > 1 ? 'green' : 'blue'} />)}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -220,6 +203,6 @@ export function SuperAdminAnalyticsPage() {
           ))}
         </ul>
       </PanelCard>
-    </div>
+    </PanelPage>
   )
 }

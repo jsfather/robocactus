@@ -121,7 +121,7 @@ export function SuperAdminHomeContentPage() {
   return (
     <PanelPage index="HOME" title={t('home.adminTitle')} description={t('home.adminSubtitle')}>
       <FieldError message={error ?? undefined} />
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="panel-tabs mb-6 flex flex-wrap gap-2 rounded-2xl border border-white/80 bg-white p-2 shadow-[0_12px_40px_rgb(18_76_98/0.07)]">
         {tabs.map((item) => (
           <button
             key={item.id}

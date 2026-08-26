@@ -32,12 +32,12 @@ async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string,
 
 export type OtpPurpose = 'login' | 'signup' | 'profile'
 
-export async function requestSmsOtp(phoneRaw: string, purpose: OtpPurpose = 'login'): Promise<OtpRequestResult> {
+export async function requestSmsOtp(phoneRaw: string, purpose: OtpPurpose = 'login', captchaToken?: string): Promise<OtpRequestResult> {
   if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(phoneRaw)
   if (!phone) return { ok: false, error: 'invalid_phone' }
 
-  const json = await callSmsOtp({ action: 'request', phone, purpose })
+  const json = await callSmsOtp({ action: 'request', phone, purpose, captchaToken })
   if (json.error) {
     return {
       ok: false,

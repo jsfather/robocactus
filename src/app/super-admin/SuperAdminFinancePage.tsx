@@ -4,6 +4,8 @@ import { Button, Input, PanelCard, Select, StatusBadge } from '@/components/ui/F
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { fetchFinanceRows, formatAmountToman, receiptPrivateUrl, reviewCardReceipt, type FinanceRow } from '@/features/payments/api'
 import type { League } from '@/types/database'
+import { PanelPage } from '@/components/layout/PanelShell'
+import { StatCard } from '@/components/panel/HudKit'
 
 export function SuperAdminFinancePage() {
   const { t } = useTranslation()
@@ -63,11 +65,7 @@ export function SuperAdminFinancePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold md:text-3xl">{t('finance.title')}</h1>
-        <p className="mt-1 text-sm text-rc-muted">{t('finance.subtitle')}</p>
-      </div>
+    <PanelPage index="FIN.01" title={t('finance.title')} description={t('finance.subtitle')}>
 
       <div className="grid gap-3 sm:grid-cols-5">
         {[
@@ -76,15 +74,7 @@ export function SuperAdminFinancePage() {
           { label: t('finance.pending'), value: String(pendingCount) },
           { label: t('finance.paidSum'), value: formatAmountToman(paidSum) },
           { label: 'فیش در انتظار بررسی', value: String(receiptPendingCount) },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
-          >
-            <p className="text-xs text-rc-muted">{card.label}</p>
-            <p className="mt-1 font-mono text-lg text-rc-blue">{card.value}</p>
-          </div>
-        ))}
+        ].map((card, index) => <StatCard key={card.label} index={`F0${index + 1}`} label={card.label} value={card.value} accent={index === 0 || index === 3 ? 'green' : index === 1 ? 'red' : 'orange'} />)}
       </div>
 
       <PanelCard title={t('finance.filters')}>
@@ -178,6 +168,6 @@ export function SuperAdminFinancePage() {
           </div>
         )}
       </PanelCard>
-    </div>
+    </PanelPage>
   )
 }

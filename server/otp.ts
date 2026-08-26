@@ -5,6 +5,8 @@ import { users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, userFromRequest } from './db.js'
 import { createOneTimeToken, getAuthSettings } from './auth.js'
+import { sendKavenegarLookup } from './kavenegar.js'
+import { verifyCaptcha } from './captcha.js'
 
 const OTP_TTL_MS = 5 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
@@ -49,11 +51,8 @@ async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> 
     return { mock: true }
   }
   if (provider === 'kavenegar') {
-    const apiKey = settings.kavenegar_api_key ?? process.env.KAVENEGAR_API_KEY ?? ''
     const template = settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp ?? 'auth_otp'
-    const query = new URLSearchParams({ receptor: phone, template, token: code })
-    const response = await fetch(`https://api.kavenegar.com/v1/${apiKey}/verify/lookup.json?${query}`)
-    if (!response.ok) throw new Error(`sms_provider_${response.status}`)
+    await sendKavenegarLookup({ receptor: phone, template, token: code })
     return { mock: false }
   }
   const response = await fetch('https://api2.ippanel.com/api/v1/sms/pattern/normal/send', {
@@ -86,6 +85,13 @@ export function registerOtpRoutes(router: Router): void {
       }
 
       if (action === 'request') {
+        if (purpose !== 'profile') {
+          const captcha = await verifyCaptcha(request, purpose === 'signup' ? 'signup' : 'login')
+          if (!captcha.ok) {
+            response.status(400).json({ error: captcha.error })
+            return
+          }
+        }
         const settings = await getAuthSettings()
         if (purpose === 'login' && !settings.otp_login_enabled) {
           response.status(403).json({ error: 'otp_login_disabled' })

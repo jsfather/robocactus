@@ -43,7 +43,7 @@ export function NotificationBell({ role }: { role: UserRole }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg border border-rc-line p-2 text-rc-muted hover:bg-rc-hover hover:text-rc-text"
+        className="panel-header-action relative rounded-xl border border-white/15 bg-white/10 p-2.5 text-white hover:bg-white/20"
         aria-label={t('panel.notifications')}
       >
         <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>

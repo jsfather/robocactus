@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, FieldError, Input, PanelCard, Textarea } from '@/components/ui/FormControls'
 import { fetchStaticPage } from '@/features/leagues/adminApi'
 import { submitContactMessage } from '@/features/home/api'
+import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 
 export function ContactPage() {
   const { t } = useTranslation()
@@ -15,6 +16,8 @@ export function ContactPage() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   useEffect(() => {
     void fetchStaticPage('contact')
@@ -34,6 +37,7 @@ export function ContactPage() {
         phone,
         subject,
         body,
+        captchaToken,
       })
       setDone(true)
       setFullName('')
@@ -41,8 +45,13 @@ export function ContactPage() {
       setPhone('')
       setSubject('')
       setBody('')
+      setCaptchaToken('')
+      setCaptchaReset((value) => value + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message.startsWith('captcha_') ? captchaErrorMessage(message) : message)
+      setCaptchaToken('')
+      setCaptchaReset((value) => value + 1)
     } finally {
       setBusy(false)
     }
@@ -98,6 +107,7 @@ export function ContactPage() {
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
+            <ArcaptchaField context="contact" onToken={setCaptchaToken} resetKey={captchaReset} />
             <FieldError message={error ?? undefined} />
             {done ? <p className="text-sm text-emerald-400">{t('home.contactSent')}</p> : null}
             <Button type="submit" disabled={busy}>

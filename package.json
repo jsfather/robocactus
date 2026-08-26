@@ -16,6 +16,7 @@
     "start": "npm run db:migrate && NODE_ENV=production node dist-server/server/index.js"
   },
   "dependencies": {
+    "arcaptcha-react": "^0.4.0",
     "cookie-parser": "^1.4.7",
     "dompurify": "^3.4.12",
     "drizzle-orm": "^0.45.2",

@@ -32,9 +32,9 @@ export function UserMenu({ role }: { role: UserRole }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg border border-rc-line py-1 pe-2.5 ps-1 hover:bg-rc-hover"
+        className="panel-header-action flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 py-1.5 pe-3 ps-1.5 text-white hover:bg-white/20"
       >
-        <span className="flex size-8 items-center justify-center border border-rc-blue/40 bg-rc-blue/10 font-mono text-[11px] text-rc-blue">
+        <span className="flex size-8 items-center justify-center rounded-lg border border-white/20 bg-white/15 font-mono text-[11px] font-black text-white">
           {initials(profile?.full_name, user?.email)}
         </span>
         <span className="hidden max-w-28 truncate text-xs sm:inline">{name}</span>

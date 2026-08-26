@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { PanelPage } from '@/components/layout/PanelShell'
-import { HudFrame } from '@/components/panel/HudKit'
 import {
   createLeague,
   deleteLeague,
@@ -150,7 +149,6 @@ export function SuperAdminLeaguesPage() {
 
   return (
     <PanelPage index="REG.01" title={t('admin.leagues.title')} description={t('admin.leagues.subtitle')}>
-      <HudFrame className="p-4">
       <PanelCard
         title={editingId ? t('admin.leagues.editTitle') : t('admin.leagues.createTitle')}
         actions={
@@ -161,7 +159,7 @@ export function SuperAdminLeaguesPage() {
           ) : null
         }
       >
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={(e) => void onSubmit(e)}>
+        <form className="panel-form-grid grid gap-4 md:grid-cols-2" onSubmit={(e) => void onSubmit(e)}>
           <Input
             label={t('admin.leagues.name')}
             required
@@ -270,11 +268,11 @@ export function SuperAdminLeaguesPage() {
         ) : leagues.length === 0 ? (
           <p className="text-sm text-rc-muted">{t('admin.leagues.empty')}</p>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="panel-record-list space-y-3">
             {leagues.map((league) => (
               <li
                 key={league.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                className="panel-record-row flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-sky-200 hover:bg-sky-50/50"
               >
                 <div>
                   <p className="font-medium">
@@ -311,7 +309,6 @@ export function SuperAdminLeaguesPage() {
           </ul>
         )}
       </PanelCard>
-      </HudFrame>
     </PanelPage>
   )
 }

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/FormControls'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { RichTextEditor } from '@/components/ui/RichTextEditor'
+import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import {
   createGalleryItem,
@@ -288,13 +289,9 @@ export function SuperAdminContentPage() {
   const catLabel = (cat: GalleryCategory) => (i18n.language?.startsWith('fa') ? cat.name_fa : cat.name_en)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('content.cmsTitle')}</h1>
-        <p className="mt-1 text-rc-muted">{t('content.cmsSubtitle')}</p>
-      </div>
+    <PanelPage index="CMS.01" title={t('content.cmsTitle')} description={t('content.cmsSubtitle')}>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="panel-tabs flex flex-wrap gap-2 rounded-2xl border border-white/80 bg-white p-2 shadow-[0_12px_40px_rgb(18_76_98/0.07)]">
         {(['blog', 'announcements', 'gallery'] as Tab[]).map((key) => (
           <Button
             key={key}
@@ -732,6 +729,6 @@ export function SuperAdminContentPage() {
           </PanelCard>
         </div>
       ) : null}
-    </div>
+    </PanelPage>
   )
 }

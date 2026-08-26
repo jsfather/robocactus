@@ -15,6 +15,8 @@ import { activateUserAccount, createAccountIssue } from '@/features/notification
 import { AccountIssuesAdminList } from '@/features/account-issues/AccountIssuesPanel'
 import { useToast } from '@/components/ui/Toast'
 import type { League, Profile, UserRole } from '@/types/database'
+import { PanelPage } from '@/components/layout/PanelShell'
+import { StatCard } from '@/components/panel/HudKit'
 
 const ALL_ROLES: UserRole[] = [
   'super_admin',
@@ -167,13 +169,16 @@ export function SuperAdminUsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('admin.users.title')}</h1>
-        <p className="mt-1 text-rc-muted">{t('admin.users.subtitle')}</p>
-      </div>
+    <PanelPage index="USR.01" title={t('admin.users.title')} description={t('admin.users.subtitle')}>
 
       <FieldError message={error ?? undefined} />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard index="01" label="کل کاربران" value={profiles.length} hint="تمام حساب‌های ثبت‌شده" />
+        <StatCard index="02" label="در انتظار فعال‌سازی" value={profiles.filter((profile) => profile.account_status === 'pending').length} hint="نیازمند بررسی مدیریت" accent="orange" />
+        <StatCard index="03" label="مدیران شرکت" value={profiles.filter((profile) => profile.role === 'company_admin').length} hint="حساب‌های حقوقی و سازمانی" accent="green" />
+        <StatCard index="04" label="مدیر لیگ و همکار" value={profiles.filter((profile) => profile.role === 'league_admin' || profile.role === 'staff').length} hint="اعضای اجرایی پنل" />
+      </div>
 
       {editing ? (
         <PanelCard title={t('admin.users.editTitle')} description={editing.full_name}>
@@ -244,7 +249,7 @@ export function SuperAdminUsersPage() {
           <p className="text-sm text-rc-muted">{t('app.loading')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="panel-data-table w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-rc-muted">
                   <th className="px-2 py-2 text-start">{t('auth.fullName')}</th>
@@ -385,6 +390,6 @@ export function SuperAdminUsersPage() {
       </PanelCard>
 
       <AccountIssuesAdminList />
-    </div>
+    </PanelPage>
   )
 }

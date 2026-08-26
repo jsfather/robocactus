@@ -13,18 +13,22 @@ import { registerPaymentRoutes } from './payment.js'
 import { registerQueryRoutes } from './query.js'
 import { initializeRealtime, registerRealtimeRoutes } from './realtime.js'
 import { registerStorageRoutes } from './storage.js'
+import { registerKavenegarRoutes } from './kavenegar.js'
+import { registerCaptchaRoutes } from './captcha.js'
 
 const app = express()
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
 app.use(cookieParser())
 app.use(express.json({ limit: '2mb' }))
+app.use(express.urlencoded({ extended: false, limit: '1mb' }))
 
 app.use((request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.setHeader('X-Frame-Options', 'SAMEORIGIN')
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+  const trustedProviderWebhook = request.path.startsWith('/api/kavenegar/webhook/')
+  if (!trustedProviderWebhook && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
     const originCheck = checkRequestOrigin(request, [config.appUrl, ...config.allowedOrigins])
     if (config.isProduction && !originCheck.allowed) {
       console.warn('[security] rejected request origin', {
@@ -56,6 +60,8 @@ registerStorageRoutes(api)
 registerRealtimeRoutes(api)
 registerNotificationRoutes(api)
 registerPaymentRoutes(api)
+registerKavenegarRoutes(api)
+registerCaptchaRoutes(api)
 app.use('/api', api)
 
 app.get('/env.js', (_request, response) => {

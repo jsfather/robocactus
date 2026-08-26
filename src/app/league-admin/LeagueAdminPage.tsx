@@ -11,6 +11,7 @@ import {
   Textarea,
 } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
+import { PanelPage } from '@/components/layout/PanelShell'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { TicketInbox } from '@/features/chat/TicketInbox'
 import {
@@ -189,13 +190,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold md:text-3xl">
-          {tab === 'tickets' ? t('judging.tabTickets') : t('judging.tabReview')}
-        </h1>
-        <p className="mt-1 text-sm text-rc-muted">{t('judging.subtitle')}</p>
-      </div>
+    <PanelPage index={tab === 'tickets' ? 'OPS.03' : 'OPS.02'} title={tab === 'tickets' ? t('judging.tabTickets') : t('judging.tabReview')} description={t('judging.subtitle')}>
 
       <FieldError message={error ?? undefined} />
 
@@ -474,6 +469,6 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           )}
         </div>
       )}
-    </div>
+    </PanelPage>
   )
 }

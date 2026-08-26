@@ -2,21 +2,26 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Input } from '@/components/ui/FormControls'
 import { backend } from '@/lib/backend'
+import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setBusy(true)
     setError(null)
-    const { error: requestError } = await backend.auth.requestPasswordReset(email.trim())
+    const { error: requestError } = await backend.auth.requestPasswordReset(email.trim(), captchaToken)
     setBusy(false)
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
     if (requestError) {
-      setError(requestError.message === 'too_many_attempts' ? 'تعداد درخواست‌ها بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.' : 'ارسال لینک بازیابی ناموفق بود.')
+      setError(requestError.message.startsWith('captcha_') ? captchaErrorMessage(requestError.message) : requestError.message === 'too_many_attempts' ? 'تعداد درخواست‌ها بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.' : 'ارسال لینک بازیابی ناموفق بود.')
       return
     }
     setSent(true)
@@ -40,6 +45,7 @@ export function ForgotPasswordPage() {
           ) : (
             <form className="mt-8 space-y-5" onSubmit={(event) => void submit(event)}>
               <Input label="ایمیل حساب" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} dir="ltr" autoComplete="email" placeholder="name@example.com" />
+              <ArcaptchaField context="password_reset" onToken={setCaptchaToken} resetKey={captchaReset} />
               {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
               <Button className="w-full" disabled={busy}>{busy ? 'در حال ارسال…' : 'ارسال لینک بازیابی'}</Button>
             </form>

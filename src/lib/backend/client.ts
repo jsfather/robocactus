@@ -185,15 +185,15 @@ const auth = {
     const response = await authCall('session')
     return { data: { user: (response.user ?? null) as BackendUser | null }, error: response.error ?? null }
   },
-  async signInWithPassword(input: { email: string; password: string }) {
+  async signInWithPassword(input: { email: string; password: string; captchaToken?: string }) {
     const response = await authCall('sign-in', input)
     if (!response.error && response.session) {
       for (const listener of authListeners) listener('SIGNED_IN', response.session as BackendSession)
     }
     return { data: response, error: response.error ?? null }
   },
-  async requestPasswordReset(email: string) {
-    const response = await authCall('password-reset/request', { email })
+  async requestPasswordReset(email: string, captchaToken?: string) {
+    const response = await authCall('password-reset/request', { email, captchaToken })
     return { data: response, error: response.error ?? null }
   },
   async confirmPasswordReset(code: string, password: string) {
@@ -203,6 +203,7 @@ const auth = {
   async signUp(input: {
     email: string
     password: string
+    captchaToken?: string
     options?: { data?: Record<string, unknown>; emailRedirectTo?: string }
   }) {
     const response = await authCall('sign-up', {
@@ -210,6 +211,7 @@ const auth = {
       password: input.password,
       metadata: input.options?.data ?? {},
       redirectTo: input.options?.emailRedirectTo,
+      captchaToken: input.captchaToken,
     })
     if (!response.error && response.session) {
       for (const listener of authListeners) listener('SIGNED_IN', response.session as BackendSession)
@@ -218,12 +220,14 @@ const auth = {
   },
   async signInWithOtp(input: {
     email: string
+    captchaToken?: string
     options?: { emailRedirectTo?: string; shouldCreateUser?: boolean }
   }) {
     const response = await authCall('magic-link', {
       email: input.email,
       redirectTo: input.options?.emailRedirectTo,
       shouldCreateUser: input.options?.shouldCreateUser,
+      captchaToken: input.captchaToken,
     })
     return { data: response, error: response.error ?? null }
   },

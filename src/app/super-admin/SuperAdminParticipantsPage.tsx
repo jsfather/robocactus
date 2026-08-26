@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
+import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
 import { fetchAllLeagues } from '@/features/leagues/adminApi'
 import type { League, Team, TeamMember } from '@/types/database'
@@ -49,13 +50,11 @@ export function SuperAdminParticipantsPage() {
 
   return (
     <PanelPage index="REG.06" title="شرکت‌کنندگان لیگ‌ها" description="نمای آماری تیم‌ها، اعضا و دوره فعال هر لیگ">
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          ['تعداد تیم‌ها', teams.length],
-          ['ثبت‌نام قطعی', paidTeams],
-          ['کل افراد', members.length],
-          ['دوره فعال', selectedLeague?.current_season_year ?? 'همه'],
-        ].map(([label, value]) => <div key={label} className="rounded-2xl border border-rc-line bg-rc-surface p-4"><p className="text-xs text-rc-muted">{label}</p><p className="mt-2 text-2xl font-black text-rc-blue">{value}</p></div>)}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard index="01" label="تعداد تیم‌ها" value={teams.length} hint="تیم‌های ثبت‌شده در فیلتر فعلی" />
+        <StatCard index="02" label="ثبت‌نام قطعی" value={paidTeams} hint="پرونده‌های خارج‌شده از پیش‌نویس" accent="green" />
+        <StatCard index="03" label="کل افراد" value={members.length} hint="سرپرستان و اعضای تیم‌ها" accent="orange" />
+        <StatCard index="04" label="دوره فعال" value={selectedLeague?.current_season_year ?? 'همه'} hint="دوره انتخاب‌شده برای گزارش" />
       </div>
       <PanelCard title="فیلتر و جست‌وجو">
         <div className="grid gap-3 md:grid-cols-2">
@@ -68,8 +67,8 @@ export function SuperAdminParticipantsPage() {
         {loading ? <p className="text-rc-muted">در حال بارگذاری…</p> : <div className="space-y-3">
           {visibleTeams.map((team) => {
             const teamMembers = members.filter((member) => member.team_id === team.id)
-            return <article key={team.id} className="overflow-hidden rounded-2xl border border-rc-line bg-rc-surface/60">
-              <button type="button" className="flex w-full items-center justify-between gap-4 p-4 text-start" onClick={() => setExpanded(expanded === team.id ? null : team.id)}>
+            return <article key={team.id} className={`overflow-hidden rounded-[1.4rem] border bg-white shadow-[0_10px_35px_rgb(15_50_66/0.06)] transition ${expanded === team.id ? 'border-sky-200 ring-4 ring-sky-50' : 'border-slate-100 hover:border-sky-100'}`}>
+              <button type="button" className="flex w-full items-center justify-between gap-4 bg-gradient-to-l from-white to-slate-50/70 p-5 text-start transition hover:from-sky-50/70" onClick={() => setExpanded(expanded === team.id ? null : team.id)}>
                 <span><strong className="block">{team.name} <span className="text-rc-muted">/ {team.name_en}</span></strong><span className="mt-1 block text-xs text-rc-muted">{teamMembers.length} نفر · دوره {team.season_year ?? '—'}</span></span>
                 <StatusBadge status={team.status} label={team.status} />
               </button>

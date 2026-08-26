@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Input } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
 import { backend, type BackendAuthOptions } from '@/lib/backend/client'
+import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 
 type Mode = 'email' | 'phone'
 type EmailSubMode = 'password' | 'magic'
@@ -28,6 +29,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [options, setOptions] = useState<BackendAuthOptions | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => {
@@ -50,6 +53,7 @@ export function LoginPage() {
     if (err === 'expired') return t('auth.otpExpired')
     if (err === 'cooldown') return t('auth.otpCooldown')
     if (err === 'too_many_attempts') return t('auth.otpTooMany')
+    if (err.startsWith('captcha_')) return captchaErrorMessage(err)
     return err
   }
 
@@ -59,29 +63,33 @@ export function LoginPage() {
     setSubmitting(true)
 
     if (emailSubMode === 'magic') {
-      const result = await requestEmailMagicLink(email.trim())
+      const result = await requestEmailMagicLink(email.trim(), captchaToken)
       setSubmitting(false)
+      setCaptchaToken('')
+      setCaptchaReset((value) => value + 1)
       if (result.error === 'backend_missing') {
         setError(t('auth.backendMissing'))
         return
       }
       if (result.error) {
-        setError(result.error)
+        setError(captchaErrorMessage(result.error))
         return
       }
       setMagicSent(true)
       return
     }
 
-    const result = await signIn(email.trim(), password)
+    const result = await signIn(email.trim(), password, captchaToken)
     setSubmitting(false)
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
 
     if (result.error === 'backend_missing') {
       setError(t('auth.backendMissing'))
       return
     }
     if (result.error) {
-      setError(t('auth.invalidCredentials'))
+      setError(result.error.startsWith('captcha_') ? captchaErrorMessage(result.error) : t('auth.invalidCredentials'))
       return
     }
     void navigate(from, { replace: true })
@@ -91,8 +99,10 @@ export function LoginPage() {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
-    const result = await requestPhoneOtp(phone.trim())
+    const result = await requestPhoneOtp(phone.trim(), 'login', captchaToken)
     setSubmitting(false)
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
     if (result.error) {
       setError(mapOtpError(result.error))
       return
@@ -216,6 +226,7 @@ export function LoginPage() {
                 {t('auth.magicLinkSent')}
               </p>
             ) : null}
+            <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} />
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting
@@ -256,6 +267,7 @@ export function LoginPage() {
                 {t('auth.devOtp', { code: devCode })}
               </p>
             ) : null}
+            {!otpSent ? <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting

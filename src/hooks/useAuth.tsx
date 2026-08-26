@@ -23,6 +23,7 @@ interface SignUpInput {
   username?: string
   phone?: string
   authChannel?: 'phone' | 'email'
+  captchaToken?: string
 }
 
 interface AuthContextValue {
@@ -33,9 +34,9 @@ interface AuthContextValue {
   profileLoading: boolean
   profileError: string | null
   configured: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>
   signUp: (input: SignUpInput) => Promise<{ error: string | null; needsEmailConfirm?: boolean }>
-  requestPhoneOtp: (phone: string, purpose?: 'login' | 'signup' | 'profile') => Promise<{
+  requestPhoneOtp: (phone: string, purpose?: 'login' | 'signup' | 'profile', captchaToken?: string) => Promise<{
     error: string | null
     devCode?: string
     retryAfterSec?: number
@@ -46,7 +47,7 @@ interface AuthContextValue {
     fullName?: string
     purpose?: 'login' | 'signup' | 'profile'
   }) => Promise<{ error: string | null }>
-  requestEmailMagicLink: (email: string) => Promise<{ error: string | null }>
+  requestEmailMagicLink: (email: string, captchaToken?: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -183,12 +184,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [configured, loadProfile])
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string, captchaToken?: string) => {
     if (!configured) {
       return { error: 'backend_missing' }
     }
 
-    const { error } = await backend.auth.signInWithPassword({ email, password })
+    const { error } = await backend.auth.signInWithPassword({ email, password, captchaToken })
     if (error) return { error: error.message }
     await refreshProfile()
     return { error: null }
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signUp = useCallback(
-    async ({ email, password, fullName, username, phone, authChannel = 'email' }: SignUpInput) => {
+    async ({ email, password, fullName, username, phone, authChannel = 'email', captchaToken }: SignUpInput) => {
       if (!configured) {
         return { error: 'backend_missing' }
       }
@@ -206,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await backend.auth.signUp({
         email,
         password,
+        captchaToken,
         options: {
           emailRedirectTo: redirectTo,
           data: {
@@ -238,9 +240,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [configured, refreshProfile],
   )
 
-  const requestPhoneOtp = useCallback(async (phone: string, purpose: 'login' | 'signup' | 'profile' = session?.user ? 'profile' : 'login') => {
+  const requestPhoneOtp = useCallback(async (phone: string, purpose: 'login' | 'signup' | 'profile' = session?.user ? 'profile' : 'login', captchaToken?: string) => {
     if (!configured) return { error: 'backend_missing' }
-    const result = await requestSmsOtp(phone, purpose)
+    const result = await requestSmsOtp(phone, purpose, captchaToken)
     if (!result.ok) {
       return {
         error: result.error,
@@ -268,10 +270,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const requestEmailMagicLink = useCallback(
-    async (email: string) => {
+    async (email: string, captchaToken?: string) => {
       if (!configured) return { error: 'backend_missing' }
       const { error } = await backend.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
+        captchaToken,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}`,
           shouldCreateUser: false,

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Button, FieldError, Input, Select, Textarea } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { PanelPage } from '@/components/layout/PanelShell'
-import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
+import { HudFrame, SectionLabel, StatCard } from '@/components/panel/HudKit'
 import { useAuth } from '@/hooks/useAuth'
 import { backend } from '@/lib/backend'
 import { fetchRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
@@ -65,7 +65,23 @@ export function AccountProfilePage() {
   }
 
   if (!form) return <p className="text-rc-muted">در حال بارگذاری…</p>
+  const identityChecks = [form.first_name_fa, form.last_name_fa, form.first_name_en, form.last_name_en, form.email, form.phone, form.birth_date, form.address, form.postal_code]
+  const completedFields = identityChecks.filter((value) => String(value ?? '').trim()).length
+  const completionPercent = Math.round((completedFields / identityChecks.length) * 100)
   return <PanelPage index="ID.01" title="تکمیل اطلاعات هویتی" description="برای مشاهده لیگ‌ها و ثبت تیم، اطلاعات و مدارک خود را کامل کنید.">
+    <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr]">
+      <HudFrame glow className="relative overflow-hidden bg-gradient-to-l from-slate-950 to-sky-900 p-6 text-white">
+        <span className="absolute -start-12 -top-16 size-48 rounded-full bg-cyan-400/15 blur-2xl" />
+        <p className="relative text-xs font-black tracking-[0.16em] text-cyan-200">پرونده عضویت</p>
+        <div className="relative mt-3 flex items-end justify-between gap-4">
+          <div><p className="text-3xl font-black">{completionPercent}٪ تکمیل شده</p><p className="mt-2 text-sm leading-7 text-slate-300">اطلاعات و مدارک کامل، فرایند ثبت‌نام در لیگ را سریع‌تر می‌کند.</p></div>
+          <span className="grid size-16 shrink-0 place-items-center rounded-2xl border border-white/15 bg-white/10 text-xl font-black">{completedFields}/{identityChecks.length}</span>
+        </div>
+        <div className="relative mt-5 h-2 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-gradient-to-l from-cyan-300 to-emerald-300 transition-all" style={{ width: `${completionPercent}%` }} /></div>
+      </HudFrame>
+      <StatCard index="01" label="تأیید موبایل" value={form.phone_verified_at ? 'تأیید شده' : 'در انتظار'} hint="برای احراز هویت پیامکی" accent={form.phone_verified_at ? 'green' : 'orange'} />
+      <StatCard index="02" label="مدارک بارگذاری‌شده" value={`${uploaded.size} از ${docs.length}`} hint="مدارک هویتی پرونده" accent={uploaded.size >= docs.filter((doc) => doc.is_required).length ? 'green' : 'orange'} />
+    </div>
     <form className="space-y-6" onSubmit={(event) => void save(event)}>
       <FieldError message={error ?? undefined} />
       <HudFrame className="space-y-4 p-5"><SectionLabel index="PERSON.01" title="هویت فرد یا نماینده قانونی" />

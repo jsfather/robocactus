@@ -134,15 +134,17 @@ export async function submitContactMessage(input: {
   phone?: string
   subject: string
   body: string
+  captchaToken?: string
 }): Promise<void> {
-  const { error } = await backend.from('contact_messages').insert({
-    full_name: input.full_name.trim(),
-    email: input.email.trim(),
-    phone: input.phone?.trim() || null,
-    subject: input.subject.trim(),
-    body: input.body.trim(),
+  const response = await fetch('/api/forms/contact', {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      full_name: input.full_name.trim(), email: input.email.trim(), phone: input.phone?.trim() || null,
+      subject: input.subject.trim(), body: input.body.trim(), captchaToken: input.captchaToken,
+    }),
   })
-  if (error) throw new Error(error.message)
+  const result = await response.json().catch(() => ({})) as { error?: string }
+  if (!response.ok) throw new Error(result.error ?? `HTTP ${response.status}`)
 }
 
 export async function fetchContactMessages(): Promise<
@@ -153,6 +155,11 @@ export async function fetchContactMessages(): Promise<
     phone: string | null
     subject: string
     body: string
+    status: 'new' | 'in_review' | 'resolved' | 'spam'
+    admin_note: string | null
+    assigned_to: string | null
+    reviewed_at: string | null
+    updated_at: string
     created_at: string
   }>
 > {
@@ -168,8 +175,18 @@ export async function fetchContactMessages(): Promise<
     phone: string | null
     subject: string
     body: string
+    status: 'new' | 'in_review' | 'resolved' | 'spam'
+    admin_note: string | null
+    assigned_to: string | null
+    reviewed_at: string | null
+    updated_at: string
     created_at: string
   }>
+}
+
+export async function updateContactMessage(id: string, patch: { status?: 'new' | 'in_review' | 'resolved' | 'spam'; admin_note?: string | null; assigned_to?: string | null }): Promise<void> {
+  const { error } = await backend.from('contact_messages').update({ ...patch, reviewed_at: patch.status && patch.status !== 'new' ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export function leagueAccent(category: string | null | undefined): {
