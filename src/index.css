@@ -420,3 +420,79 @@ main :is(button, a[class*="px-"]):hover { transform: translateY(-1px); }
 .panel-topbar { box-shadow: 0 10px 35px rgb(18 76 98 / .045); }
 .panel-shell main > div > div[class*="max-w"] { animation: panel-enter .28s ease-out both; }
 @keyframes panel-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Panel 4.0 — role-aware product workspace. Kept after legacy remaps on purpose. */
+.panel-shell-v4 {
+  background:
+    radial-gradient(circle at 90% 5%, rgb(14 165 233 / .11), transparent 26rem),
+    radial-gradient(circle at 8% 92%, rgb(16 185 129 / .09), transparent 28rem),
+    #f3f7f7;
+}
+
+.panel-sidebar-v4 {
+  background:
+    radial-gradient(circle at 30% 0%, rgb(14 165 233 / .24), transparent 18rem),
+    linear-gradient(165deg, #092e43 0%, #07354a 48%, #062b3c 100%) !important;
+  box-shadow: 0 28px 90px rgb(3 30 45 / .28) !important;
+}
+
+.panel-nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / .16) transparent; }
+.panel-topbar-v4 { box-shadow: 0 14px 45px rgb(18 76 98 / .09), inset 0 1px 0 white; }
+.panel-page-head::after {
+  content: "";
+  position: absolute;
+  width: 14rem;
+  height: 14rem;
+  inset-inline-end: -5rem;
+  top: -7rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(14 165 233 / .10), transparent 68%);
+  pointer-events: none;
+}
+
+.panel-surface::after {
+  content: "";
+  position: absolute;
+  inset-inline: 1.5rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgb(14 165 233 / .24), transparent);
+  pointer-events: none;
+}
+
+.panel-page table {
+  width: 100%;
+  border: 1px solid rgb(15 73 94 / .09);
+  background: white;
+  box-shadow: 0 14px 45px rgb(18 76 98 / .055);
+}
+.panel-page thead th {
+  padding-block: .9rem !important;
+  background: linear-gradient(to bottom, #f1f8f8, #edf6f6) !important;
+  color: #315a6b !important;
+  font-size: .76rem;
+  font-weight: 800 !important;
+}
+.panel-page tbody td { padding-block: .9rem !important; color: #294b5c; }
+.panel-page tbody tr { transition: background-color .18s ease; }
+.panel-page tbody tr:hover { background: #f5fbfb; }
+.panel-page :is(input, select, textarea) { box-shadow: 0 5px 18px rgb(18 76 98 / .035) !important; }
+.panel-page :is(input, select, textarea):focus { box-shadow: 0 0 0 4px rgb(14 165 233 / .10) !important; }
+.panel-page form > .space-y-4 + .space-y-4 { border-top: 1px solid var(--rc-line-soft); padding-top: 1.25rem; }
+
+.auth-stage { position: relative; }
+.auth-stage::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 20%, rgb(14 165 233 / .13), transparent 26rem),
+    radial-gradient(circle at 80% 80%, rgb(16 185 129 / .12), transparent 30rem),
+    #f4f9f8;
+}
+
+@media (max-width: 1023px) {
+  .panel-topbar-v4 { top: .5rem; margin-top: .5rem; }
+  .panel-page-head { border-radius: 1.35rem !important; }
+}

@@ -16,12 +16,14 @@ type Notification = {
 
 async function sendSms(row: Notification): Promise<string> {
   if (!row.phone) throw new Error('missing_phone')
-  const patterns = JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}') as Record<string, string>
-  if (config.smsMock) {
+  const settings = await getAuthSettings(true)
+  const patterns = settings.sms_patterns ?? JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}') as Record<string, string>
+  const provider = (settings.sms_provider ?? process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
+  const configuredKey = provider === 'kavenegar' ? settings.kavenegar_api_key : settings.ippanel_api_key
+  if (config.smsMock && !configuredKey) {
     console.log(`[sms:mock] ${row.template_key} -> ${row.phone}`, row.meta ?? {})
     return `MOCK-sms-${Date.now()}`
   }
-  const provider = (process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
   if (provider === 'kavenegar') {
     const values = Object.values(row.meta ?? {}).map(String)
     const query = new URLSearchParams({
@@ -31,16 +33,16 @@ async function sendSms(row: Notification): Promise<string> {
       token2: values[1] ?? '',
       token3: values[2] ?? '',
     })
-    const response = await fetch(`https://api.kavenegar.com/v1/${process.env.KAVENEGAR_API_KEY ?? ''}/verify/lookup.json?${query}`)
+    const response = await fetch(`https://api.kavenegar.com/v1/${settings.kavenegar_api_key ?? process.env.KAVENEGAR_API_KEY ?? ''}/verify/lookup.json?${query}`)
     if (!response.ok) throw new Error(`sms_provider_${response.status}`)
     return `kavenegar-${Date.now()}`
   }
   const response = await fetch('https://api2.ippanel.com/api/v1/sms/pattern/normal/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `AccessKey ${process.env.IPPANEL_API_KEY ?? ''}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `AccessKey ${settings.ippanel_api_key ?? process.env.IPPANEL_API_KEY ?? ''}` },
     body: JSON.stringify({
       code: patterns[row.template_key] ?? row.template_key,
-      sender: process.env.IPPANEL_ORIGINATOR ?? '',
+      sender: settings.ippanel_originator ?? process.env.IPPANEL_ORIGINATOR ?? '',
       recipient: row.phone,
       variable: Object.fromEntries(Object.entries(row.meta ?? {}).map(([key, value]) => [key, String(value)])),
     }),

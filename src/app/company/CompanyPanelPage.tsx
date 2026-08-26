@@ -85,8 +85,8 @@ export function CompanyPanelPage({
 
   if (!companies.length) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-2xl font-semibold md:text-3xl">{t('company.panelTitle')}</h1>
+      <PanelPage title={t('company.panelTitle')} description="برای شروع حضور در لیگ‌ها، پروفایل مجموعه خود را تکمیل کنید." index="CO.00">
+        <div className="mx-auto max-w-3xl">
         <CompanyForm
           onSaved={(company) => {
             setCompanies([company])
@@ -94,7 +94,8 @@ export function CompanyPanelPage({
             void loadCompanies()
           }}
         />
-      </div>
+        </div>
+      </PanelPage>
     )
   }
 
@@ -131,6 +132,8 @@ export function CompanyPanelPage({
       }
     >
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
+      {section === 'overview' && activeCompany ? <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-bold text-emerald-200">پرتال مجموعه</p><h2 className="mt-2 text-2xl font-black">{activeCompany.name}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">تیم‌ها، ثبت‌نام لیگ‌ها، پرداخت‌ها و افتخارات مجموعه را از این فضای یکپارچه دنبال کنید.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold">{teams.length} تیم ثبت‌شده</span><span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold">{companyResults.length} نتیجه منتشرشده</span></div></div> : null}
 
       {section === 'overview' ? (
         <>

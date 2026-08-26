@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Button, FieldError, Input } from '@/components/ui/FormControls'
+import { Button, FieldError, Input, Select, Textarea } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
 import { useToast } from '@/components/ui/Toast'
@@ -42,10 +42,14 @@ export function SuperAdminAccessSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [patternsText, setPatternsText] = useState('{}')
 
   useEffect(() => {
     void fetchAccessSettings()
-      .then(setForm)
+      .then((settings) => {
+        setForm(settings)
+        setPatternsText(JSON.stringify(settings.sms_patterns ?? {}, null, 2))
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
@@ -66,8 +70,11 @@ export function SuperAdminAccessSettingsPage() {
     setBusy(true)
     setError(null)
     try {
+      const parsedPatterns = JSON.parse(patternsText) as Record<string, string>
       const { id: _id, updated_at: _updatedAt, ...payload } = form
-      setForm(await updateAccessSettings(payload))
+      const saved = await updateAccessSettings({ ...payload, sms_patterns: parsedPatterns })
+      setForm(saved)
+      setPatternsText(JSON.stringify(saved.sms_patterns ?? {}, null, 2))
       toast.success('تنظیمات دسترسی، ایمیل و پرداخت ذخیره شد.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ذخیره تنظیمات ناموفق بود.')
@@ -91,6 +98,22 @@ export function SuperAdminAccessSettingsPage() {
               <Toggle checked={form.otp_login_enabled} label="کد یکبارمصرف پیامکی" hint="ورود امن با شماره موبایل و OTP" onChange={(value) => patch({ otp_login_enabled: value })} />
               <Toggle checked={form.password_login_enabled} label="نام کاربری و رمز عبور" hint="شناسه می‌تواند نام کاربری، ایمیل یا موبایل باشد" onChange={(value) => patch({ password_login_enabled: value })} />
               <Toggle checked={form.email_magic_login_enabled} label="لینک ورود ایمیلی" hint="ورود بدون رمز از طریق لینک یکبارمصرف" onChange={(value) => patch({ email_magic_login_enabled: value })} />
+            </div>
+          </HudFrame>
+
+          <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="API.04" title="کلیدهای سرویس پیامک" hint="مقادیر از دیتابیس خوانده می‌شوند و نیازی به تعریف آن‌ها در فایل env نیست." />
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select label="سرویس‌دهنده پیامک" value={form.sms_provider ?? 'ippanel'} onChange={(event) => patch({ sms_provider: event.target.value as 'ippanel' | 'kavenegar' })}>
+                <option value="ippanel">IPPanel</option>
+                <option value="kavenegar">Kavenegar</option>
+              </Select>
+              <Input label="شماره یا خط ارسال IPPanel" value={form.ippanel_originator ?? ''} onChange={(event) => patch({ ippanel_originator: event.target.value })} dir="ltr" />
+              <Input label="API Key سرویس IPPanel" type="password" value={form.ippanel_api_key ?? ''} onChange={(event) => patch({ ippanel_api_key: event.target.value })} dir="ltr" autoComplete="new-password" />
+              <Input label="API Key سرویس کاوه‌نگار" type="password" value={form.kavenegar_api_key ?? ''} onChange={(event) => patch({ kavenegar_api_key: event.target.value })} dir="ltr" autoComplete="new-password" />
+              <div className="md:col-span-2">
+                <Textarea label="کد الگوهای پیامک (JSON)" value={patternsText} onChange={(event) => setPatternsText(event.target.value)} dir="ltr" className="min-h-36 font-mono text-xs" placeholder={'{\n  "auth_otp": "pattern-code"\n}'} />
+              </div>
             </div>
           </HudFrame>
 
@@ -123,6 +146,10 @@ export function SuperAdminAccessSettingsPage() {
               <Input label="شماره کارت" value={form.bank_card_number ?? ''} onChange={(event) => patch({ bank_card_number: event.target.value })} dir="ltr" />
               <Input label="شماره شبا" value={form.bank_iban ?? ''} onChange={(event) => patch({ bank_iban: event.target.value })} dir="ltr" />
               <Input label="نام صاحب حساب" value={form.bank_account_owner ?? ''} onChange={(event) => patch({ bank_account_owner: event.target.value })} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input label="Merchant ID زرین‌پال" type="password" value={form.zarinpal_merchant_id ?? ''} onChange={(event) => patch({ zarinpal_merchant_id: event.target.value })} dir="ltr" autoComplete="new-password" />
+              <Toggle checked={form.zarinpal_sandbox ?? false} label="حالت آزمایشی زرین‌پال" hint="برای تست پرداخت بدون تراکنش واقعی فعال کنید" onChange={(value) => patch({ zarinpal_sandbox: value })} />
             </div>
           </HudFrame>
 

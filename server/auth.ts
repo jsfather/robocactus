@@ -92,6 +92,13 @@ export type AuthSettings = {
   email_provider?: string
   email_from?: string | null
   email_api_key?: string | null
+  sms_provider?: 'ippanel' | 'kavenegar'
+  ippanel_api_key?: string | null
+  ippanel_originator?: string | null
+  kavenegar_api_key?: string | null
+  sms_patterns?: Record<string, string> | null
+  zarinpal_merchant_id?: string | null
+  zarinpal_sandbox?: boolean
 }
 
 const defaultAuthSettings: AuthSettings = {
@@ -116,6 +123,13 @@ export async function getAuthSettings(includeSecrets = false): Promise<AuthSetti
     delete settings.email_api_key
     delete settings.email_provider
     delete settings.email_from
+    delete settings.ippanel_api_key
+    delete settings.ippanel_originator
+    delete settings.kavenegar_api_key
+    delete settings.sms_patterns
+    delete settings.sms_provider
+    delete settings.zarinpal_merchant_id
+    delete settings.zarinpal_sandbox
   }
   return settings
 }
@@ -147,7 +161,7 @@ async function createOneTimeToken(userId: string, kind: string, redirectTo?: str
 async function sendMagicLink(email: string, link: string): Promise<void> {
   const emailSettings = await getAuthSettings(true)
   const apiKey = emailSettings.email_api_key || process.env.RESEND_API_KEY
-  if (config.emailMock || !apiKey) {
+  if ((config.emailMock && !emailSettings.email_api_key) || !apiKey) {
     console.log(`[email:mock] magic link for ${email}: ${link}`)
     return
   }
@@ -162,6 +176,32 @@ async function sendMagicLink(email: string, link: string): Promise<void> {
     }),
   })
   if (!response.ok) throw new Error(`email_provider_${response.status}`)
+}
+
+async function sendPasswordResetLink(email: string, link: string): Promise<void> {
+  const emailSettings = await getAuthSettings(true)
+  const apiKey = emailSettings.email_api_key || process.env.RESEND_API_KEY
+  if ((config.emailMock && !emailSettings.email_api_key) || !apiKey) {
+    console.log(`[email:mock] password reset for ${email}: ${link}`)
+    return
+  }
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: emailSettings.email_from || process.env.EMAIL_FROM || 'Tabarestan Cup <onboarding@resend.dev>',
+      to: [email],
+      subject: 'بازیابی رمز عبور جام تبرستان',
+      text: `برای تعیین رمز عبور جدید، این پیوند امن را باز کنید. اعتبار پیوند ۱۵ دقیقه است:\n${link}`,
+    }),
+  })
+  if (!response.ok) throw new Error(`email_provider_${response.status}`)
+}
+
+async function emailDeliveryIsMock(): Promise<boolean> {
+  const settings = await getAuthSettings(true)
+  const apiKey = settings.email_api_key || process.env.RESEND_API_KEY
+  return !apiKey || (config.emailMock && !settings.email_api_key)
 }
 
 export function registerAuthRoutes(router: Router): void {
@@ -253,7 +293,7 @@ export function registerAuthRoutes(router: Router): void {
     callback.searchParams.set('code', token)
     const link = callback.toString()
     await sendMagicLink(email, link)
-    response.status(201).json({ session: null, user: publicUser(user), ...(config.emailMock ? { dev_link: link } : {}) })
+    response.status(201).json({ session: null, user: publicUser(user), ...(!config.isProduction && (await emailDeliveryIsMock()) ? { dev_link: link } : {}) })
   })
 
   router.post('/auth/magic-link', async (request, response) => {
@@ -277,7 +317,63 @@ export function registerAuthRoutes(router: Router): void {
       callback.searchParams.set('code', token)
       const link = callback.toString()
       await sendMagicLink(email, link)
-      response.json({ ok: true, ...(config.emailMock ? { dev_link: link } : {}) })
+      response.json({ ok: true, ...(!config.isProduction && (await emailDeliveryIsMock()) ? { dev_link: link } : {}) })
+      return
+    }
+    response.json({ ok: true })
+  })
+
+  router.post('/auth/password-reset/request', async (request, response) => {
+    const email = String(request.body?.email ?? '').trim().toLowerCase()
+    if (rateLimited(`password-reset:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
+      response.status(429).json({ error: 'too_many_attempts' })
+      return
+    }
+    const user = /^\S+@\S+\.\S+$/.test(email) ? await findUserByEmail(email) : null
+    if (!user) {
+      response.json({ ok: true })
+      return
+    }
+    const token = await createOneTimeToken(user.id, 'password_reset', '/reset-password')
+    const link = new URL('/reset-password', config.appUrl)
+    link.searchParams.set('code', token)
+    await sendPasswordResetLink(email, link.toString())
+    response.json({ ok: true, ...(!config.isProduction && (await emailDeliveryIsMock()) ? { dev_link: link.toString() } : {}) })
+  })
+
+  router.post('/auth/password-reset/confirm', async (request, response) => {
+    const code = String(request.body?.code ?? '')
+    const password = String(request.body?.password ?? '')
+    if (!code || password.length < 8) {
+      response.status(400).json({ error: 'invalid_password_reset' })
+      return
+    }
+    const tokenHash = hashToken(code)
+    const changed = await db.transaction(async (transaction) => {
+      const rows = await transaction
+        .select({ token: oneTimeTokens, user: users })
+        .from(oneTimeTokens)
+        .innerJoin(users, eq(oneTimeTokens.userId, users.id))
+        .where(and(
+          eq(oneTimeTokens.tokenHash, tokenHash),
+          eq(oneTimeTokens.kind, 'password_reset'),
+          isNull(oneTimeTokens.consumedAt),
+          gt(oneTimeTokens.expiresAt, new Date()),
+        ))
+        .limit(1)
+      const row = rows[0]
+      if (!row) return false
+      await transaction.update(oneTimeTokens).set({ consumedAt: new Date() }).where(eq(oneTimeTokens.id, row.token.id))
+      await transaction.update(users).set({
+        encryptedPassword: await hashPassword(password),
+        emailConfirmedAt: row.user.emailConfirmedAt ?? new Date(),
+        updatedAt: new Date(),
+      }).where(eq(users.id, row.user.id))
+      await transaction.delete(sessions).where(eq(sessions.userId, row.user.id))
+      return true
+    })
+    if (!changed) {
+      response.status(400).json({ error: 'invalid_or_expired_token' })
       return
     }
     response.json({ ok: true })
@@ -300,6 +396,7 @@ export function registerAuthRoutes(router: Router): void {
         .limit(1)
       const row = rows[0]
       if (!row) return null
+      if (row.token.kind !== 'email_confirmation' && row.token.kind !== 'magic_link') return null
       await transaction
         .update(oneTimeTokens)
         .set({ consumedAt: new Date() })

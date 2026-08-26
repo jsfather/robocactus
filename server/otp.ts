@@ -41,14 +41,16 @@ function otpHash(phone: string, code: string): string {
 }
 
 async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> {
-  const provider = (process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
-  if (config.smsMock) {
+  const settings = await getAuthSettings(true)
+  const provider = (settings.sms_provider ?? process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
+  const configuredKey = provider === 'kavenegar' ? settings.kavenegar_api_key : settings.ippanel_api_key
+  if (config.smsMock && !configuredKey) {
     console.log(`[sms:mock] OTP for ${phone}: ${code}`)
     return { mock: true }
   }
   if (provider === 'kavenegar') {
-    const apiKey = process.env.KAVENEGAR_API_KEY ?? ''
-    const template = JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp ?? 'auth_otp'
+    const apiKey = settings.kavenegar_api_key ?? process.env.KAVENEGAR_API_KEY ?? ''
+    const template = settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp ?? 'auth_otp'
     const query = new URLSearchParams({ receptor: phone, template, token: code })
     const response = await fetch(`https://api.kavenegar.com/v1/${apiKey}/verify/lookup.json?${query}`)
     if (!response.ok) throw new Error(`sms_provider_${response.status}`)
@@ -58,11 +60,11 @@ async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `AccessKey ${process.env.IPPANEL_API_KEY ?? ''}`,
+      Authorization: `AccessKey ${settings.ippanel_api_key ?? process.env.IPPANEL_API_KEY ?? ''}`,
     },
     body: JSON.stringify({
-      code: JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}').auth_otp ?? 'auth_otp',
-      sender: process.env.IPPANEL_ORIGINATOR ?? '',
+      code: settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}').auth_otp ?? 'auth_otp',
+      sender: settings.ippanel_originator ?? process.env.IPPANEL_ORIGINATOR ?? '',
       recipient: phone,
       variable: { code },
     }),

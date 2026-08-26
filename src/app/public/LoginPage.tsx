@@ -115,10 +115,19 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_0_40px_rgba(59,130,246,0.08)]">
-        <h1 className="mb-1 text-2xl font-semibold">{t('auth.loginTitle')}</h1>
-        <p className="mb-6 font-mono text-xs text-rc-muted">{t('app.tagline')}</p>
+    <div className="auth-stage mx-auto flex min-h-[72vh] max-w-6xl items-center px-4 py-12">
+      <div className="grid w-full overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_30px_90px_rgb(18_76_98/0.16)] md:grid-cols-[0.9fr_1.1fr]">
+        <div className="hidden bg-gradient-to-br from-[#0b4964] via-[#087eb8] to-[#0b9b65] p-10 text-white md:flex md:flex-col md:justify-between">
+          <span className="flex size-16 items-center justify-center rounded-2xl bg-white/15 text-3xl font-black backdrop-blur">ت</span>
+          <div>
+            <p className="text-4xl font-black leading-tight">مرکز مدیریت<br />جام تبرستان</p>
+            <p className="mt-4 max-w-sm text-sm leading-8 text-white/75">ورود یکپارچه مدیران، کارشناسان، شرکت‌ها و اعضای تیم با دسترسی متناسب با نقش.</p>
+          </div>
+        </div>
+        <div className="p-6 sm:p-10 lg:p-12">
+        <p className="mb-2 text-sm font-bold text-emerald-600">Tabarestan Cup</p>
+        <h1 className="mb-2 text-3xl font-black tracking-tight text-slate-900">{t('auth.loginTitle')}</h1>
+        <p className="mb-7 text-sm leading-7 text-rc-muted">{t('app.tagline')}</p>
 
         {!configured ? (
           <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
@@ -191,7 +200,7 @@ export function LoginPage() {
               dir="ltr"
             />
             {emailSubMode === 'password' ? (
-              <Input
+              <div className="space-y-2"><Input
                 label={t('auth.password')}
                 name="password"
                 type="password"
@@ -200,7 +209,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 dir="ltr"
-              />
+              /><Link to="/forgot-password" className="inline-flex text-xs font-bold text-rc-blue hover:underline">رمز عبور را فراموش کرده‌اید؟</Link></div>
             ) : null}
             {magicSent ? (
               <p className="rounded-md border border-rc-blue/30 bg-rc-blue/10 px-3 py-2 text-sm text-rc-blue">
@@ -277,6 +286,7 @@ export function LoginPage() {
             {t('nav.signup')}
           </Link>
         </p> : null}
+        </div>
       </div>
     </div>
   )

@@ -6,6 +6,13 @@ export type AccessSettings = BackendAuthOptions & {
   email_provider: string
   email_from: string | null
   email_api_key: string | null
+  sms_provider: 'ippanel' | 'kavenegar'
+  ippanel_api_key: string | null
+  ippanel_originator: string | null
+  kavenegar_api_key: string | null
+  sms_patterns: Record<string, string>
+  zarinpal_merchant_id: string | null
+  zarinpal_sandbox: boolean
   updated_at: string
 }
 
@@ -27,4 +34,3 @@ export async function updateAccessSettings(
   if (error) throw new Error(error.message)
   return data as AccessSettings
 }
-

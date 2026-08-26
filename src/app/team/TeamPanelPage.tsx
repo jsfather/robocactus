@@ -237,6 +237,8 @@ export function TeamPanelPage() {
     >
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
+      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#087eb8] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-bold text-sky-200">پنل سرپرست تیم</p><h2 className="mt-2 text-2xl font-black">{profile?.full_name ?? 'سرپرست'}، وضعیت تیم‌ها در دسترس شماست</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">اعضا، مدارک، وضعیت بررسی و پرداخت هر تیم را از این بخش دنبال کنید.</p><div className="mt-5 inline-flex rounded-xl bg-white/10 px-4 py-2 text-xs font-bold">{teams.length} تیم در حساب شما</div></div>
+
       <PanelCard title={t('team.listTitle')}>
         {teams.length === 0 ? (
           <p className="text-sm text-rc-muted">

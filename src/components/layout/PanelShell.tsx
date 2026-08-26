@@ -56,6 +56,20 @@ function MenuIcon({ open }: { open: boolean }) {
   )
 }
 
+function PanelNavIcon({ path }: { path: string }) {
+  const common = { className: 'size-[1.15rem]', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, viewBox: '0 0 24 24', 'aria-hidden': true }
+  if (path.includes('settings') || path.includes('access') || path.includes('registration')) return <svg {...common}><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+  if (path.includes('ticket') || path.includes('chat')) return <svg {...common}><path d="M5 5h14v11H9l-4 3V5Z"/><path d="M8 9h8M8 12h5"/></svg>
+  if (path.includes('league') || path.includes('competition')) return <svg {...common}><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z"/><path d="M8 6H4v1a4 4 0 0 0 4 4m8-5h4v1a4 4 0 0 1-4 4M12 12v5m-4 3h8"/></svg>
+  if (path.includes('user') || path.includes('participant') || path.includes('profile')) return <svg {...common}><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+  if (path.includes('finance') || path.includes('payment')) return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg>
+  if (path.includes('analytics')) return <svg {...common}><path d="M5 20V10m7 10V4m7 16v-7"/></svg>
+  if (path.includes('content') || path.includes('pages') || path.includes('home')) return <svg {...common}><path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+  if (path.includes('compan')) return <svg {...common}><path d="M4 21V6l8-3v18m0-12 8-3v15M8 8v1m0 4v1m8-2v1m0 4v1"/></svg>
+  if (path.includes('review') || path.includes('triage')) return <svg {...common}><path d="M7 3h10v4H7zM5 5H4v16h16V5h-1"/><path d="m8 14 2.5 2.5L16 11"/></svg>
+  return <svg {...common}><path d="M4 13h6V4H4v9Zm10 7h6V11h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
+}
+
 function SidebarNav({
   role,
   onNavigate,
@@ -68,13 +82,13 @@ function SidebarNav({
   const groups = useMemo(() => panelsForRole(role), [role])
 
   return (
-    <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-5">
+    <nav className="panel-nav-scroll flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
       {groups.map((group) => (
         <div key={group.id}>
-          <p className="mb-2 px-3 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
+          <p className="mb-2.5 px-3 text-[10px] font-bold tracking-[0.12em] text-white/40 uppercase">
             {t(group.titleKey)}
           </p>
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {group.items.map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -83,14 +97,14 @@ function SidebarNav({
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     [
-                      'panel-nav-link flex items-center justify-between gap-2 border border-transparent px-3 py-3 text-sm font-semibold transition',
+                      'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
                       isActive
-                        ? 'is-active border-rc-blue/20 bg-gradient-to-l from-rc-blue/15 to-emerald-500/10 text-rc-blue shadow-sm'
-                        : 'text-rc-muted hover:border-rc-line hover:bg-rc-hover hover:text-rc-text',
+                        ? 'is-active border-white/10 bg-white text-[#0b5875] shadow-[0_10px_25px_rgb(0_20_35/0.18)]'
+                        : 'text-white/65 hover:border-white/10 hover:bg-white/8 hover:text-white',
                     ].join(' ')
                   }
                 >
-                  <span>{t(item.labelKey)}</span>
+                  <span className="flex min-w-0 items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8 transition group-hover:bg-white/12"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
                   {item.badge === 'tickets' && count > 0 ? (
                     <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
                       {count > 99 ? '99+' : count}
@@ -192,7 +206,7 @@ export function PanelShell() {
   const dateLabel = formatAppDate(now.toISOString(), i18n.language, { withTime: true })
 
   return (
-    <div className="panel-shell relative flex min-h-dvh bg-rc-bg text-rc-text">
+    <div className="panel-shell panel-shell-v4 relative flex min-h-dvh text-rc-text">
       <div
         className="pointer-events-none fixed inset-0 opacity-40"
         style={{
@@ -201,17 +215,16 @@ export function PanelShell() {
         }}
       />
 
-      <aside className="panel-sidebar fixed inset-y-3 right-3 z-30 hidden w-72 flex-col overflow-hidden rounded-[1.75rem] border border-rc-line bg-rc-navy/95 backdrop-blur-xl lg:flex">
-        <div className="border-b border-rc-line px-5 py-5">
+      <aside className="panel-sidebar panel-sidebar-v4 fixed inset-y-3 right-3 z-30 hidden w-[18.5rem] flex-col overflow-hidden rounded-[2rem] border border-white/10 lg:flex">
+        <div className="border-b border-white/10 px-5 py-5">
           <Link to={home} className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-emerald-500 text-lg font-black text-white shadow-lg shadow-sky-900/15">ت</span>
-            <span><span className="block text-base font-black">جام تبرستان</span><span className="mt-0.5 block text-[11px] text-rc-muted">Tabarestan Cup · {t('panel.shellTitle')}</span></span>
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-emerald-50 text-xl font-black text-[#087eb8] shadow-lg shadow-black/15">ت</span>
+            <span><span className="block text-base font-black text-white">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-medium tracking-wide text-white/45">TABARESTAN CONTROL CENTER</span></span>
           </Link>
         </div>
         <SidebarNav role={role} />
-        <div className="border-t border-rc-line p-3">
-          <p className="truncate px-2 text-xs text-rc-muted">{profile?.full_name ?? user?.email}</p>
-          <p className="mt-0.5 px-2 font-mono text-[10px] text-rc-blue">{t(`dashboard.roles.${role}`)}</p>
+        <div className="m-3 rounded-2xl border border-white/10 bg-white/7 p-3.5">
+          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-emerald-400/15 text-sm font-black text-emerald-300">{(profile?.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-white">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] text-white/45">{t(`dashboard.roles.${role}`)}</p></span></div>
         </div>
       </aside>
 
@@ -223,12 +236,12 @@ export function PanelShell() {
             aria-label="close"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute inset-y-0 right-0 flex w-[min(18rem,88vw)] flex-col border-l border-rc-line bg-rc-navy shadow-xl">
-            <div className="flex items-center justify-between border-b border-rc-line px-4 py-3">
-              <p className="text-sm font-semibold">{t('panel.shellTitle')}</p>
+          <aside className="panel-sidebar-v4 absolute inset-y-0 right-0 flex w-[min(19rem,88vw)] flex-col border-l border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+              <p className="text-sm font-bold text-white">{t('panel.shellTitle')}</p>
               <button
                 type="button"
-                className="rounded-lg p-2 text-rc-muted hover:bg-rc-hover"
+                className="rounded-xl p-2 text-white/65 hover:bg-white/10 hover:text-white"
                 onClick={() => setMobileOpen(false)}
               >
                 <MenuIcon open />
@@ -239,12 +252,12 @@ export function PanelShell() {
         </div>
       ) : null}
 
-      <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19rem]">
-        <header className="panel-topbar sticky top-0 z-20 border-b border-rc-line bg-rc-bg/80 backdrop-blur-xl">
-          <div className="flex h-16 items-center gap-3 px-4 md:px-6">
+      <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19.5rem]">
+        <header className="panel-topbar panel-topbar-v4 sticky top-3 z-20 mx-3 mt-3 rounded-2xl border border-white/80 bg-white/82 backdrop-blur-xl lg:mx-5">
+          <div className="flex min-h-[4.5rem] items-center gap-3 px-4 md:px-5">
             <button
               type="button"
-              className="border border-rc-line p-2 text-rc-muted hover:bg-rc-hover lg:hidden"
+              className="rounded-xl border border-rc-line bg-slate-50 p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="menu"
             >
@@ -252,16 +265,17 @@ export function PanelShell() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[9px] tracking-[0.24em] text-rc-blue uppercase">
+              <p className="text-[10px] font-extrabold tracking-[0.1em] text-emerald-600 uppercase">
                 {active ? t(active.titleKey) : 'SYS'}
               </p>
-              <p className="truncate text-sm font-semibold md:text-base">{title}</p>
+              <p className="truncate text-base font-black text-slate-800 md:text-lg">{title}</p>
               {activeItem?.helpKey ? (
                 <p className="mt-0.5 line-clamp-2 text-xs text-rc-muted">{t(activeItem.helpKey)}</p>
               ) : null}
             </div>
 
-            <div className="hidden items-center border border-rc-line bg-rc-surface/60 px-2.5 py-1.5 md:flex">
+            <Link to="/" className="hidden items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue md:flex">مشاهده سایت</Link>
+            <div className="hidden items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
               <span className="font-mono text-[10px] tracking-wide text-rc-muted tabular-nums">
                 {dateLabel}
               </span>
@@ -272,7 +286,7 @@ export function PanelShell() {
           </div>
         </header>
 
-        <main className="relative flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main className="relative flex-1 px-3 py-6 sm:px-5 md:py-8 lg:px-7">
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />
@@ -300,20 +314,20 @@ export function PanelPage({
   children: ReactNode
 }) {
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="panel-page mx-auto max-w-[90rem] space-y-6">
       {(title || actions) && (
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+        <div className="panel-page-head relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white px-5 py-6 shadow-[0_18px_60px_rgb(18_76_98/0.08)] sm:px-7 sm:py-7">
+          <div className="pointer-events-none absolute inset-y-0 start-0 w-1.5 bg-gradient-to-b from-rc-blue via-cyan-400 to-emerald-400" />
+          <div className="flex flex-wrap items-center justify-between gap-5"><div>
             {index ? (
               <p className="mb-1 font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">
                 {index}
               </p>
             ) : null}
-            {title ? <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1> : null}
-            {description ? <p className="mt-1 text-sm text-rc-muted">{description}</p> : null}
-            <div className="mt-3 h-1 w-14 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue" />
+            {title ? <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-[2rem]">{title}</h1> : null}
+            {description ? <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">{description}</p> : null}
           </div>
-          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}</div>
         </div>
       )}
       {children}

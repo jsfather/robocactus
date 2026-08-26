@@ -192,6 +192,14 @@ const auth = {
     }
     return { data: response, error: response.error ?? null }
   },
+  async requestPasswordReset(email: string) {
+    const response = await authCall('password-reset/request', { email })
+    return { data: response, error: response.error ?? null }
+  },
+  async confirmPasswordReset(code: string, password: string) {
+    const response = await authCall('password-reset/confirm', { code, password })
+    return { data: response, error: response.error ?? null }
+  },
   async signUp(input: {
     email: string
     password: string

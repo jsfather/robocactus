@@ -15,10 +15,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    'rounded-lg bg-rc-accent text-white shadow-sm hover:brightness-110 disabled:opacity-50',
+    'rounded-xl bg-gradient-to-l from-[#087eb8] to-[#0b9b65] text-white shadow-[0_10px_28px_rgb(8_126_184/0.2)] hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgb(8_126_184/0.28)] disabled:opacity-50 disabled:hover:translate-y-0',
   secondary:
-    'rounded-lg border border-rc-blue/40 bg-rc-blue/10 text-rc-blue hover:bg-rc-blue/20 disabled:opacity-50',
-  ghost: 'rounded-lg text-rc-muted hover:bg-rc-hover hover:text-rc-text disabled:opacity-50',
+    'rounded-xl border border-sky-200 bg-sky-50 text-rc-blue shadow-sm hover:bg-sky-100 disabled:opacity-50',
+  ghost: 'rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50',
   danger:
     'rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50',
 }
@@ -31,7 +31,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition ${buttonVariants[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold transition duration-200 ${buttonVariants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -47,11 +47,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export function Input({ label, error, id, className = '', ...props }: InputProps) {
   const inputId = id ?? props.name
   return (
-    <label className="block space-y-1.5" htmlFor={inputId}>
-      <span className="text-sm text-rc-muted">{label}</span>
+    <label className="group block space-y-2" htmlFor={inputId}>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
       <input
         id={inputId}
-        className={`w-full rounded-md border border-rc-line bg-rc-surface px-3 py-2.5 text-rc-text outline-none transition placeholder:text-rc-muted/60 focus:border-rc-blue/50 focus:ring-1 focus:ring-rc-blue/40 ${className}`}
+        className={`min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
         {...props}
       />
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
@@ -67,11 +67,11 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 export function Textarea({ label, error, id, className = '', ...props }: TextareaProps) {
   const inputId = id ?? props.name
   return (
-    <label className="block space-y-1.5" htmlFor={inputId}>
-      <span className="text-sm text-rc-muted">{label}</span>
+    <label className="group block space-y-2" htmlFor={inputId}>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
       <textarea
         id={inputId}
-        className={`min-h-24 w-full rounded-md border border-rc-line bg-rc-surface px-3 py-2.5 text-rc-text outline-none transition placeholder:text-rc-muted/60 focus:border-rc-blue/50 focus:ring-1 focus:ring-rc-blue/40 ${className}`}
+        className={`min-h-28 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
         {...props}
       />
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
@@ -88,11 +88,11 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export function Select({ label, error, id, className = '', children, ...props }: SelectProps) {
   const inputId = id ?? props.name
   return (
-    <label className="block space-y-1.5" htmlFor={inputId}>
-      <span className="text-sm text-rc-muted">{label}</span>
+    <label className="group block space-y-2" htmlFor={inputId}>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
       <select
         id={inputId}
-        className={`w-full rounded-md border border-rc-line bg-rc-navy px-3 py-2.5 text-rc-text outline-none transition focus:border-rc-blue/50 focus:ring-1 focus:ring-rc-blue/40 ${className}`}
+        className={`min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
         {...props}
       >
         {children}
@@ -119,15 +119,15 @@ export function PanelCard({
   actions?: ReactNode
 }) {
   return (
-    <section className="relative overflow-hidden border border-rc-line bg-rc-surface/90 p-5 shadow-[inset_0_1px_0_0_rgba(56,189,248,0.12)] backdrop-blur-sm">
+    <section className="panel-surface relative overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/92 p-5 shadow-[0_16px_50px_rgb(18_76_98/0.075)] backdrop-blur-sm sm:p-6">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-rc-blue/50 to-transparent"
         aria-hidden
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-rc-text">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-rc-muted">{description}</p> : null}
+          <h2 className="text-lg font-black tracking-tight text-slate-800">{title}</h2>
+          {description ? <p className="mt-1.5 text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
         {actions}
       </div>

@@ -24,8 +24,8 @@ async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<Payabl
   })
 }
 
-function gatewayBase(): string {
-  return process.env.ZARINPAL_SANDBOX === 'true'
+function gatewayBase(sandbox: boolean): string {
+  return sandbox
     ? 'https://sandbox.zarinpal.com/pg/v4/payment'
     : 'https://api.zarinpal.com/pg/v4/payment'
 }
@@ -47,12 +47,14 @@ export function registerPaymentRoutes(router: Router): void {
       response.status(404).json({ error: 'payable_invoice_not_found' })
       return
     }
-    const merchantId = process.env.ZARINPAL_MERCHANT_ID ?? ''
+    const settings = await getAuthSettings(true)
+    const merchantId = settings.zarinpal_merchant_id ?? process.env.ZARINPAL_MERCHANT_ID ?? ''
+    const sandbox = settings.zarinpal_sandbox ?? process.env.ZARINPAL_SANDBOX === 'true'
     if (!merchantId) {
       response.status(503).json({ error: 'ZARINPAL_MERCHANT_ID is not configured' })
       return
     }
-    const upstream = await fetch(`${gatewayBase()}/request.json`, {
+    const upstream = await fetch(`${gatewayBase(sandbox)}/request.json`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -68,7 +70,7 @@ export function registerPaymentRoutes(router: Router): void {
       response.status(502).json({ error: body.data?.message ?? 'ZarinPal request failed' })
       return
     }
-    const startBase = process.env.ZARINPAL_SANDBOX === 'true'
+    const startBase = sandbox
       ? 'https://sandbox.zarinpal.com/pg/StartPay/'
       : 'https://www.zarinpal.com/pg/StartPay/'
     await db.execute(sql`
@@ -104,11 +106,14 @@ export function registerPaymentRoutes(router: Router): void {
       response.status(404).json({ error: 'payment_authority_not_found' })
       return
     }
-    const upstream = await fetch(`${gatewayBase()}/verify.json`, {
+    const settings = await getAuthSettings(true)
+    const merchantId = settings.zarinpal_merchant_id ?? process.env.ZARINPAL_MERCHANT_ID ?? ''
+    const sandbox = settings.zarinpal_sandbox ?? process.env.ZARINPAL_SANDBOX === 'true'
+    const upstream = await fetch(`${gatewayBase(sandbox)}/verify.json`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        merchant_id: process.env.ZARINPAL_MERCHANT_ID ?? '',
+        merchant_id: merchantId,
         amount: Math.round(Number(invoice.amount)),
         authority,
       }),

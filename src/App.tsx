@@ -55,6 +55,8 @@ import { LiveChatInboxPage } from '@/app/staff/LiveChatInboxPage'
 import { AccountProfilePage } from '@/app/panel/AccountProfilePage'
 import { PersonProfilePage } from '@/app/public/PersonProfilePage'
 import { SuperAdminPersonEditPage } from '@/app/super-admin/SuperAdminPersonEditPage'
+import { ForgotPasswordPage } from '@/app/public/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/app/public/ResetPasswordPage'
 
 export default function App() {
   return (
@@ -86,6 +88,8 @@ export default function App() {
                   element={<StaticContentPage slug="privacy" fallbackTitleKey="nav.privacy" />}
                 />
                 <Route path="login" element={<LoginPage />} />
+                <Route path="forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="reset-password" element={<ResetPasswordPage />} />
                 <Route path="signup" element={<SignupPage />} />
                 <Route path="auth/callback" element={<AuthCallbackPage />} />
               </Route>
