@@ -36,6 +36,7 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     matchPrefix: '/super-admin',
     items: [
       { to: '/super-admin/leagues', labelKey: 'competitions.nav', helpKey: 'panel.help.sa.leagues' },
+      { to: '/super-admin/participants', labelKey: 'participants.title', helpKey: 'participants.help' },
       { to: '/super-admin/companies', labelKey: 'admin.companies.title', helpKey: 'panel.help.sa.companies' },
       { to: '/super-admin/users', labelKey: 'admin.users.title', helpKey: 'panel.help.sa.users' },
     ],
@@ -60,6 +61,7 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
       { to: '/super-admin/finance', labelKey: 'finance.title', helpKey: 'panel.help.sa.finance' },
       { to: '/super-admin/analytics', labelKey: 'analytics.title', helpKey: 'panel.help.sa.analytics' },
       { to: '/super-admin/settings', labelKey: 'settings.title', helpKey: 'panel.help.sa.settings' },
+      { to: '/super-admin/access', labelKey: 'accessSettings.title', helpKey: 'accessSettings.help' },
     ],
   },
 ]
@@ -105,6 +107,11 @@ export const TEAM_NAV: PanelNavGroup = {
   items: [{ to: '/team', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.team.overview' }],
 }
 
+export const ACCOUNT_NAV: PanelNavGroup = {
+  id: 'account', titleKey: 'panel.nav.account', matchPrefix: '/account',
+  items: [{ to: '/account/profile', labelKey: 'accountProfile.title', helpKey: 'accountProfile.help' }],
+}
+
 const roleHome: Record<UserRole, string> = {
   super_admin: '/super-admin',
   league_admin: '/league-admin',
@@ -132,15 +139,15 @@ export function canonicalizePanelPath(pathname: string, role: UserRole): string 
 export function panelsForRole(role: UserRole): PanelNavGroup[] {
   switch (role) {
     case 'super_admin':
-      return SUPER_ADMIN_NAV_GROUPS
+      return [...SUPER_ADMIN_NAV_GROUPS, ACCOUNT_NAV]
     case 'league_admin':
-      return [LEAGUE_ADMIN_NAV]
+      return [LEAGUE_ADMIN_NAV, ACCOUNT_NAV]
     case 'staff':
-      return [STAFF_NAV]
+      return [STAFF_NAV, ACCOUNT_NAV]
     case 'company_admin':
-      return [COMPANY_NAV]
+      return [COMPANY_NAV, ACCOUNT_NAV]
     case 'team_captain':
-      return [TEAM_NAV, COMPANY_NAV]
+      return [TEAM_NAV, COMPANY_NAV, ACCOUNT_NAV]
     default:
       return []
   }

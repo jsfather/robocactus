@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "RoboCup Tabarestan",
+    "name": "Tabarestan Cup",
     "tagline": "Organizer of national and international robotics competitions",
     "loading": "Loading...",
     "backendMissing": "Database connection is not configured.",
@@ -25,8 +25,8 @@
     "dashboard": "Dashboard"
   },
   "auth": {
-    "loginTitle": "Sign in to RoboCup Tabarestan",
-    "signupTitle": "Create a RoboCup Tabarestan account",
+    "loginTitle": "Sign in to Tabarestan Cup",
+    "signupTitle": "Create a Tabarestan Cup account",
     "fullName": "Full name",
     "phone": "Mobile number",
     "email": "Email",
@@ -80,7 +80,7 @@
     "economicCode": "Economic code",
     "address": "Address",
     "uploadDocsHint": "Upload the required documents",
-    "noDocsConfigured": "No docs configured — add them in registration settings.",
+    "noDocsConfigured": "No additional documents are currently required for this account type.",
     "docsRequired": "Required documents missing",
     "verifyPhoneHint": "Verify phone with OTP",
     "otpSent": "OTP sent",
@@ -112,7 +112,7 @@
     "newsTitle": "Latest news",
     "newsSubtitle": "Announcements and stories from the event",
     "viewAll": "View all",
-    "footerTagline": "Robotics competition operations — registration to results — in one dark cockpit.",
+    "footerTagline": "Tabarestan Cup — from team registration to competition and final results.",
     "contactSubtitle": "Reach the event secretariat",
     "contactForm": "Contact form",
     "contactSubject": "Subject",
@@ -120,7 +120,7 @@
     "contactSend": "Send message",
     "contactSent": "Message received. We will follow up soon.",
     "contactMap": "Location",
-    "contactMapHint": "Map is illustrative — update coordinates for your venue.",
+    "contactMapHint": "Secretariat and event venue location",
     "faqSubtitle": "Answers grouped by topic",
     "faqCategories": [
       {
@@ -175,11 +175,11 @@
     "sponsorsTitle": "Sponsors",
     "sponsorsSubtitle": "Partners moving with the arena",
     "competitionStatsTitle": "Competition statistics",
-    "competitionStatsSubtitle": "Live pulse of the RoboCup Tabarestan network",
-    "whyTitle": "Why RoboCup Tabarestan?",
+    "competitionStatsSubtitle": "Live pulse of the Tabarestan Cup network",
+    "whyTitle": "Why Tabarestan Cup?",
     "whySubtitle": "Reasons teams and organizers choose this platform",
     "calendarTitle": "Event calendar",
-    "calendarSubtitle": "Upcoming milestones you can manage from the panel",
+    "calendarSubtitle": "Competition milestones, workshops, and upcoming events",
     "partnersTitle": "Scientific partners & universities",
     "partnersSubtitle": "Academic and scientific collaborators",
     "faqTitle": "FAQ",
@@ -250,7 +250,8 @@
       "ops": "Operations",
       "registry": "Registry",
       "content": "Content",
-      "system": "System"
+      "system": "System",
+      "account": "Account"
     },
     "noSystemNotifications": "No system notifications",
     "systemNotifications": "System notifications",
@@ -817,7 +818,7 @@
       "gallery": "Gallery"
     },
     "blogTitle": "News & blog",
-    "blogSubtitle": "Official updates from RoboCup Tabarestan",
+    "blogSubtitle": "Official updates from Tabarestan Cup",
     "blogEmpty": "No published posts yet.",
     "postNotFound": "Post not found or not published.",
     "draftHiddenHint": "Draft posts are invisible to the public (RLS).",
@@ -892,15 +893,15 @@
     "exportTitle": "Teams & finance export"
   },
   "seo": {
-    "siteName": "RoboCup Tabarestan",
+    "siteName": "Tabarestan Cup",
     "pages": {
       "default": {
-        "title": "RoboCup Tabarestan",
+        "title": "Tabarestan Cup",
         "description": "Robotics competition management — registration, leagues, results, and content."
       },
       "home": {
         "title": "Home",
-        "description": "Register teams, explore leagues, and follow results on RoboCup Tabarestan."
+        "description": "Register teams, explore leagues, and follow results on Tabarestan Cup."
       },
       "leagues": {
         "title": "Leagues",
@@ -920,23 +921,23 @@
       },
       "blog": {
         "title": "News & blog",
-        "description": "Official RoboCup Tabarestan announcements and stories."
+        "description": "Official Tabarestan Cup announcements and stories."
       },
       "blogPost": {
         "title": "Article",
-        "description": "RoboCup Tabarestan news article."
+        "description": "Tabarestan Cup news article."
       },
       "gallery": {
         "title": "Gallery",
-        "description": "Photos and videos from past RoboCup Tabarestan seasons."
+        "description": "Photos and videos from past Tabarestan Cup seasons."
       },
       "about": {
         "title": "About",
-        "description": "About the RoboCup Tabarestan event and organizers."
+        "description": "About the Tabarestan Cup event and organizers."
       },
       "contact": {
         "title": "Contact",
-        "description": "Contact the RoboCup Tabarestan secretariat."
+        "description": "Contact the Tabarestan Cup secretariat."
       },
       "faq": {
         "title": "FAQ",
@@ -944,7 +945,7 @@
       },
       "privacy": {
         "title": "Privacy",
-        "description": "RoboCup Tabarestan privacy policy."
+        "description": "Tabarestan Cup privacy policy."
       },
       "login": {
         "title": "Sign in",
@@ -952,7 +953,7 @@
       },
       "signup": {
         "title": "Sign up",
-        "description": "Create a RoboCup Tabarestan account with SMS or email."
+        "description": "Create a Tabarestan Cup account with SMS or email."
       }
     }
   },
@@ -1079,13 +1080,19 @@
     "resolve": "Resolve",
     "resolved": "Issue resolved"
   },
+  "accountProfile": { "title": "Identity profile", "help": "Complete identity details and verification documents." },
+  "participants": { "title": "League participants", "help": "Teams, members, and registration cycle statistics." },
+  "accessSettings": {
+    "title": "Access, email & payments",
+    "help": "Manage login, signup, email delivery, and card-transfer payments."
+  },
   "footer": {
     "usefulLinks": "Useful links",
     "contact": "Contact",
     "trust": "Trust seal",
     "trustPlaceholder": "Upload seal in settings",
     "backToTop": "Back to top",
-    "copyrightDefault": "© RoboCup Tabarestan — All rights reserved.",
+    "copyrightDefault": "© Tabarestan Cup — All rights reserved.",
     "contactEmpty": "Add contact info in site settings"
   }
 }

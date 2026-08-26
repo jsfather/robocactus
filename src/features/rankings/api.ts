@@ -24,22 +24,7 @@ export async function fetchPublishedRankings(filters?: {
 }): Promise<RankingsRow[]> {
   let query = backend
     .from('results')
-    .select(
-      `
-      id,
-      league_id,
-      team_id,
-      company_id,
-      season_year,
-      rank,
-      score,
-      notes,
-      published_at,
-      teams ( name ),
-      companies ( name, slug, logo_url ),
-      leagues ( name, slug )
-    `,
-    )
+    .select('id, league_id, team_id, company_id, season_year, rank, score, notes, published_at')
     .not('published_at', 'is', null)
     .order('season_year', { ascending: false })
     .order('rank', { ascending: true })
@@ -50,25 +35,53 @@ export async function fetchPublishedRankings(filters?: {
   const { data, error } = await query
   if (error) throw new Error(error.message)
 
-  const rows = ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
-    const team = row.teams as { name?: string } | null
-    const company = row.companies as {
-      name?: string
-      slug?: string
-      logo_url?: string | null
-    } | null
-    const league = row.leagues as { name?: string; slug?: string } | null
+  const resultRows = (data ?? []) as ResultRow[]
+  if (resultRows.length === 0) return []
+
+  // Fetch related records separately. Nested selects are translated by the custom
+  // backend into correlated subqueries, which are fragile under public RLS.
+  const teamIds = [...new Set(resultRows.map((row) => row.team_id))]
+  const companyIds = [...new Set(resultRows.map((row) => row.company_id))]
+  const leagueIds = [...new Set(resultRows.map((row) => row.league_id))]
+  const [teamsResponse, companiesResponse, leaguesResponse] = await Promise.all([
+    backend.from('teams').select('id, name').in('id', teamIds),
+    backend.from('companies').select('id, name, slug, logo_url').in('id', companyIds),
+    backend.from('leagues').select('id, name, slug').in('id', leagueIds),
+  ])
+
+  const relatedError = teamsResponse.error ?? companiesResponse.error ?? leaguesResponse.error
+  if (relatedError) throw new Error(relatedError.message)
+
+  const teams = new Map(
+    ((teamsResponse.data ?? []) as Array<{ id: string; name: string }>).map((team) => [
+      team.id,
+      team,
+    ]),
+  )
+  const companies = new Map(
+    ((companiesResponse.data ?? []) as Array<{
+      id: string
+      name: string
+      slug: string
+      logo_url: string | null
+    }>).map((company) => [company.id, company]),
+  )
+  const leagues = new Map(
+    ((leaguesResponse.data ?? []) as Array<{ id: string; name: string; slug: string }>).map(
+      (league) => [league.id, league],
+    ),
+  )
+
+  const rows = resultRows.map((row) => {
+    const team = teams.get(row.team_id)
+    const company = companies.get(row.company_id)
+    const league = leagues.get(row.league_id)
 
     return {
-      id: String(row.id),
-      league_id: String(row.league_id),
-      team_id: String(row.team_id),
-      company_id: String(row.company_id),
+      ...row,
       season_year: Number(row.season_year),
       rank: row.rank == null ? null : Number(row.rank),
       score: row.score == null ? null : Number(row.score),
-      notes: (row.notes as string | null) ?? null,
-      published_at: (row.published_at as string | null) ?? null,
       team_name: team?.name ?? '—',
       company_name: company?.name ?? '—',
       company_slug: company?.slug ?? '',

@@ -6,15 +6,17 @@ import { formatAmountToman } from '@/features/payments/api'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import { leagueCoverUrl } from '@/lib/dates'
 import type { League, LeaguePeriod } from '@/types/database'
+import { contentLocale, localizeLeague } from '@/features/leagues/localize'
 
 export function LeaguesPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [leagues, setLeagues] = useState<League[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [period, setPeriod] = useState<'' | LeaguePeriod>('')
+  const localizedLeagues = useMemo(() => leagues.map((league) => localizeLeague(league, contentLocale(i18n.language))), [leagues, i18n.language])
 
   useEffect(() => {
     void fetchActiveLeagues()
@@ -25,13 +27,13 @@ export function LeaguesPage() {
 
   const categories = useMemo(() => {
     const set = new Set<string>()
-    for (const l of leagues) if (l.category) set.add(l.category)
+    for (const l of localizedLeagues) if (l.category) set.add(l.category)
     return [...set].sort()
-  }, [leagues])
+  }, [localizedLeagues])
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
-    return leagues.filter((l) => {
+    return localizedLeagues.filter((l) => {
       if (category && l.category !== category) return false
       const p = computeLeaguePeriod(l)
       if (period && p !== period) return false
@@ -43,10 +45,10 @@ export function LeaguesPage() {
         (l.description ?? '').toLowerCase().includes(term)
       )
     })
-  }, [leagues, q, category, period])
+  }, [localizedLeagues, q, category, period])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50/70 via-white to-emerald-50/30"><section className="relative overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ca36a] px-4 pb-20 pt-32 text-white"><div className="absolute -end-24 -top-24 size-80 rounded-full border-[55px] border-white/10" /><div className="relative mx-auto max-w-7xl sm:px-4"><p className="text-sm font-bold text-emerald-100">مسابقات روبوکاپ تبرستان</p><h1 className="mt-3 text-4xl font-black sm:text-6xl">لیگ خودت را انتخاب کن</h1><p className="mt-5 max-w-2xl text-base leading-8 text-white/75">از میان لیگ‌های فعال، رشته متناسب با توانایی تیم خود را پیدا کنید و برای حضور در رقابت‌های ملی و بین‌المللی آماده شوید.</p></div></section><div className="relative mx-auto -mt-10 max-w-7xl px-4 pb-24 sm:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/70 via-white to-emerald-50/30"><section className="relative overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ca36a] px-4 pb-20 pt-32 text-white"><div className="absolute -end-24 -top-24 size-80 rounded-full border-[55px] border-white/10" /><div className="relative mx-auto max-w-7xl sm:px-4"><p className="text-sm font-bold text-emerald-100">{i18n.language === 'en' ? 'Tabarestan Cup competitions' : 'مسابقات جام تبرستان'}</p><h1 className="mt-3 text-4xl font-black sm:text-6xl">{i18n.language === 'en' ? 'Choose your league' : 'لیگ خودت را انتخاب کن'}</h1><p className="mt-5 max-w-2xl text-base leading-8 text-white/75">{i18n.language === 'en' ? 'Explore active leagues, find the right competition for your team, and prepare for national and international challenges.' : 'از میان لیگ‌های فعال، رشته متناسب با توانایی تیم خود را پیدا کنید و برای حضور در رقابت‌های ملی و بین‌المللی آماده شوید.'}</p></div></section><div className="relative mx-auto -mt-10 max-w-7xl px-4 pb-24 sm:px-8">
 
       <div className="mb-10 grid gap-4 rounded-[2rem] border border-sky-100 bg-white p-5 shadow-[0_22px_65px_rgb(18_76_98/0.12)] md:grid-cols-3 sm:p-7">
         <label className="block space-y-1.5 md:col-span-1">
@@ -125,7 +127,7 @@ export function LeaguesPage() {
                     </span>
                   </div>
                   <div className="p-6">
-                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-rc-blue">{league.category || 'لیگ رباتیک'}</p><span className="text-xs text-slate-400">{league.slug}</span></div>
+                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-rc-blue">{league.category || (i18n.language === 'en' ? 'Competition league' : 'لیگ مسابقاتی')}</p><span className="text-xs text-slate-400">{league.slug}</span></div>
                     <h2 className="mt-3 text-xl font-black text-slate-800">{league.name}</h2>
                     {league.short_description || league.description ? (
                       <p className="mt-2 line-clamp-3 text-sm text-rc-muted">

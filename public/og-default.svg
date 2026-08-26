@@ -9,7 +9,7 @@
   <rect width="1200" height="630" fill="url(#g)"/>
   <rect x="0" y="0" width="1200" height="630" fill="none" stroke="#2498D8" stroke-opacity="0.4" stroke-width="2"/>
   <circle cx="1080" cy="100" r="210" fill="#25D366" fill-opacity="0.08"/>
-  <text x="80" y="270" fill="#25D366" font-family="IBM Plex Mono, monospace" font-size="34" letter-spacing="5">ROBOCUP TABARESTAN</text>
-  <text x="80" y="360" fill="#EEFAFF" font-family="Vazirmatn, sans-serif" font-size="64" font-weight="700">روبوکاپ تبرستان</text>
+  <text x="80" y="270" fill="#25D366" font-family="IBM Plex Mono, monospace" font-size="34" letter-spacing="5">TABARESTAN CUP</text>
+  <text x="80" y="360" fill="#EEFAFF" font-family="Vazirmatn, sans-serif" font-size="64" font-weight="700">جام تبرستان</text>
   <text x="80" y="430" fill="#A8D8E8" font-family="Vazirmatn, sans-serif" font-size="28">از قلب مازندران، رو به آینده</text>
 </svg>

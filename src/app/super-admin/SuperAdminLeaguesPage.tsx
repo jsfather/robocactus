@@ -25,11 +25,23 @@ import type { League } from '@/types/database'
 
 const emptyForm = (): LeagueInput & { id?: string } => ({
   name: '',
+  name_en: '',
   slug: '',
   description: '',
+  description_en: '',
   category: '',
+  category_en: '',
   capacity: null,
   registration_fee: 0,
+  captain_fee: 0,
+  member_fee: 0,
+  min_age: null,
+  max_age: null,
+  team_size_min: null,
+  team_size_max: null,
+  current_season_year: new Date().getFullYear(),
+  registration_cycle_status: 'open',
+  team_edit_deadline: null,
   registration_open_at: null,
   registration_close_at: null,
   contact_email: '',
@@ -65,11 +77,23 @@ export function SuperAdminLeaguesPage() {
     setEditingId(league.id)
     setForm({
       name: league.name,
+      name_en: league.name_en ?? '',
       slug: league.slug,
       description: league.description ?? '',
+      description_en: league.description_en ?? '',
       category: league.category ?? '',
+      category_en: league.category_en ?? '',
       capacity: league.capacity,
       registration_fee: Number(league.registration_fee),
+      captain_fee: Number(league.captain_fee ?? 0),
+      member_fee: Number(league.member_fee ?? 0),
+      min_age: league.min_age ?? null,
+      max_age: league.max_age ?? null,
+      team_size_min: league.team_size_min ?? null,
+      team_size_max: league.team_size_max ?? null,
+      current_season_year: league.current_season_year ?? new Date().getFullYear(),
+      registration_cycle_status: league.registration_cycle_status ?? 'open',
+      team_edit_deadline: league.team_edit_deadline ?? null,
       registration_open_at: league.registration_open_at,
       registration_close_at: league.registration_close_at,
       contact_email: league.contact_email ?? '',
@@ -93,6 +117,8 @@ export function SuperAdminLeaguesPage() {
         registration_close_at: form.registration_close_at,
         capacity: form.capacity ? Number(form.capacity) : null,
         registration_fee: Number(form.registration_fee ?? 0),
+        captain_fee: Number(form.captain_fee ?? 0),
+        member_fee: Number(form.member_fee ?? 0),
       }
       if (editingId) {
         await updateLeague(editingId, payload)
@@ -149,6 +175,7 @@ export function SuperAdminLeaguesPage() {
               }))
             }}
           />
+          <Input label="نام انگلیسی لیگ" required value={form.name_en ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, name_en: e.target.value }))} dir="ltr" />
           <Input
             label={t('admin.leagues.slug')}
             required
@@ -161,6 +188,7 @@ export function SuperAdminLeaguesPage() {
             value={form.category ?? ''}
             onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
           />
+          <Input label="دسته‌بندی انگلیسی" value={form.category_en ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, category_en: e.target.value }))} dir="ltr" />
           <Input
             label={t('admin.leagues.capacity')}
             type="number"
@@ -192,6 +220,14 @@ export function SuperAdminLeaguesPage() {
             onChange={(e) => setForm((prev) => ({ ...prev, contact_email: e.target.value }))}
             dir="ltr"
           />
+          <Input label="هزینه سرپرست (ریال)" type="number" min={0} value={form.captain_fee ?? 0} onChange={(e) => setForm((prev) => ({ ...prev, captain_fee: Number(e.target.value) }))} dir="ltr" />
+          <Input label="هزینه هر عضو (ریال)" type="number" min={0} value={form.member_fee ?? 0} onChange={(e) => setForm((prev) => ({ ...prev, member_fee: Number(e.target.value) }))} dir="ltr" />
+          <Input label="حداقل سن" type="number" min={0} value={form.min_age ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, min_age: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
+          <Input label="حداکثر سن" type="number" min={0} value={form.max_age ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, max_age: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
+          <Input label="حداقل نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_min ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_min: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
+          <Input label="حداکثر نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_max ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_max: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
+          <Input label="سال دوره" type="number" value={form.current_season_year ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, current_season_year: Number(e.target.value) }))} dir="ltr" />
+          <Select label="وضعیت دوره" value={form.registration_cycle_status ?? 'open'} onChange={(e) => setForm((prev) => ({ ...prev, registration_cycle_status: e.target.value }))}><option value="draft">پیش‌نویس</option><option value="open">باز</option><option value="closed">بسته</option><option value="archived">بایگانی‌شده</option></Select>
           <DateTimeField
             label={t('admin.leagues.openAt')}
             value={form.registration_open_at}
@@ -202,6 +238,7 @@ export function SuperAdminLeaguesPage() {
             value={form.registration_close_at}
             onChange={(iso) => setForm((prev) => ({ ...prev, registration_close_at: iso }))}
           />
+          <DateTimeField label="مهلت ویرایش اعضای تیم" value={form.team_edit_deadline} onChange={(iso) => setForm((prev) => ({ ...prev, team_edit_deadline: iso }))} />
           <Select
             label={t('admin.leagues.active')}
             value={form.is_active ? '1' : '0'}
@@ -216,6 +253,7 @@ export function SuperAdminLeaguesPage() {
               value={form.description ?? ''}
               onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
             />
+            <Textarea label="توضیحات انگلیسی" value={form.description_en ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, description_en: e.target.value }))} dir="ltr" />
           </div>
           <div className="md:col-span-2 flex gap-2">
             <Button type="submit" disabled={busy}>

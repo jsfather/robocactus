@@ -89,6 +89,16 @@ export type Profile = {
   company_national_id?: string | null
   economic_code?: string | null
   address?: string | null
+  username?: string | null
+  first_name_fa?: string | null
+  last_name_fa?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
+  birth_date?: string | null
+  postal_code?: string | null
+  legal_representative_national_id?: string | null
+  phone_verified_at?: string | null
+  identity_completed_at?: string | null
   activated_at?: string | null
   rejection_reason?: string | null
 }
@@ -122,6 +132,7 @@ export type LeagueFile = {
   id: string
   league_id: string
   title: string
+  title_en?: string | null
   file_url: string
   file_kind: string
   sort_order: number
@@ -132,9 +143,36 @@ export type LeaguePerson = {
   id: string
   league_id: string
   full_name: string
+  slug: string
+  full_name_en?: string | null
   photo_url: string | null
   specialty: string | null
+  specialty_en?: string | null
   bio: string | null
+  bio_en?: string | null
+  identity_summary_fa?: string | null
+  identity_summary_en?: string | null
+  education_fa?: string | null
+  education_en?: string | null
+  honors_fa?: string | null
+  honors_en?: string | null
+  awards_fa?: string | null
+  awards_en?: string | null
+  courses_fa?: string | null
+  courses_en?: string | null
+  company_info_fa?: string | null
+  company_info_en?: string | null
+  birth_date?: string | null
+  nationality_fa?: string | null
+  nationality_en?: string | null
+  city_fa?: string | null
+  city_en?: string | null
+  email?: string | null
+  phone?: string | null
+  website_url?: string | null
+  linkedin_url?: string | null
+  is_profile_published?: boolean
+  updated_at?: string
   role_kind: 'judge' | 'committee' | string
   sort_order: number
   created_at: string
@@ -144,6 +182,7 @@ export type LeagueSponsor = {
   id: string
   league_id: string
   name: string
+  name_en?: string | null
   logo_url: string | null
   website_url: string | null
   sort_order: number
@@ -154,7 +193,9 @@ export type LeagueFaq = {
   id: string
   league_id: string
   question: string
+  question_en?: string | null
   answer: string
+  answer_en?: string | null
   sort_order: number
   created_at: string
 }
@@ -172,9 +213,12 @@ export type LeaguePastResult = {
 export type League = {
   id: string
   name: string
+  name_en?: string | null
   slug: string
   description: string | null
+  description_en?: string | null
   category: string | null
+  category_en?: string | null
   capacity: number | null
   registration_fee: number
   registration_open_at: string | null
@@ -183,42 +227,67 @@ export type League = {
   is_active: boolean
   created_at: string
   short_description?: string | null
+  short_description_en?: string | null
   full_description?: string | null
+  full_description_en?: string | null
   cover_image_url?: string | null
   hero_image_url?: string | null
   hero_video_url?: string | null
   intro_video_url?: string | null
   regulation_pdf_url?: string | null
   rules_summary?: string | null
+  rules_summary_en?: string | null
   rules_pdf_url?: string | null
   age_range?: string | null
+  age_range_en?: string | null
   participation_mode?: string | null
   team_size_min?: number | null
   team_size_max?: number | null
   event_starts_at?: string | null
   event_ends_at?: string | null
   venue_name?: string | null
+  venue_name_en?: string | null
   venue_address?: string | null
+  venue_address_en?: string | null
   venue_map_embed_url?: string | null
   difficulty_level?: string | null
+  difficulty_level_en?: string | null
   competition_language?: string | null
+  competition_language_en?: string | null
   scoring_rows?: LeagueScoringRow[] | null
+  scoring_rows_en?: LeagueScoringRow[] | null
   timeline_steps?: LeagueTimelineStep[] | null
+  timeline_steps_en?: LeagueTimelineStep[] | null
   day_schedule?: LeagueDaySlot[] | null
+  day_schedule_en?: LeagueDaySlot[] | null
   allowed_equipment?: string[] | null
+  allowed_equipment_en?: string[] | null
   forbidden_equipment?: string[] | null
+  forbidden_equipment_en?: string[] | null
   discount_info?: string | null
+  discount_info_en?: string | null
   refund_policy?: string | null
+  refund_policy_en?: string | null
   show_registered_count?: boolean | null
   period_override?: LeaguePeriod | string | null
   secretary_name?: string | null
+  secretary_name_en?: string | null
   secretary_phone?: string | null
   secretary_telegram?: string | null
   related_league_ids?: string[] | null
   judging_path?: string | null
+  judging_path_en?: string | null
   technical_committee_notes?: string | null
+  technical_committee_notes_en?: string | null
   /** auto | hidden | live | final — controls public live results board */
   results_status?: 'auto' | 'hidden' | 'live' | 'final' | string | null
+  captain_fee?: number
+  member_fee?: number
+  team_edit_deadline?: string | null
+  min_age?: number | null
+  max_age?: number | null
+  current_season_year?: number
+  registration_cycle_status?: 'draft' | 'open' | 'closed' | 'archived' | string
 }
 
 export type Team = {
@@ -227,6 +296,10 @@ export type Team = {
   league_id: string
   captain_id: string
   name: string
+  name_en?: string | null
+  motto_fa?: string | null
+  motto_en?: string | null
+  season_year?: number | null
   province: string | null
   city: string | null
   member_count: number | null
@@ -244,6 +317,10 @@ export type TeamMember = {
   full_name: string
   first_name?: string | null
   last_name?: string | null
+  first_name_fa?: string | null
+  last_name_fa?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
   role: string | null
   national_id: string | null
   birth_date: string | null
@@ -322,6 +399,12 @@ export type Invoice = {
   paid_at: string | null
   invoice_number: string | null
   created_at: string
+  payment_method?: 'online' | 'card_to_card'
+  receipt_path?: string | null
+  receipt_status?: 'pending_review' | 'approved' | 'rejected' | null
+  receipt_rejection_reason?: string | null
+  receipt_submitted_at?: string | null
+  receipt_reviewed_at?: string | null
 }
 
 export type Ticket = {
@@ -387,6 +470,9 @@ export type SiteSettings = {
   chat_away_en?: string | null
   chat_offline_fa?: string | null
   chat_offline_en?: string | null
+  chat_wait_timeout_seconds?: number | null
+  chat_wait_message_fa?: string | null
+  chat_wait_message_en?: string | null
   copyright_fa?: string | null
   copyright_en?: string | null
   contact_email?: string | null

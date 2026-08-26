@@ -28,25 +28,25 @@ const password = 'Demo@12345'
 const salt = randomBytes(16).toString('hex')
 const passwordHash = `scrypt:${salt}:${Buffer.from(await scrypt(password, salt, 64)).toString('hex')}`
 const demoUsers = [
-  ['admin@robocactus.demo', 'Super Admin', '09000000001', 'super_admin', '/super-admin'],
-  ['league@robocactus.demo', 'League Admin', '09000000002', 'league_admin', '/league-admin'],
-  ['staff@robocactus.demo', 'Staff User', '09000000003', 'staff', '/staff'],
-  ['company@robocactus.demo', 'Company Admin', '09000000004', 'company_admin', '/company'],
-  ['captain@robocactus.demo', 'Team Captain', '09000000005', 'team_captain', '/dashboard'],
+  ['admin@tabarestancup.demo', 'admin', 'Super Admin', '09000000001', 'super_admin', '/super-admin'],
+  ['league@tabarestancup.demo', 'league-admin', 'League Admin', '09000000002', 'league_admin', '/league-admin'],
+  ['staff@tabarestancup.demo', 'staff', 'Staff User', '09000000003', 'staff', '/staff'],
+  ['company@tabarestancup.demo', 'company-admin', 'Company Admin', '09000000004', 'company_admin', '/company'],
+  ['captain@tabarestancup.demo', 'captain', 'Team Captain', '09000000005', 'team_captain', '/dashboard'],
 ]
 
 try {
-  for (const [email, fullName, phone, role, panel] of demoUsers) {
+  for (const [email, username, fullName, phone, role, panel] of demoUsers) {
     const id = randomUUID()
     const result = await db.execute(sql`
-      insert into auth.users(id, email, encrypted_password, phone, raw_user_meta_data, email_confirmed_at)
-      values (${id}::uuid, ${email}, ${passwordHash}, ${phone}, ${{ full_name: fullName, phone, role }}, now())
-      on conflict (email) do update set encrypted_password = excluded.encrypted_password, updated_at = now()
+      insert into auth.users(id, email, username, encrypted_password, phone, raw_user_meta_data, email_confirmed_at)
+      values (${id}::uuid, ${email}, ${username}, ${passwordHash}, ${phone}, ${{ full_name: fullName, phone, role, username }}, now())
+      on conflict (email) do update set username = excluded.username, encrypted_password = excluded.encrypted_password, updated_at = now()
       returning id
     `)
     const userId = String(result.rows[0]?.id)
     await db.execute(sql`
-      update public.profiles set full_name = ${fullName}, phone = ${phone}, role = ${role}::user_role
+      update public.profiles set full_name = ${fullName}, username = ${username}, phone = ${phone}, role = ${role}::user_role
       where id = ${userId}::uuid
     `)
     console.log(`${String(role).padEnd(14)} ${String(email).padEnd(28)} -> ${panel}`)

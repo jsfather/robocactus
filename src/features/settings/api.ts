@@ -1,7 +1,7 @@
 import { backend } from '@/lib/backend'
 import type { SiteNavItem, SiteSettings } from '@/types/database'
 
-const LEGACY_BRAND_PATTERN = /روبو\s*کاپ\s*کاکتوس|روبو\s*کاکتوس|Robo\s*(?:Cup\s*)?Cactus/gi
+const LEGACY_BRAND_PATTERN = /روبو\s*کاپ\s*تبرستان|روبو\s*کاپ\s*کاکتوس|روبو\s*کاکتوس|روبوککتوس|RoboCup\s*Tabarestan|Robo\s*(?:Cup\s*)?Cactus/gi
 
 function replaceLegacyBrand(value: string | null | undefined, replacement: string) {
   return value ? value.replace(LEGACY_BRAND_PATTERN, replacement) : null
@@ -12,14 +12,14 @@ export function normalizeSiteBrand(settings: SiteSettings | null): SiteSettings 
   if (!settings) return null
   return {
     ...settings,
-    site_name_fa: 'روبوکاپ تبرستان',
-    site_name_en: 'RoboCup Tabarestan',
-    tagline_fa: replaceLegacyBrand(settings.tagline_fa, 'روبوکاپ تبرستان') || 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک',
-    tagline_en: replaceLegacyBrand(settings.tagline_en, 'RoboCup Tabarestan') || 'Organizer of national and international robotics competitions',
-    footer_fa: replaceLegacyBrand(settings.footer_fa, 'روبوکاپ تبرستان'),
-    footer_en: replaceLegacyBrand(settings.footer_en, 'RoboCup Tabarestan'),
-    copyright_fa: replaceLegacyBrand(settings.copyright_fa, 'روبوکاپ تبرستان'),
-    copyright_en: replaceLegacyBrand(settings.copyright_en, 'RoboCup Tabarestan'),
+    site_name_fa: 'جام تبرستان',
+    site_name_en: 'Tabarestan Cup',
+    tagline_fa: replaceLegacyBrand(settings.tagline_fa, 'جام تبرستان') || 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک',
+    tagline_en: replaceLegacyBrand(settings.tagline_en, 'Tabarestan Cup') || 'Organizer of national and international robotics competitions',
+    footer_fa: replaceLegacyBrand(settings.footer_fa, 'جام تبرستان'),
+    footer_en: replaceLegacyBrand(settings.footer_en, 'Tabarestan Cup'),
+    copyright_fa: replaceLegacyBrand(settings.copyright_fa, 'جام تبرستان'),
+    copyright_en: replaceLegacyBrand(settings.copyright_en, 'Tabarestan Cup'),
     color_primary: '#087eb8',
     color_accent: '#13a94d',
   }

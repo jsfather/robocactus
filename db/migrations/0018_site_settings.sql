@@ -2,8 +2,8 @@
 
 create table if not exists site_settings (
   id int primary key default 1 check (id = 1),
-  site_name_fa text not null default 'روبوکاپ تبرستان',
-  site_name_en text not null default 'RoboCup Tabarestan',
+  site_name_fa text not null default 'جام تبرستان',
+  site_name_en text not null default 'Tabarestan Cup',
   tagline_fa text default 'پلتفرم مسابقات رباتیک',
   tagline_en text default 'Robotics competition platform',
   logo_url text,

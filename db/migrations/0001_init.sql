@@ -1,4 +1,4 @@
--- RoboCup Tabarestan Phase 0: initial schema, RLS, profile trigger
+-- Tabarestan Cup Phase 0: initial schema, RLS, profile trigger
 
 -- ============ ENUM TYPES ============
 create type user_role as enum (

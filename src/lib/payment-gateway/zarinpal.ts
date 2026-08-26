@@ -33,7 +33,7 @@ export class ZarinPalGateway implements PaymentGateway {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
+      body: JSON.stringify({ authority: request.authority, invoiceId: request.invoiceId }),
     })
     const body = (await response.json().catch(() => ({}))) as {
       success?: boolean

@@ -12,6 +12,7 @@ export type PaymentRequest = {
 export type PaymentVerifyRequest = {
   authority: string
   amount: number
+  invoiceId?: string
 }
 
 export type PaymentStartResult = {

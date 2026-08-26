@@ -1,0 +1,134 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { Button, FieldError, Input } from '@/components/ui/FormControls'
+import { PanelPage } from '@/components/layout/PanelShell'
+import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
+import { useToast } from '@/components/ui/Toast'
+import {
+  fetchAccessSettings,
+  updateAccessSettings,
+  type AccessSettings,
+} from '@/features/settings/accessApi'
+
+function Toggle({
+  checked,
+  label,
+  hint,
+  onChange,
+}: {
+  checked: boolean
+  label: string
+  hint: string
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-rc-line bg-rc-surface/70 p-4 transition hover:border-rc-blue/40">
+      <span>
+        <span className="block text-sm font-bold text-rc-text">{label}</span>
+        <span className="mt-1 block text-xs leading-5 text-rc-muted">{hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-5 accent-[var(--rc-blue)]"
+      />
+    </label>
+  )
+}
+
+export function SuperAdminAccessSettingsPage() {
+  const toast = useToast()
+  const [form, setForm] = useState<AccessSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void fetchAccessSettings()
+      .then(setForm)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const patch = (value: Partial<AccessSettings>) => setForm((current) => current ? { ...current, ...value } : current)
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!form) return
+    if (!form.otp_login_enabled && !form.password_login_enabled && !form.email_magic_login_enabled) {
+      setError('حداقل یک روش ورود باید فعال بماند.')
+      return
+    }
+    if (!form.email_signup_enabled && !form.phone_signup_enabled) {
+      setError('حداقل یک روش ثبت‌نام باید فعال بماند.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const { id: _id, updated_at: _updatedAt, ...payload } = form
+      setForm(await updateAccessSettings(payload))
+      toast.success('تنظیمات دسترسی، ایمیل و پرداخت ذخیره شد.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ذخیره تنظیمات ناموفق بود.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <PanelPage
+      index="SYS.10"
+      title="ورود، ایمیل و پرداخت"
+      description="روش‌های ورود و ثبت‌نام، سرویس ایمیل و اطلاعات کارت‌به‌کارت را از یک مرکز کنترل کنید."
+    >
+      <FieldError message={error ?? undefined} />
+      {loading || !form ? <p className="text-rc-muted">در حال بارگذاری…</p> : (
+        <form className="space-y-6" onSubmit={(event) => void save(event)}>
+          <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="AUTH.01" title="روش‌های ورود" hint="حداقل یک روش ورود را فعال نگه دارید." />
+            <div className="grid gap-3 lg:grid-cols-3">
+              <Toggle checked={form.otp_login_enabled} label="کد یکبارمصرف پیامکی" hint="ورود امن با شماره موبایل و OTP" onChange={(value) => patch({ otp_login_enabled: value })} />
+              <Toggle checked={form.password_login_enabled} label="نام کاربری و رمز عبور" hint="شناسه می‌تواند نام کاربری، ایمیل یا موبایل باشد" onChange={(value) => patch({ password_login_enabled: value })} />
+              <Toggle checked={form.email_magic_login_enabled} label="لینک ورود ایمیلی" hint="ورود بدون رمز از طریق لینک یکبارمصرف" onChange={(value) => patch({ email_magic_login_enabled: value })} />
+            </div>
+          </HudFrame>
+
+          <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="REG.02" title="کانال‌های ثبت‌نام" />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Toggle checked={form.phone_signup_enabled} label="ثبت‌نام با موبایل" hint="ساخت حساب جدید پس از تأیید پیامکی" onChange={(value) => patch({ phone_signup_enabled: value })} />
+              <Toggle checked={form.email_signup_enabled} label="ثبت‌نام با ایمیل" hint="ساخت حساب با ایمیل و تأیید لینک" onChange={(value) => patch({ email_signup_enabled: value })} />
+            </div>
+          </HudFrame>
+
+          <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="MAIL.03" title="تنظیمات ایمیل" hint="کلید سرویس فقط برای مدیر کل قابل دسترسی است." />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input label="ارائه‌دهنده" value={form.email_provider} onChange={(event) => patch({ email_provider: event.target.value })} dir="ltr" />
+              <Input label="فرستنده" value={form.email_from ?? ''} onChange={(event) => patch({ email_from: event.target.value })} dir="ltr" placeholder="Tabarestan Cup <no-reply@example.com>" />
+              <div className="md:col-span-2">
+                <Input label="API Key ایمیل" type="password" value={form.email_api_key ?? ''} onChange={(event) => patch({ email_api_key: event.target.value })} dir="ltr" autoComplete="new-password" />
+              </div>
+            </div>
+          </HudFrame>
+
+          <HudFrame className="space-y-4 p-5">
+            <SectionLabel index="PAY.04" title="روش‌های پرداخت" />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Toggle checked={form.online_payment_enabled} label="پرداخت آنلاین زرین‌پال" hint="هدایت کاربر به درگاه آنلاین" onChange={(value) => patch({ online_payment_enabled: value })} />
+              <Toggle checked={form.card_to_card_enabled} label="کارت‌به‌کارت" hint="نمایش کارت بانکی و دریافت تصویر فیش" onChange={(value) => patch({ card_to_card_enabled: value })} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <Input label="شماره کارت" value={form.bank_card_number ?? ''} onChange={(event) => patch({ bank_card_number: event.target.value })} dir="ltr" />
+              <Input label="شماره شبا" value={form.bank_iban ?? ''} onChange={(event) => patch({ bank_iban: event.target.value })} dir="ltr" />
+              <Input label="نام صاحب حساب" value={form.bank_account_owner ?? ''} onChange={(event) => patch({ bank_account_owner: event.target.value })} />
+            </div>
+          </HudFrame>
+
+          <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره همه تنظیمات'}</Button>
+        </form>
+      )}
+    </PanelPage>
+  )
+}

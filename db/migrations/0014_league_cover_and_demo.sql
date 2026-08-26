@@ -7,7 +7,7 @@ alter table leagues
 update leagues
 set
   name = case slug
-    when 'rescue' then 'لیگ امدادگر پیشرفته RoboCup 2027'
+    when 'rescue' then 'لیگ امدادگر پیشرفته جام تبرستان 2027'
     when 'soccer' then 'لیگ فوتبال رباتیک'
     when 'humanoid' then 'لیگ ربات انسان‌نما'
     else name
@@ -49,7 +49,7 @@ set
   participation_mode = coalesce(participation_mode, 'team'),
   team_size_min = coalesce(team_size_min, 2),
   team_size_max = coalesce(team_size_max, 5),
-  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاپ تبرستان'),
+  venue_name = coalesce(venue_name, 'سالن اصلی جام تبرستان'),
   venue_address = coalesce(venue_address, 'تهران، مرکز همایش‌های بین‌المللی'),
   difficulty_level = coalesce(difficulty_level, case slug when 'rescue' then 'پیشرفته' when 'soccer' then 'متوسط' else 'پیشرفته' end),
   competition_language = coalesce(competition_language, 'فارسی / English'),
@@ -58,8 +58,8 @@ set
   refund_policy = coalesce(nullif(refund_policy, ''), 'تا ۷ روز قبل از مسابقه امکان استرداد ۵۰٪ وجود دارد؛ پس از آن غیرقابل استرداد است.'),
   secretary_name = coalesce(secretary_name, 'دبیر لیگ'),
   secretary_phone = coalesce(secretary_phone, '02191000000'),
-  contact_email = coalesce(contact_email, 'league@robocactus.ir'),
-  secretary_telegram = coalesce(secretary_telegram, 'https://t.me/robocactus'),
+  contact_email = coalesce(contact_email, 'league@tabarestancup.ir'),
+  secretary_telegram = coalesce(secretary_telegram, 'https://t.me/tabarestancup'),
   registration_open_at = coalesce(registration_open_at, now() - interval '7 days'),
   registration_close_at = coalesce(registration_close_at, now() + interval '45 days'),
   event_starts_at = coalesce(event_starts_at, now() + interval '60 days'),
@@ -123,7 +123,7 @@ select l.id, x.full_name, x.photo_url, x.specialty, x.bio, x.role_kind, x.sort_o
 from leagues l
 cross join (values
   ('دکتر سارا احمدی', 'https://i.pravatar.cc/150?u=judge1', 'رباتیک سیار', 'داور بین‌المللی لیگ امداد', 'judge', 1),
-  ('مهندس رضا کرمی', 'https://i.pravatar.cc/150?u=judge2', 'بینایی ماشین', '۱۴ سال تجربه داوری RoboCup', 'judge', 2),
+  ('مهندس رضا کرمی', 'https://i.pravatar.cc/150?u=judge2', 'بینایی ماشین', '۱۴ سال تجربه داوری مسابقات ملی', 'judge', 2),
   ('مهندس نازنین مرادی', 'https://i.pravatar.cc/150?u=committee1', 'کمیته فنی', 'مسئول استاندارد زمین و تجهیزات', 'committee', 1),
   ('علی جعفری', 'https://i.pravatar.cc/150?u=committee2', 'هماهنگی فنی', 'پشتیبانی تیم‌ها در روز مسابقه', 'committee', 2)
 ) as x(full_name, photo_url, specialty, bio, role_kind, sort_order)
@@ -135,7 +135,7 @@ select l.id, x.name, x.logo_url, x.website_url, x.sort_order
 from leagues l
 cross join (values
   ('TechNova', 'https://placehold.co/160x48/png?text=TechNova', 'https://example.com', 1),
-  ('RoboParts', 'https://placehold.co/160x48/png?text=RoboParts', 'https://example.com', 2),
+  ('TechParts', 'https://placehold.co/160x48/png?text=TechParts', 'https://example.com', 2),
   ('IranAI', 'https://placehold.co/160x48/png?text=IranAI', 'https://example.com', 3)
 ) as x(name, logo_url, website_url, sort_order)
 where l.slug = 'rescue'

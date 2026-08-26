@@ -9,6 +9,7 @@ import { fetchLeagueDetailBundle, type LeagueDetailBundle } from '@/features/lea
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import { formatAmountToman } from '@/features/payments/api'
 import { formatAppDateTime, leagueCoverUrl } from '@/lib/dates'
+import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
 
 function CountdownHud({ target }: { target: string }) {
   const { t } = useTranslation()
@@ -130,7 +131,14 @@ export function LeagueDetailPage() {
       .finally(() => setLoading(false))
   }, [slug, t])
 
-  const league = bundle?.league
+  const locale = contentLocale(i18n.language)
+  const league = useMemo(() => bundle?.league ? localizeLeague(bundle.league, locale) : undefined, [bundle?.league, locale])
+  const files = useMemo(() => (bundle?.files ?? []).map((item) => localizeFile(item, locale)), [bundle?.files, locale])
+  const faqs = useMemo(() => (bundle?.faqs ?? []).map((item) => localizeFaq(item, locale)), [bundle?.faqs, locale])
+  const judges = useMemo(() => (bundle?.judges ?? []).map((item) => localizePerson(item, locale)), [bundle?.judges, locale])
+  const committee = useMemo(() => (bundle?.committee ?? []).map((item) => localizePerson(item, locale)), [bundle?.committee, locale])
+  const sponsors = useMemo(() => (bundle?.sponsors ?? []).map((item) => localizeSponsor(item, locale)), [bundle?.sponsors, locale])
+  const related = useMemo(() => (bundle?.related ?? []).map((item) => localizeLeague(item, locale)), [bundle?.related, locale])
   const period = useMemo(
     () => (league ? computeLeaguePeriod(league, bundle?.registeredCount ?? 0) : 'upcoming'),
     [league, bundle?.registeredCount],
@@ -274,7 +282,7 @@ export function LeagueDetailPage() {
             </div>
 
             <p className="text-sm font-bold text-emerald-300">
-              روبوکاپ تبرستان · معرفی لیگ
+              جام تبرستان · معرفی لیگ
             </p>
             <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[1.12] tracking-tight text-white sm:text-5xl md:text-7xl">
               {league.name}
@@ -478,10 +486,10 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.files.length > 0 && (
+        {files.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.files')}>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {bundle.files.map((f, i) => (
+              {files.map((f, i) => (
                 <li key={f.id}>
                   <a
                     href={f.file_url}
@@ -589,10 +597,10 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.faqs.length > 0 && (
+        {faqs.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.faq')}>
             <ul className="mx-auto max-w-4xl space-y-4">
-              {bundle.faqs.map((item, i) => {
+              {faqs.map((item, i) => {
                 const open = openFaq === item.id
                 return (
                   <li key={item.id} className={`overflow-hidden rounded-[1.5rem] border bg-white shadow-[0_12px_35px_rgb(18_76_98/0.06)] transition ${open ? 'border-emerald-200 shadow-[0_18px_50px_rgb(18_76_98/0.1)]' : 'border-sky-100'}`}>
@@ -619,15 +627,15 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.judges.length > 0 && (
+        {judges.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.judges')}>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {bundle.judges.map((p) => (
+              {judges.map((p) => (
                 <li
                   key={p.id}
                   className="relative border border-rc-line bg-rc-surface/90 p-5 transition hover:border-rc-blue/40"
                 >
-                  <Corners />
+                  <Link to={`/people/${p.slug}`} className="absolute inset-0 z-10" aria-label={p.full_name} /><Corners />
                   <div className="flex items-start gap-4">
                     {p.photo_url ? (
                       <img
@@ -656,15 +664,15 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.committee.length > 0 && (
+        {committee.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.committee')}>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {bundle.committee.map((p) => (
+              {committee.map((p) => (
                 <li
                   key={p.id}
                   className="relative border border-rc-line bg-rc-surface/90 p-5 transition hover:border-rc-accent/40"
                 >
-                  <Corners className="!border-rc-accent/60" />
+                  <Link to={`/people/${p.slug}`} className="absolute inset-0 z-10" aria-label={p.full_name} /><Corners className="!border-rc-accent/60" />
                   <div className="flex items-start gap-4">
                     {p.photo_url ? (
                       <img
@@ -687,10 +695,10 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.sponsors.length > 0 && (
+        {sponsors.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.sponsors')}>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {bundle.sponsors.map((s) => {
+              {sponsors.map((s) => {
                 const inner = s.logo_url ? (
                   <img src={s.logo_url} alt={s.name} className="mx-auto h-10 object-contain opacity-90" />
                 ) : (
@@ -843,10 +851,10 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.related.length > 0 && (
+        {related.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.related')}>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {bundle.related.map((l) => {
+              {related.map((l) => {
                 const relatedCover = leagueCoverUrl(l)
                 return (
                   <li key={l.id}>

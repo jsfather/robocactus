@@ -24,6 +24,7 @@ export function LiveChatWidget() {
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [clock, setClock] = useState(() => Date.now())
   const endRef = useRef<HTMLDivElement>(null)
 
   const enabled = settings?.chat_enabled !== false
@@ -64,7 +65,22 @@ export function LiveChatWidget() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
+  useEffect(() => {
+    if (!token || !open) return
+    const id = window.setInterval(() => setClock(Date.now()), 10_000)
+    return () => window.clearInterval(id)
+  }, [token, open])
+
   if (!enabled) return null
+
+  const latestGuest = [...messages].reverse().find((message) => message.sender_kind === 'guest')
+  const answeredAfter = latestGuest ? messages.some((message) => message.sender_kind === 'agent' && new Date(message.created_at).getTime() > new Date(latestGuest.created_at).getTime()) : false
+  const waitAfterMs = Math.max(30, Number(settings?.chat_wait_timeout_seconds ?? 180)) * 1000
+  const showWaitMessage = Boolean(latestGuest && !answeredAfter && clock - new Date(latestGuest.created_at).getTime() >= waitAfterMs)
+  const waitMessage = i18n.language === 'en'
+    ? settings?.chat_wait_message_en || 'Our specialists will respond as soon as possible. You can wait here or contact the secretariat.'
+    : settings?.chat_wait_message_fa || 'کارشناسان ما در اولین فرصت پاسخ‌گو هستند. می‌توانید منتظر بمانید یا با دبیرخانه تماس بگیرید.'
+  const visibleMessages = messages.filter((message) => !(message.sender_kind === 'system' && (/نام.*مکالمه|name.*conversation/i).test(message.body)))
 
   const onStart = async (e: FormEvent) => {
     e.preventDefault()
@@ -166,7 +182,8 @@ export function LiveChatWidget() {
           ) : (
             <>
               <div className="flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-sky-50/60 to-white p-4">
-                {messages.map((m) => (
+                {visibleMessages.length === 0 ? <div className="mx-auto rounded-2xl border border-sky-100 bg-white px-4 py-3 text-center text-xs leading-6 text-rc-muted">{i18n.language === 'en' ? 'Ask your question; our specialists are here to help.' : 'سؤال خود را مطرح کنید؛ کارشناسان ما پاسخ‌گوی شما هستند.'}</div> : null}
+                {visibleMessages.map((m) => (
                   <div
                     key={m.id}
                     className={[
@@ -184,6 +201,7 @@ export function LiveChatWidget() {
                     </p>
                   </div>
                 ))}
+                {showWaitMessage ? <div className="mx-auto max-w-[94%] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs leading-6 text-amber-900 shadow-sm"><p>{waitMessage}</p>{settings?.support_phone ? <a href={`tel:${settings.support_phone}`} className="mt-2 inline-flex rounded-xl bg-white px-3 py-1.5 font-bold text-rc-blue shadow-sm" dir="ltr">{settings.support_phone}</a> : null}</div> : null}
                 <div ref={endRef} />
               </div>
               <form className="flex gap-2 border-t border-sky-100 bg-white p-3.5" onSubmit={(e) => void onSend(e)}>

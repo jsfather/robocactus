@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
+import { Button, Input, PanelCard, StatusBadge } from '@/components/ui/FormControls'
+import { DateTimeField } from '@/components/ui/DateTimeField'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -15,11 +16,13 @@ import { PodiumCup } from '@/components/live-results/PodiumCup'
 import { TicketInbox } from '@/features/chat/TicketInbox'
 import { ageFromBirthDate, formatAppDate } from '@/lib/dates'
 import type { DocumentRow, ResultRow, Team, TeamMember } from '@/types/database'
+import type { League } from '@/types/database'
+import { backend } from '@/lib/backend'
 
 export function TeamPanelPage() {
   const { t, i18n } = useTranslation()
   const { teamId } = useParams()
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const [teams, setTeams] = useState<Team[]>([])
   const [team, setTeam] = useState<Team | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -28,6 +31,10 @@ export function TeamPanelPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
+  const [league, setLeague] = useState<League | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [memberEdits, setMemberEdits] = useState<TeamMember[]>([])
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!user || authLoading) return
@@ -46,14 +53,17 @@ export function TeamPanelPage() {
             setDocs([])
             setResult(null)
           } else {
-            const [m, d, r] = await Promise.all([
+            const [m, d, r, leagueResponse] = await Promise.all([
               fetchTeamMembers(row.id),
               fetchTeamDocuments(row.id),
               fetchTeamPublishedResult(row.id).catch(() => null),
+              backend.from('leagues').select('*').eq('id', row.league_id).maybeSingle(),
             ])
             setMembers(m)
+            setMemberEdits(m)
             setDocs(d)
             setResult(r)
+            setLeague((leagueResponse.data as League | null) ?? null)
           }
         } else {
           setTeams(await fetchCaptainTeams(user.id))
@@ -87,6 +97,29 @@ export function TeamPanelPage() {
   }
 
   if (teamId && team) {
+    const editLocked = profile?.role !== 'super_admin' && Boolean(league?.team_edit_deadline && new Date(league.team_edit_deadline).getTime() < Date.now())
+    const saveMemberEdits = async () => {
+      setSaving(true)
+      setError(null)
+      try {
+        for (const member of memberEdits) {
+          const { error: updateError } = await backend.from('team_members').update({
+            first_name: member.first_name,
+            last_name: member.last_name,
+            first_name_fa: member.first_name_fa,
+            last_name_fa: member.last_name_fa,
+            first_name_en: member.first_name_en,
+            last_name_en: member.last_name_en,
+            full_name: `${member.first_name_fa ?? member.first_name ?? ''} ${member.last_name_fa ?? member.last_name ?? ''}`.trim(),
+            national_id: member.national_id,
+            birth_date: member.birth_date,
+          }).eq('id', member.id)
+          if (updateError) throw new Error(updateError.message)
+        }
+        setMembers(memberEdits)
+        setEditing(false)
+      } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) } finally { setSaving(false) }
+    }
     return (
       <PanelPage
         title={team.name}
@@ -128,8 +161,19 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title={t('team.membersTitle')}>
-          {members.length ? (
+        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={editLocked} onClick={() => setEditing((value) => !value)}>{editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : 'ویرایش اطلاعات'}</Button>}>
+          {league?.team_edit_deadline ? <p className="mb-3 text-xs text-rc-muted">مهلت ویرایش: {formatAppDate(league.team_edit_deadline, i18n.language, { withTime: true })}</p> : null}
+          {editing ? <div className="space-y-4">
+            {memberEdits.map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
+              <Input label="نام فارسی" value={member.first_name_fa ?? member.first_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_fa: event.target.value, first_name: event.target.value } : row))} />
+              <Input label="نام خانوادگی فارسی" value={member.last_name_fa ?? member.last_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_fa: event.target.value, last_name: event.target.value } : row))} />
+              <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />
+              <Input label="نام خانوادگی انگلیسی" value={member.last_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_en: event.target.value } : row))} dir="ltr" />
+              <Input label="کد ملی" value={member.national_id ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, national_id: event.target.value } : row))} dir="ltr" />
+              <DateTimeField label="تاریخ تولد" withTime={false} value={member.birth_date ? `${member.birth_date}T12:00:00.000Z` : null} onChange={(iso) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: iso?.slice(0, 10) ?? null } : row))} />
+            </div>)}
+            <Button type="button" onClick={() => void saveMemberEdits()} disabled={saving}>{saving ? 'در حال ذخیره…' : 'ذخیره تغییرات اعضا'}</Button>
+          </div> : members.length ? (
             <ul className="space-y-3 text-sm">
               {members.map((m) => {
                 const displayName =

@@ -15,6 +15,7 @@ export const privateSchema = pgSchema('app_private')
 export const users = authSchema.table('users', {
   id: uuid('id').primaryKey(),
   email: text('email').unique(),
+  username: text('username').unique(),
   encryptedPassword: text('encrypted_password'),
   phone: text('phone').unique(),
   rawUserMetaData: jsonb('raw_user_meta_data').notNull().default({}),

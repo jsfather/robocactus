@@ -2,6 +2,7 @@ import type { Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { config } from './config.js'
 import { db, userFromRequest } from './db.js'
+import { getAuthSettings } from './auth.js'
 
 type Notification = {
   id: string
@@ -50,21 +51,23 @@ async function sendSms(row: Notification): Promise<string> {
 
 async function sendEmail(row: Notification): Promise<string> {
   if (!row.email) throw new Error('missing_email')
+  const settings = await getAuthSettings(true)
+  const apiKey = settings.email_api_key || process.env.RESEND_API_KEY
   const text = [
-    `RoboCup Tabarestan notification: ${row.template_key}`,
+    `Tabarestan Cup notification: ${row.template_key}`,
     ...Object.entries(row.meta ?? {}).map(([key, value]) => `${key}: ${String(value)}`),
   ].join('\n')
-  if (config.emailMock || !process.env.RESEND_API_KEY) {
+  if ((config.emailMock && !settings.email_api_key) || !apiKey) {
     console.log(`[email:mock] ${row.template_key} -> ${row.email}\n${text}`)
     return `MOCK-email-${Date.now()}`
   }
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? 'RoboCup Tabarestan <onboarding@resend.dev>',
+      from: settings.email_from || process.env.EMAIL_FROM || 'Tabarestan Cup <onboarding@resend.dev>',
       to: [row.email],
-      subject: `RoboCup Tabarestan · ${row.template_key}`,
+      subject: `Tabarestan Cup · ${row.template_key}`,
       text,
     }),
   })

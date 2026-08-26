@@ -51,6 +51,48 @@ export async function fetchLatestInvoiceForTeam(teamId: string): Promise<Invoice
   return data as Invoice | null
 }
 
+export async function submitCardReceipt(input: {
+  invoiceId: string
+  userId: string
+  file: File
+}): Promise<Invoice> {
+  if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(input.file.type)) {
+    throw new Error('فرمت فیش باید تصویر یا PDF باشد.')
+  }
+  if (input.file.size > 5 * 1024 * 1024) throw new Error('حجم فیش نباید بیشتر از ۵ مگابایت باشد.')
+  const ext = input.file.name.split('.').pop() ?? 'bin'
+  const path = `${input.userId}/${input.invoiceId}/receipt-${Date.now()}.${ext}`
+  const { error: uploadError } = await backend.storage.from('payment-receipts').upload(path, input.file, {
+    contentType: input.file.type,
+    upsert: false,
+  })
+  if (uploadError) throw new Error(uploadError.message)
+  const { data, error } = await backend.rpc('submit_card_receipt', {
+    p_invoice_id: input.invoiceId,
+    p_receipt_path: path,
+  })
+  if (error) throw new Error(error.message)
+  return data as Invoice
+}
+
+export async function reviewCardReceipt(
+  invoiceId: string,
+  approved: boolean,
+  reason?: string,
+): Promise<Invoice> {
+  const { data, error } = await backend.rpc('review_card_receipt', {
+    p_invoice_id: invoiceId,
+    p_approved: approved,
+    p_reason: reason?.trim() || null,
+  })
+  if (error) throw new Error(error.message)
+  return data as Invoice
+}
+
+export function receiptPrivateUrl(path: string): string {
+  return backend.storage.from('payment-receipts').getPrivateUrl(path).data.privateUrl
+}
+
 export async function applyPaymentResult(input: {
   invoiceId: string
   authority: string
@@ -101,7 +143,7 @@ export async function startTeamPayment(input: {
 
   const result = await gateway.startPayment({
     amount: Number(input.invoice.amount),
-    description: `RoboCup Tabarestan · ${input.league.name} · ${input.team.name}`,
+    description: `Tabarestan Cup · ${input.league.name} · ${input.team.name}`,
     callbackUrl,
     metadata,
   })
@@ -134,7 +176,9 @@ export async function verifyGatewayThenApply(input: {
   authority: string
   gatewayStatusOk: boolean
 }): Promise<Invoice> {
+  const kind = getConfiguredGatewayKind()
   if (!input.gatewayStatusOk) {
+    if (kind === 'zarinpal') return input.invoice
     return applyPaymentResult({
       invoiceId: input.invoice.id,
       authority: input.authority,
@@ -147,7 +191,15 @@ export async function verifyGatewayThenApply(input: {
   const verified = await gateway.verifyPayment({
     authority: input.authority,
     amount: Number(input.invoice.amount),
+    invoiceId: input.invoice.id,
   })
+
+  if (kind === 'zarinpal') {
+    if (!verified.success) throw new Error(verified.error ?? 'payment verification failed')
+    const updated = await fetchInvoice(input.invoice.id)
+    if (!updated) throw new Error('invoice not found after payment verification')
+    return updated
+  }
 
   // Still apply via RPC — never mutate team status from the client directly
   return applyPaymentResult({

@@ -62,7 +62,9 @@ export function CompanyCompetitionsPage() {
       .catch((err: Error) => setError(err.message))
   }, [activeCompanyId])
 
-  const teamForLeague = (leagueId: string) => teams.find((x) => x.league_id === leagueId)
+  const teamForLeague = (league: League) => teams.find(
+    (team) => team.league_id === league.id && (team.season_year ?? league.current_season_year) === league.current_season_year,
+  )
 
   if (authLoading || loading) {
     return <div className="px-4 py-12 text-center text-rc-muted">{t('app.loading')}</div>
@@ -119,7 +121,7 @@ export function CompanyCompetitionsPage() {
             ) : (
               <ul className="divide-y divide-rc-line/70">
                 {leagues.map((league) => {
-                  const team = teamForLeague(league.id)
+                  const team = teamForLeague(league)
                   const period = computeLeaguePeriod(league)
                   return (
                     <li
@@ -166,11 +168,11 @@ export function CompanyCompetitionsPage() {
                               </Link>
                             ) : null}
                           </>
-                        ) : (
+                        ) : period === 'open' && (league.registration_cycle_status ?? 'open') === 'open' ? (
                           <Button type="button" onClick={() => setRegisterLeagueId(league.id)}>
                             {t('competitions.registerTeam')}
                           </Button>
-                        )}
+                        ) : <span className="rounded-xl border border-rc-line px-3 py-2 text-xs text-rc-muted">ثبت‌نام این دوره بسته است</span>}
                       </div>
                     </li>
                   )

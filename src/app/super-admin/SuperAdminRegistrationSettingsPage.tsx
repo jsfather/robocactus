@@ -35,6 +35,9 @@ export function SuperAdminRegistrationSettingsPage() {
   const [awayEn, setAwayEn] = useState('')
   const [offlineFa, setOfflineFa] = useState('')
   const [offlineEn, setOfflineEn] = useState('')
+  const [waitFa, setWaitFa] = useState('')
+  const [waitEn, setWaitEn] = useState('')
+  const [waitSeconds, setWaitSeconds] = useState(180)
 
   const reload = async () => {
     try {
@@ -51,6 +54,9 @@ export function SuperAdminRegistrationSettingsPage() {
       setAwayEn(s?.chat_away_en ?? '')
       setOfflineFa(s?.chat_offline_fa ?? '')
       setOfflineEn(s?.chat_offline_en ?? '')
+      setWaitFa(s?.chat_wait_message_fa ?? '')
+      setWaitEn(s?.chat_wait_message_en ?? '')
+      setWaitSeconds(Number(s?.chat_wait_timeout_seconds ?? 180))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     }
@@ -113,6 +119,9 @@ export function SuperAdminRegistrationSettingsPage() {
         chat_away_en: awayEn,
         chat_offline_fa: offlineFa,
         chat_offline_en: offlineEn,
+        chat_wait_message_fa: waitFa,
+        chat_wait_message_en: waitEn,
+        chat_wait_timeout_seconds: Math.max(30, waitSeconds),
       })
       await refresh()
       toast.success(t('common.saved'))
@@ -192,6 +201,9 @@ export function SuperAdminRegistrationSettingsPage() {
               />
             </label>
           ))}
+          <Input label="زمان نمایش پیام عدم پاسخ (ثانیه)" type="number" min={30} value={waitSeconds} onChange={(e) => setWaitSeconds(Number(e.target.value))} dir="ltr" />
+          <label className="block space-y-1.5"><span className="text-sm text-rc-muted">پیام انتظار فارسی</span><textarea className="min-h-20 w-full border border-rc-line bg-rc-surface px-3 py-2 text-sm" value={waitFa} onChange={(e) => setWaitFa(e.target.value)} /></label>
+          <label className="block space-y-1.5"><span className="text-sm text-rc-muted">Waiting message in English</span><textarea className="min-h-20 w-full border border-rc-line bg-rc-surface px-3 py-2 text-sm" value={waitEn} onChange={(e) => setWaitEn(e.target.value)} dir="ltr" /></label>
           <Button type="submit" disabled={busy}>
             {t('common.save')}
           </Button>

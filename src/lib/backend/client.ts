@@ -14,6 +14,19 @@ export type BackendSession = {
   user: BackendUser
 }
 
+export type BackendAuthOptions = {
+  otp_login_enabled: boolean
+  password_login_enabled: boolean
+  email_magic_login_enabled: boolean
+  email_signup_enabled: boolean
+  phone_signup_enabled: boolean
+  online_payment_enabled: boolean
+  card_to_card_enabled: boolean
+  bank_card_number: string | null
+  bank_iban: string | null
+  bank_account_owner: string | null
+}
+
 type BackendError = { message: string }
 type BackendResult<T = unknown> = { data: T; error: BackendError | null; count?: number | null }
 type QueryAction = 'select' | 'insert' | 'update' | 'upsert' | 'delete'
@@ -156,6 +169,14 @@ async function authCall(path: string, body?: Record<string, unknown>) {
 }
 
 const auth = {
+  async getOptions() {
+    try {
+      const response = await apiRequest<{ options: BackendAuthOptions }>('/auth/options')
+      return { data: response.options, error: null }
+    } catch (error) {
+      return { data: null, error: { message: error instanceof Error ? error.message : String(error) } }
+    }
+  },
   async getSession() {
     const response = await authCall('session')
     return { data: { session: (response.session ?? null) as BackendSession | null }, error: response.error ?? null }

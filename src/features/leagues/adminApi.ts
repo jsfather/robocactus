@@ -22,61 +22,99 @@ export type LeagueAdminRow = {
 
 export type LeagueInput = {
   name: string
+  name_en?: string | null
   slug?: string
   description?: string | null
+  description_en?: string | null
   category?: string | null
+  category_en?: string | null
   capacity?: number | null
   registration_fee?: number
+  captain_fee?: number
+  member_fee?: number
+  team_edit_deadline?: string | null
+  min_age?: number | null
+  max_age?: number | null
+  current_season_year?: number
+  registration_cycle_status?: string
   registration_open_at?: string | null
   registration_close_at?: string | null
   contact_email?: string | null
   is_active?: boolean
   short_description?: string | null
+  short_description_en?: string | null
   full_description?: string | null
+  full_description_en?: string | null
   cover_image_url?: string | null
   hero_image_url?: string | null
   hero_video_url?: string | null
   intro_video_url?: string | null
   regulation_pdf_url?: string | null
   rules_summary?: string | null
+  rules_summary_en?: string | null
   rules_pdf_url?: string | null
   age_range?: string | null
+  age_range_en?: string | null
   participation_mode?: string | null
   team_size_min?: number | null
   team_size_max?: number | null
   event_starts_at?: string | null
   event_ends_at?: string | null
   venue_name?: string | null
+  venue_name_en?: string | null
   venue_address?: string | null
+  venue_address_en?: string | null
   venue_map_embed_url?: string | null
   difficulty_level?: string | null
+  difficulty_level_en?: string | null
   competition_language?: string | null
+  competition_language_en?: string | null
   scoring_rows?: LeagueScoringRow[]
+  scoring_rows_en?: LeagueScoringRow[]
   timeline_steps?: LeagueTimelineStep[]
+  timeline_steps_en?: LeagueTimelineStep[]
   day_schedule?: LeagueDaySlot[]
+  day_schedule_en?: LeagueDaySlot[]
   allowed_equipment?: string[]
+  allowed_equipment_en?: string[]
   forbidden_equipment?: string[]
+  forbidden_equipment_en?: string[]
   discount_info?: string | null
+  discount_info_en?: string | null
   refund_policy?: string | null
+  refund_policy_en?: string | null
   show_registered_count?: boolean
   period_override?: string | null
   secretary_name?: string | null
+  secretary_name_en?: string | null
   secretary_phone?: string | null
   secretary_telegram?: string | null
   related_league_ids?: string[]
   judging_path?: string | null
+  judging_path_en?: string | null
   technical_committee_notes?: string | null
+  technical_committee_notes_en?: string | null
   results_status?: 'auto' | 'hidden' | 'live' | 'final' | string | null
 }
 
 function leaguePayloadBasic(input: LeagueInput) {
   return {
     name: input.name.trim(),
+    name_en: input.name_en?.trim() || null,
     slug: slugify(input.slug || input.name),
     description: input.description ?? null,
+    description_en: input.description_en ?? null,
     category: input.category ?? null,
+    category_en: input.category_en ?? null,
     capacity: input.capacity ?? null,
     registration_fee: input.registration_fee ?? 0,
+    captain_fee: input.captain_fee ?? 0,
+    member_fee: input.member_fee ?? 0,
+    team_edit_deadline: input.team_edit_deadline || null,
+    min_age: input.min_age ?? null,
+    max_age: input.max_age ?? null,
+    current_season_year: input.current_season_year ?? new Date().getFullYear(),
+    registration_cycle_status: input.registration_cycle_status ?? 'open',
     registration_open_at: input.registration_open_at || null,
     registration_close_at: input.registration_close_at || null,
     contact_email: input.contact_email || null,
@@ -88,40 +126,58 @@ function leaguePayload(input: LeagueInput) {
   return {
     ...leaguePayloadBasic(input),
     short_description: input.short_description ?? null,
+    short_description_en: input.short_description_en ?? null,
     full_description: input.full_description ?? null,
+    full_description_en: input.full_description_en ?? null,
     cover_image_url: input.cover_image_url || null,
     hero_image_url: input.hero_image_url || null,
     hero_video_url: input.hero_video_url || null,
     intro_video_url: input.intro_video_url || null,
     regulation_pdf_url: input.regulation_pdf_url || null,
     rules_summary: input.rules_summary ?? null,
+    rules_summary_en: input.rules_summary_en ?? null,
     rules_pdf_url: input.rules_pdf_url || null,
     age_range: input.age_range || null,
+    age_range_en: input.age_range_en || null,
     participation_mode: input.participation_mode || 'team',
     team_size_min: input.team_size_min ?? null,
     team_size_max: input.team_size_max ?? null,
     event_starts_at: input.event_starts_at || null,
     event_ends_at: input.event_ends_at || null,
     venue_name: input.venue_name || null,
+    venue_name_en: input.venue_name_en || null,
     venue_address: input.venue_address || null,
+    venue_address_en: input.venue_address_en || null,
     venue_map_embed_url: input.venue_map_embed_url || null,
     difficulty_level: input.difficulty_level || null,
+    difficulty_level_en: input.difficulty_level_en || null,
     competition_language: input.competition_language || null,
+    competition_language_en: input.competition_language_en || null,
     scoring_rows: input.scoring_rows ?? [],
+    scoring_rows_en: input.scoring_rows_en ?? [],
     timeline_steps: input.timeline_steps ?? [],
+    timeline_steps_en: input.timeline_steps_en ?? [],
     day_schedule: input.day_schedule ?? [],
+    day_schedule_en: input.day_schedule_en ?? [],
     allowed_equipment: input.allowed_equipment ?? [],
+    allowed_equipment_en: input.allowed_equipment_en ?? [],
     forbidden_equipment: input.forbidden_equipment ?? [],
+    forbidden_equipment_en: input.forbidden_equipment_en ?? [],
     discount_info: input.discount_info ?? null,
+    discount_info_en: input.discount_info_en ?? null,
     refund_policy: input.refund_policy ?? null,
+    refund_policy_en: input.refund_policy_en ?? null,
     show_registered_count: input.show_registered_count ?? true,
     period_override: input.period_override || null,
     secretary_name: input.secretary_name || null,
+    secretary_name_en: input.secretary_name_en || null,
     secretary_phone: input.secretary_phone || null,
     secretary_telegram: input.secretary_telegram || null,
     related_league_ids: input.related_league_ids ?? [],
     judging_path: input.judging_path ?? null,
+    judging_path_en: input.judging_path_en ?? null,
     technical_committee_notes: input.technical_committee_notes ?? null,
+    technical_committee_notes_en: input.technical_committee_notes_en ?? null,
     results_status: (input.results_status as string) || 'auto',
   }
 }
@@ -197,6 +253,7 @@ export async function upsertLeagueFile(input: {
   id?: string
   league_id: string
   title: string
+  title_en?: string | null
   file_url: string
   file_kind?: string
   sort_order?: number
@@ -204,6 +261,7 @@ export async function upsertLeagueFile(input: {
   const payload = {
     league_id: input.league_id,
     title: input.title.trim(),
+    title_en: input.title_en?.trim() || null,
     file_url: input.file_url.trim(),
     file_kind: input.file_kind || 'other',
     sort_order: input.sort_order ?? 0,
@@ -242,20 +300,73 @@ export async function upsertLeaguePerson(input: {
   id?: string
   league_id: string
   full_name: string
+  slug?: string
+  full_name_en?: string | null
   photo_url?: string | null
   specialty?: string | null
+  specialty_en?: string | null
   bio?: string | null
+  bio_en?: string | null
+  identity_summary_fa?: string | null
+  identity_summary_en?: string | null
+  education_fa?: string | null
+  education_en?: string | null
+  honors_fa?: string | null
+  honors_en?: string | null
+  awards_fa?: string | null
+  awards_en?: string | null
+  courses_fa?: string | null
+  courses_en?: string | null
+  company_info_fa?: string | null
+  company_info_en?: string | null
+  birth_date?: string | null
+  nationality_fa?: string | null
+  nationality_en?: string | null
+  city_fa?: string | null
+  city_en?: string | null
+  email?: string | null
+  phone?: string | null
+  website_url?: string | null
+  linkedin_url?: string | null
+  is_profile_published?: boolean
   role_kind?: string
   sort_order?: number
 }): Promise<LeaguePerson> {
   const payload = {
     league_id: input.league_id,
     full_name: input.full_name.trim(),
+    slug: slugify(input.slug || input.full_name_en || input.full_name) || `person-${Date.now()}`,
+    full_name_en: input.full_name_en?.trim() || null,
     photo_url: input.photo_url || null,
     specialty: input.specialty || null,
+    specialty_en: input.specialty_en || null,
     bio: input.bio || null,
+    bio_en: input.bio_en || null,
+    identity_summary_fa: input.identity_summary_fa || null,
+    identity_summary_en: input.identity_summary_en || null,
+    education_fa: input.education_fa || null,
+    education_en: input.education_en || null,
+    honors_fa: input.honors_fa || null,
+    honors_en: input.honors_en || null,
+    awards_fa: input.awards_fa || null,
+    awards_en: input.awards_en || null,
+    courses_fa: input.courses_fa || null,
+    courses_en: input.courses_en || null,
+    company_info_fa: input.company_info_fa || null,
+    company_info_en: input.company_info_en || null,
+    birth_date: input.birth_date || null,
+    nationality_fa: input.nationality_fa || null,
+    nationality_en: input.nationality_en || null,
+    city_fa: input.city_fa || null,
+    city_en: input.city_en || null,
+    email: input.email || null,
+    phone: input.phone || null,
+    website_url: input.website_url || null,
+    linkedin_url: input.linkedin_url || null,
+    is_profile_published: input.is_profile_published ?? true,
     role_kind: input.role_kind || 'judge',
     sort_order: input.sort_order ?? 0,
+    updated_at: new Date().toISOString(),
   }
   if (input.id) {
     const { data, error } = await backend
@@ -291,6 +402,7 @@ export async function upsertLeagueSponsor(input: {
   id?: string
   league_id: string
   name: string
+  name_en?: string | null
   logo_url?: string | null
   website_url?: string | null
   sort_order?: number
@@ -298,6 +410,7 @@ export async function upsertLeagueSponsor(input: {
   const payload = {
     league_id: input.league_id,
     name: input.name.trim(),
+    name_en: input.name_en?.trim() || null,
     logo_url: input.logo_url || null,
     website_url: input.website_url || null,
     sort_order: input.sort_order ?? 0,
@@ -336,13 +449,17 @@ export async function upsertLeagueFaq(input: {
   id?: string
   league_id: string
   question: string
+  question_en?: string | null
   answer: string
+  answer_en?: string | null
   sort_order?: number
 }): Promise<LeagueFaq> {
   const payload = {
     league_id: input.league_id,
     question: input.question.trim(),
+    question_en: input.question_en?.trim() || null,
     answer: input.answer.trim(),
+    answer_en: input.answer_en?.trim() || null,
     sort_order: input.sort_order ?? 0,
   }
   if (input.id) {

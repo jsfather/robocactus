@@ -102,7 +102,7 @@ export function RankingsPage() {
 
       {loading ? (
         <p className="text-rc-muted">{t('app.loading')}</p>
-      ) : rows.length === 0 ? (
+      ) : error ? null : rows.length === 0 ? (
         <p className="text-rc-muted">{t('rankings.empty')}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-white/10">

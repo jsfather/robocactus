@@ -58,7 +58,7 @@ create policy "contact_messages_select_admin"
 insert into home_banners (title, subtitle, image_url, link_url, sort_order, is_active)
 select * from (values
   (
-    'روبوکاپ تبرستان',
+    'جام تبرستان',
     'رقابت رباتیک، یک پلتفرم',
     'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1600&q=80',
     '/leagues',

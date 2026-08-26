@@ -389,3 +389,34 @@ main :is(button, a[class*="px-"]):hover { transform: translateY(-1px); }
   .league-detail-v2 .league-section > div[class*="border"] { border-radius: 1.5rem !important; }
   .league-detail-v2 .league-section li[class*="border"] { border-radius: 1.25rem !important; }
 }
+
+/* Panel 3.0 — calm command center using the existing Tabarestan tokens. */
+.panel-shell {
+  background-image:
+    radial-gradient(circle at 82% 5%, rgb(8 126 184 / .10), transparent 28rem),
+    radial-gradient(circle at 8% 88%, rgb(19 169 77 / .08), transparent 30rem),
+    linear-gradient(rgb(8 126 184 / .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(8 126 184 / .025) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+}
+
+.panel-sidebar {
+  background: rgb(255 255 255 / .90) !important;
+  box-shadow: 0 24px 80px rgb(18 76 98 / .12), inset 0 1px 0 white !important;
+}
+
+.panel-nav-link { border-radius: 1rem !important; }
+.panel-nav-link.is-active { position: relative; }
+.panel-nav-link.is-active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: .45rem;
+  width: .25rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, var(--rc-blue), var(--rc-accent));
+}
+
+.panel-topbar { box-shadow: 0 10px 35px rgb(18 76 98 / .045); }
+.panel-shell main > div > div[class*="max-w"] { animation: panel-enter .28s ease-out both; }
+@keyframes panel-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }

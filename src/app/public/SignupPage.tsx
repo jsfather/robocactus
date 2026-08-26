@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { Button, Input, Textarea } from '@/components/ui/FormControls'
+import { DateTimeField } from '@/components/ui/DateTimeField'
 import {
   clearSignupDraft,
   saveSignupDraft,
@@ -13,6 +14,7 @@ import { fetchRegistrationDocTypes, type RegistrationDocType } from '@/features/
 import { uploadProfileDocument } from '@/features/content/api'
 import { backend } from '@/lib/backend'
 import type { AccountType } from '@/types/database'
+import type { BackendAuthOptions } from '@/lib/backend'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
 type AuthChannel = 'phone' | 'email'
@@ -30,6 +32,14 @@ export function SignupPage() {
   const [accountType, setAccountType] = useState<AccountType>('individual')
   const [authChannel, setAuthChannel] = useState<AuthChannel>('phone')
   const [fullName, setFullName] = useState('')
+  const [username, setUsername] = useState('')
+  const [firstNameFa, setFirstNameFa] = useState('')
+  const [lastNameFa, setLastNameFa] = useState('')
+  const [firstNameEn, setFirstNameEn] = useState('')
+  const [lastNameEn, setLastNameEn] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [representativeNationalId, setRepresentativeNationalId] = useState('')
   const [nationalId, setNationalId] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [companyNationalId, setCompanyNationalId] = useState('')
@@ -48,6 +58,11 @@ export function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [authOptions, setAuthOptions] = useState<BackendAuthOptions | null>(null)
+
+  useEffect(() => {
+    void backend.auth.getOptions().then(({ data }) => setAuthOptions(data))
+  }, [])
 
   useEffect(() => {
     void fetchRegistrationDocTypes(accountType)
@@ -85,10 +100,10 @@ export function SignupPage() {
           return false
         }
         z.object({
-          fullName: z.string().min(2),
+          fullName: z.string().min(2), username: z.string().min(3),
           email: z.string().email(),
           password: z.string().min(8),
-        }).parse({ fullName, email, password })
+        }).parse({ fullName, username, email, password })
         if (accountType === 'individual') {
           z.object({ nationalId: z.string().min(5) }).parse({ nationalId })
         } else {
@@ -99,17 +114,25 @@ export function SignupPage() {
         }
       } else if (accountType === 'individual') {
         z.object({
-          fullName: z.string().min(2),
+          fullName: z.string().min(2), email: z.string().email(),
           nationalId: z.string().min(8),
           phone: z.string().min(10),
-        }).parse({ fullName, nationalId, phone })
+        }).parse({ fullName, nationalId, phone, email })
       } else {
         z.object({
-          fullName: z.string().min(2),
+          fullName: z.string().min(2), email: z.string().email(),
           companyName: z.string().min(2),
           companyNationalId: z.string().min(5),
           phone: z.string().min(10),
-        }).parse({ fullName, companyName, companyNationalId, phone })
+        }).parse({ fullName, companyName, companyNationalId, phone, email })
+      }
+      if (!firstNameFa.trim() || !lastNameFa.trim() || !firstNameEn.trim() || !lastNameEn.trim() || !birthDate || !postalCode.trim() || !address.trim()) {
+        setError(t('auth.required'))
+        return false
+      }
+      if (accountType === 'legal' && !representativeNationalId.trim()) {
+        setError(t('auth.required'))
+        return false
       }
       return true
     } catch {
@@ -125,13 +148,22 @@ export function SignupPage() {
         account_type: accountType,
         account_status: 'pending',
         auth_channel: authChannel,
-        email: authChannel === 'email' ? email.trim().toLowerCase() : null,
+        email: email.trim().toLowerCase(),
         national_id: accountType === 'individual' ? nationalId.trim() : null,
         company_name: accountType === 'legal' ? companyName.trim() : null,
         company_national_id: accountType === 'legal' ? companyNationalId.trim() : null,
         economic_code: accountType === 'legal' ? economicCode.trim() || null : null,
         address: address.trim() || null,
-        full_name: fullName.trim(),
+        full_name: `${firstNameFa} ${lastNameFa}`.trim() || fullName.trim(),
+        username: username.trim().toLowerCase() || null,
+        first_name_fa: firstNameFa.trim(),
+        last_name_fa: lastNameFa.trim(),
+        first_name_en: firstNameEn.trim(),
+        last_name_en: lastNameEn.trim(),
+        birth_date: birthDate || null,
+        postal_code: postalCode.trim(),
+        legal_representative_national_id: accountType === 'legal' ? representativeNationalId.trim() : null,
+        identity_completed_at: new Date().toISOString(),
       })
       .eq('id', uid)
   }
@@ -140,7 +172,7 @@ export function SignupPage() {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
-    const result = await requestPhoneOtp(phone.trim())
+    const result = await requestPhoneOtp(phone.trim(), 'signup')
     setSubmitting(false)
     if (result.error) {
       setError(mapOtpError(result.error))
@@ -159,6 +191,7 @@ export function SignupPage() {
       phone: phone.trim(),
       code: code.trim(),
       fullName: fullName.trim(),
+      purpose: 'signup',
     })
     if (result.error) {
       setSubmitting(false)
@@ -191,6 +224,14 @@ export function SignupPage() {
     saveSignupDraft({
       accountType,
       fullName: fullName.trim(),
+      username: username.trim(),
+      firstNameFa: firstNameFa.trim(),
+      lastNameFa: lastNameFa.trim(),
+      firstNameEn: firstNameEn.trim(),
+      lastNameEn: lastNameEn.trim(),
+      birthDate,
+      postalCode: postalCode.trim(),
+      representativeNationalId: representativeNationalId.trim(),
       nationalId: nationalId.trim(),
       companyName: companyName.trim(),
       companyNationalId: companyNationalId.trim(),
@@ -205,6 +246,7 @@ export function SignupPage() {
       email: email.trim().toLowerCase(),
       password,
       fullName: fullName.trim(),
+      username: username.trim(),
       phone: phone.trim() || undefined,
       authChannel: 'email',
     })
@@ -329,7 +371,7 @@ export function SignupPage() {
       {step === 'channel' ? (
         <div className="mt-6 grid gap-3">
           <p className="text-sm text-rc-muted">{t('auth.chooseChannelHint')}</p>
-          <button
+          {authOptions?.phone_signup_enabled !== false ? <button
             type="button"
             onClick={() => {
               setAuthChannel('phone')
@@ -339,8 +381,8 @@ export function SignupPage() {
           >
             <p className="font-semibold">{t('auth.channelIran')}</p>
             <p className="mt-1 text-sm text-rc-muted">{t('auth.channelIranHint')}</p>
-          </button>
-          <button
+          </button> : null}
+          {authOptions?.email_signup_enabled !== false ? <button
             type="button"
             onClick={() => {
               setAuthChannel('email')
@@ -350,7 +392,7 @@ export function SignupPage() {
           >
             <p className="font-semibold">{t('auth.channelAbroad')}</p>
             <p className="mt-1 text-sm text-rc-muted">{t('auth.channelAbroadHint')}</p>
-          </button>
+          </button> : null}
           <Button type="button" variant="ghost" onClick={() => setStep('type')}>
             {t('team.back')}
           </Button>
@@ -370,7 +412,14 @@ export function SignupPage() {
             setStep('verify')
           }}
         >
-          <Input label={t('auth.fullName')} required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { setFirstNameFa(e.target.value); setFullName(`${e.target.value} ${lastNameFa}`.trim()) }} />
+            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { setLastNameFa(e.target.value); setFullName(`${firstNameFa} ${e.target.value}`.trim()) }} />
+            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} dir="ltr" />
+            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} dir="ltr" />
+          </div>
+          <DateTimeField label="تاریخ تولد" withTime={false} value={birthDate ? `${birthDate}T12:00:00.000Z` : null} onChange={(iso) => setBirthDate(iso?.slice(0, 10) ?? '')} />
+          <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} dir="ltr" />
           {accountType === 'individual' ? (
             <Input
               label={t('auth.nationalId')}
@@ -389,6 +438,7 @@ export function SignupPage() {
                 onChange={(e) => setCompanyNationalId(e.target.value)}
                 dir="ltr"
               />
+              <Input label="کد ملی نماینده قانونی" required value={representativeNationalId} onChange={(e) => setRepresentativeNationalId(e.target.value)} dir="ltr" />
               <Input
                 label={t('auth.economicCode')}
                 value={economicCode}
@@ -401,6 +451,7 @@ export function SignupPage() {
 
           {authChannel === 'email' ? (
             <>
+              <Input label="نام کاربری" required value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" autoComplete="username" />
               <Input
                 label={t('auth.email')}
                 type="email"
@@ -433,7 +484,10 @@ export function SignupPage() {
               />
             </>
           ) : (
-            <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
+            <>
+              <Input label={t('auth.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
+              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
+            </>
           )}
 
           <div className="flex gap-2">

@@ -44,7 +44,7 @@ export function ScientificPartners({ partners }: { partners: HomePartner[] }) {
                   <span className="absolute end-5 top-4 text-4xl font-black text-sky-50">{String(index + 1).padStart(2, '0')}</span>
                   <span className="relative mb-3 w-fit rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-rc-blue">{t(`home.partnerKind.${partner.kind}`)}</span>
                   <h3 className="relative text-lg font-black leading-7 text-slate-800 sm:text-xl">{name}</h3>
-                  <span className="relative mt-4 inline-flex items-center gap-2 text-xs font-bold text-emerald-600">همکار رسمی روبوکاپ تبرستان <span className="transition group-hover:translate-x-[-3px]">←</span></span>
+                  <span className="relative mt-4 inline-flex items-center gap-2 text-xs font-bold text-emerald-600">همکار رسمی جام تبرستان <span className="transition group-hover:translate-x-[-3px]">←</span></span>
                 </div>
                 <div className="absolute inset-x-8 bottom-0 h-1 rounded-t-full bg-gradient-to-l from-rc-accent via-teal-400 to-rc-blue opacity-0 transition group-hover:opacity-100" />
               </motion.article>

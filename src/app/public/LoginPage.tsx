@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, Input } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
+import { backend, type BackendAuthOptions } from '@/lib/backend/client'
 
 type Mode = 'email' | 'phone'
 type EmailSubMode = 'password' | 'magic'
@@ -26,6 +27,16 @@ export function LoginPage() {
   const [devCode, setDevCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [options, setOptions] = useState<BackendAuthOptions | null>(null)
+
+  useEffect(() => {
+    void backend.auth.getOptions().then(({ data }) => {
+      if (!data) return
+      setOptions(data)
+      if (!data.otp_login_enabled) setMode('email')
+      if (!data.password_login_enabled && data.email_magic_login_enabled) setEmailSubMode('magic')
+    })
+  }, [])
 
   if (user) {
     return <Navigate to={from.startsWith('/') ? from : '/dashboard'} replace />
@@ -116,7 +127,7 @@ export function LoginPage() {
         ) : null}
 
         <div className="mb-5 flex gap-2">
-          <Button
+          {options?.otp_login_enabled !== false ? <Button
             type="button"
             variant={mode === 'phone' ? 'primary' : 'ghost'}
             className="flex-1"
@@ -126,8 +137,8 @@ export function LoginPage() {
             }}
           >
             {t('auth.loginWithSms')}
-          </Button>
-          <Button
+          </Button> : null}
+          {(options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false) ? <Button
             type="button"
             variant={mode === 'email' ? 'primary' : 'ghost'}
             className="flex-1"
@@ -137,13 +148,13 @@ export function LoginPage() {
             }}
           >
             {t('auth.loginWithEmail')}
-          </Button>
+          </Button> : null}
         </div>
 
         {mode === 'email' ? (
           <form className="space-y-4" onSubmit={(e) => void onEmailSubmit(e)}>
             <div className="flex gap-2 text-xs">
-              <button
+              {options?.password_login_enabled !== false ? <button
                 type="button"
                 className={
                   emailSubMode === 'password' ? 'text-rc-blue' : 'text-rc-muted hover:text-rc-text'
@@ -154,9 +165,9 @@ export function LoginPage() {
                 }}
               >
                 {t('auth.loginWithPassword')}
-              </button>
-              <span className="text-rc-line">·</span>
-              <button
+              </button> : null}
+              {options?.password_login_enabled !== false && options?.email_magic_login_enabled !== false ? <span className="text-rc-line">·</span> : null}
+              {options?.email_magic_login_enabled !== false ? <button
                 type="button"
                 className={
                   emailSubMode === 'magic' ? 'text-rc-blue' : 'text-rc-muted hover:text-rc-text'
@@ -167,13 +178,13 @@ export function LoginPage() {
                 }}
               >
                 {t('auth.loginWithMagicLink')}
-              </button>
+              </button> : null}
             </div>
             <Input
-              label={t('auth.email')}
+              label={emailSubMode === 'password' ? 'نام کاربری، ایمیل یا شماره موبایل' : t('auth.email')}
               name="email"
-              type="email"
-              autoComplete="email"
+              type={emailSubMode === 'magic' ? 'email' : 'text'}
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -260,12 +271,12 @@ export function LoginPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-rc-muted">
+        {(options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <p className="mt-6 text-center text-sm text-rc-muted">
           {t('auth.noAccount')}{' '}
           <Link to="/signup" className="text-rc-blue hover:underline">
             {t('nav.signup')}
           </Link>
-        </p>
+        </p> : null}
       </div>
     </div>
   )

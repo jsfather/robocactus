@@ -46,7 +46,7 @@ export function PublicFooter() {
       }))
 
   return (
-    <footer className="relative mt-16 overflow-hidden rounded-t-[3rem] bg-[#edf8f6]">
+    <footer className="relative mt-20 overflow-hidden rounded-t-[3.5rem] border-t border-emerald-100 bg-gradient-to-b from-[#edf9f7] via-white to-sky-50">
       <div
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
@@ -57,17 +57,17 @@ export function PublicFooter() {
       <div className="pointer-events-none absolute -start-32 -top-40 size-96 rounded-full border-[70px] border-sky-100/70" />
 
       <div className="relative mx-auto max-w-7xl px-4 pt-16 sm:px-8">
-        <div className="flex flex-col justify-between gap-6 rounded-[2rem] bg-gradient-to-l from-rc-blue to-emerald-500 p-7 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:flex-row sm:items-center sm:p-9">
-          <div><p className="text-sm font-bold text-emerald-100">دبیرخانه روبوکاپ تبرستان</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">سؤالی داری؟ ما کنار تیم شما هستیم.</h2></div>
-          <Link to="/contact" className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-white px-6 py-3 font-bold text-rc-blue shadow-lg">ارتباط با دبیرخانه</Link>
+        <div className="relative flex flex-col justify-between gap-6 overflow-hidden rounded-[2.25rem] bg-gradient-to-l from-[#087eb8] via-[#078b94] to-[#0ba66b] p-7 text-white shadow-[0_26px_75px_rgb(8_126_184/0.22)] sm:flex-row sm:items-center sm:p-10">
+          <span className="absolute -end-12 -top-20 size-64 rounded-full border-[38px] border-white/10" /><div className="relative"><p className="text-sm font-bold text-emerald-100">{isEn ? 'TABARESTAN CUP SECRETARIAT' : 'دبیرخانه جام تبرستان'}</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">{isEn ? 'Have a question? We are here for your team.' : 'سؤالی دارید؟ ما کنار تیم شما هستیم.'}</h2><p className="mt-2 text-sm text-white/70">{isEn ? 'Registration, league rules, payments, and event support.' : 'پاسخ‌گویی درباره ثبت‌نام، قوانین لیگ، پرداخت و برگزاری مسابقات'}</p></div>
+          <Link to="/contact" className="relative inline-flex shrink-0 items-center justify-center rounded-2xl bg-white px-6 py-3.5 font-bold text-rc-blue shadow-xl transition hover:-translate-y-1">{isEn ? 'Contact secretariat' : 'ارتباط با دبیرخانه'}</Link>
         </div>
       </div>
 
-      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 lg:grid-cols-5 sm:px-8">
+      <div className={`relative mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 sm:px-8 ${settings?.trust_seal_url ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         <div className="lg:col-span-2">
           <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-rc-accent text-lg font-black text-white shadow-lg">RT</div>
           <p className="mt-5 text-3xl font-black tracking-tight text-slate-800">{brand}</p>
-          <p className="mt-2 text-sm font-bold text-emerald-600">RoboCup Tabarestan · Amol</p>
+          <p className="mt-2 text-sm font-bold text-emerald-600">Tabarestan Cup · Amol</p>
           {about ? <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">{about}</p> : <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">رویداد نوآوری و رباتیک شمال ایران؛ از قلب مازندران، رو به آینده.</p>}
           <div className="mt-6 flex items-center gap-2">
             <span className="size-2 rounded-full bg-rc-accent" />
@@ -123,11 +123,10 @@ export function PublicFooter() {
           </ul>
         </div>
 
-        <div className="lg:col-span-1">
+        {settings?.trust_seal_url ? <div className="lg:col-span-1">
           <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
             {t('footer.trust')}
           </p>
-          {settings?.trust_seal_url ? (
             <a
               href={settings.trust_seal_href || '#'}
               target="_blank"
@@ -140,12 +139,7 @@ export function PublicFooter() {
                 className="h-24 w-auto object-contain"
               />
             </a>
-          ) : (
-            <div className="flex h-28 w-32 items-center justify-center border border-dashed border-rc-line bg-rc-surface/40 text-center font-mono text-[10px] leading-relaxed text-rc-muted">
-              {t('footer.trustPlaceholder')}
-            </div>
-          )}
-        </div>
+        </div> : null}
       </div>
 
       <div className="relative border-t border-emerald-100 bg-white/60">

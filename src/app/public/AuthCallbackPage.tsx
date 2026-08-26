@@ -8,6 +8,14 @@ import type { AccountType } from '@/types/database'
 type Draft = {
   accountType?: AccountType
   fullName?: string
+  username?: string
+  firstNameFa?: string
+  lastNameFa?: string
+  firstNameEn?: string
+  lastNameEn?: string
+  birthDate?: string
+  postalCode?: string
+  representativeNationalId?: string
   nationalId?: string
   companyName?: string
   companyNationalId?: string
@@ -67,6 +75,15 @@ export function AuthCallbackPage() {
           patch.economic_code =
             draft.accountType === 'legal' ? draft.economicCode || null : null
           patch.address = draft.address?.trim() || null
+          patch.username = draft.username?.trim().toLowerCase() || null
+          patch.first_name_fa = draft.firstNameFa?.trim() || null
+          patch.last_name_fa = draft.lastNameFa?.trim() || null
+          patch.first_name_en = draft.firstNameEn?.trim() || null
+          patch.last_name_en = draft.lastNameEn?.trim() || null
+          patch.birth_date = draft.birthDate || null
+          patch.postal_code = draft.postalCode?.trim() || null
+          patch.legal_representative_national_id = draft.accountType === 'legal' ? draft.representativeNationalId?.trim() || null : null
+          patch.identity_completed_at = new Date().toISOString()
           if (draft.fullName?.trim()) patch.full_name = draft.fullName.trim()
         } else if (email) {
           patch.auth_channel = 'email'

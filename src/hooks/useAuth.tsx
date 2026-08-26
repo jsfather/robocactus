@@ -20,6 +20,7 @@ interface SignUpInput {
   email: string
   password: string
   fullName: string
+  username?: string
   phone?: string
   authChannel?: 'phone' | 'email'
 }
@@ -34,7 +35,7 @@ interface AuthContextValue {
   configured: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (input: SignUpInput) => Promise<{ error: string | null; needsEmailConfirm?: boolean }>
-  requestPhoneOtp: (phone: string) => Promise<{
+  requestPhoneOtp: (phone: string, purpose?: 'login' | 'signup' | 'profile') => Promise<{
     error: string | null
     devCode?: string
     retryAfterSec?: number
@@ -43,6 +44,7 @@ interface AuthContextValue {
     phone: string
     code: string
     fullName?: string
+    purpose?: 'login' | 'signup' | 'profile'
   }) => Promise<{ error: string | null }>
   requestEmailMagicLink: (email: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
@@ -194,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signUp = useCallback(
-    async ({ email, password, fullName, phone, authChannel = 'email' }: SignUpInput) => {
+    async ({ email, password, fullName, username, phone, authChannel = 'email' }: SignUpInput) => {
       if (!configured) {
         return { error: 'backend_missing' }
       }
@@ -208,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: redirectTo,
           data: {
             full_name: fullName,
+            username: username?.trim().toLowerCase() ?? '',
             phone: phone ?? '',
             auth_channel: authChannel,
           },
@@ -235,9 +238,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [configured, refreshProfile],
   )
 
-  const requestPhoneOtp = useCallback(async (phone: string) => {
+  const requestPhoneOtp = useCallback(async (phone: string, purpose: 'login' | 'signup' | 'profile' = session?.user ? 'profile' : 'login') => {
     if (!configured) return { error: 'backend_missing' }
-    const result = await requestSmsOtp(phone)
+    const result = await requestSmsOtp(phone, purpose)
     if (!result.ok) {
       return {
         error: result.error,
@@ -245,19 +248,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     return { error: null, devCode: result.dev_code }
-  }, [configured])
+  }, [configured, session?.user])
 
   const verifyPhoneOtp = useCallback(
-    async (input: { phone: string; code: string; fullName?: string }) => {
+    async (input: { phone: string; code: string; fullName?: string; purpose?: 'login' | 'signup' | 'profile' }) => {
       if (!configured) return { error: 'backend_missing' }
-      const verified = await verifySmsOtp(input)
+      const verified = await verifySmsOtp({ ...input, purpose: input.purpose ?? (session?.user ? 'profile' : 'login') })
       if (!verified.ok) return { error: verified.error }
+      if ('profile_verified' in verified) {
+        await refreshProfile()
+        return { error: null }
+      }
       const sessionResult = await completeSmsOtpSession(verified.token_hash)
       if (sessionResult.error) return { error: sessionResult.error }
       await refreshProfile()
       return { error: null }
     },
-    [configured, refreshProfile],
+    [configured, refreshProfile, session?.user],
   )
 
   const requestEmailMagicLink = useCallback(

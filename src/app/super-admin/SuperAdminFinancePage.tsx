@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
+import { Button, Input, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { fetchActiveLeagues } from '@/features/companies/api'
-import { fetchFinanceRows, formatAmountToman, type FinanceRow } from '@/features/payments/api'
+import { fetchFinanceRows, formatAmountToman, receiptPrivateUrl, reviewCardReceipt, type FinanceRow } from '@/features/payments/api'
 import type { League } from '@/types/database'
 
 export function SuperAdminFinancePage() {
@@ -13,6 +13,8 @@ export function SuperAdminFinancePage() {
   const [leagueId, setLeagueId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+  const [reasons, setReasons] = useState<Record<string, string>>({})
 
   const load = async () => {
     setLoading(true)
@@ -45,6 +47,20 @@ export function SuperAdminFinancePage() {
   const paidSum = rows
     .filter((r) => r.status === 'paid')
     .reduce((sum, r) => sum + Number(r.amount), 0)
+  const receiptPendingCount = rows.filter((row) => row.receipt_status === 'pending_review').length
+
+  const reviewReceipt = async (row: FinanceRow, approved: boolean) => {
+    setReviewingId(row.id)
+    setError(null)
+    try {
+      await reviewCardReceipt(row.id, approved, reasons[row.id])
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setReviewingId(null)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -53,12 +69,13 @@ export function SuperAdminFinancePage() {
         <p className="mt-1 text-sm text-rc-muted">{t('finance.subtitle')}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-5">
         {[
           { label: t('finance.paid'), value: String(paidCount) },
           { label: t('finance.failed'), value: String(failedCount) },
           { label: t('finance.pending'), value: String(pendingCount) },
           { label: t('finance.paidSum'), value: formatAmountToman(paidSum) },
+          { label: 'فیش در انتظار بررسی', value: String(receiptPendingCount) },
         ].map((card) => (
           <div
             key={card.label}
@@ -120,6 +137,7 @@ export function SuperAdminFinancePage() {
                   <th className="px-2 py-2 text-start font-medium">{t('payment.amount')}</th>
                   <th className="px-2 py-2 text-start font-medium">{t('payment.invoiceStatus')}</th>
                   <th className="px-2 py-2 text-start font-medium">{t('team.status')}</th>
+                  <th className="px-2 py-2 text-start font-medium">روش / عملیات</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,6 +158,18 @@ export function SuperAdminFinancePage() {
                           defaultValue: row.team_status,
                         })}
                       />
+                    </td>
+                    <td className="min-w-72 px-2 py-3">
+                      <p className="mb-2 text-xs text-rc-muted">{row.payment_method === 'card_to_card' ? 'کارت‌به‌کارت' : 'آنلاین'} · {row.receipt_status ?? '—'}</p>
+                      {row.receipt_path ? <a className="mb-2 inline-block text-xs text-rc-blue hover:underline" href={receiptPrivateUrl(row.receipt_path)} target="_blank" rel="noreferrer">مشاهده فیش</a> : null}
+                      {row.receipt_status === 'pending_review' ? <div className="space-y-2 rounded-xl border border-rc-line bg-rc-surface p-2">
+                        <Input label="دلیل رد (برای رد الزامی)" value={reasons[row.id] ?? ''} onChange={(event) => setReasons((current) => ({ ...current, [row.id]: event.target.value }))} />
+                        <div className="flex gap-2">
+                          <Button type="button" onClick={() => void reviewReceipt(row, true)} disabled={reviewingId === row.id}>تأیید واریز</Button>
+                          <Button type="button" variant="danger" onClick={() => void reviewReceipt(row, false)} disabled={reviewingId === row.id || !(reasons[row.id]?.trim())}>رد فیش</Button>
+                        </div>
+                      </div> : null}
+                      {row.receipt_status === 'rejected' ? <p className="text-xs text-red-400">{row.receipt_rejection_reason}</p> : null}
                     </td>
                   </tr>
                 ))}

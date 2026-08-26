@@ -14,10 +14,10 @@ set registration_fee = case slug
     event_starts_at = timestamptz '2026-10-23 08:00:00+03:30', -- ۱ آبان ۱۴۰۵
     event_ends_at = timestamptz '2026-10-23 18:00:00+03:30',
     registration_close_at = timestamptz '2026-10-16 23:59:00+03:30',
-    secretary_name = 'کمیته برگزاری روبوکاپ تبرستان',
+    secretary_name = 'کمیته برگزاری جام تبرستان',
     secretary_phone = coalesce((select support_phone from public.site_settings where id = 1), secretary_phone),
-    contact_email = 'competitions@robocuptabarestan.ir',
-    secretary_telegram = 'https://t.me/robocuptabarestan',
+    contact_email = 'competitions@tabarestancup.ir',
+    secretary_telegram = 'https://t.me/tabarestancup',
     technical_committee_notes = 'کمیته فنی مسئول نظارت بر اجرای آیین‌نامه، تأیید فنی ربات‌ها و پاسخ‌گویی تخصصی به تیم‌ها است.',
     day_schedule = '[{"time":"08:00","title":"پذیرش و کنترل فنی"},{"time":"10:00","title":"آغاز مسابقات"},{"time":"14:00","title":"مرحله نهایی"},{"time":"17:30","title":"اعلام نتایج و اختتامیه"}]'::jsonb
 where slug in (

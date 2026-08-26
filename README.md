@@ -1,4 +1,4 @@
-# RoboCup Tabarestan
+# Tabarestan Cup
 
 Competition and event management platform built with React, Vite, TypeScript, PostgreSQL, and Drizzle ORM.
 

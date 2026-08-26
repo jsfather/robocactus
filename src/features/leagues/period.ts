@@ -5,6 +5,8 @@ export function computeLeaguePeriod(
   registeredCount = 0,
   now = new Date(),
 ): LeaguePeriod {
+  if (league.registration_cycle_status === 'closed' || league.registration_cycle_status === 'archived') return 'ended'
+  if (league.registration_cycle_status === 'draft') return 'upcoming'
   const override = league.period_override
   if (
     override === 'upcoming' ||

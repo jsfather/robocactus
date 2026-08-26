@@ -49,7 +49,12 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { SuperAdminCompaniesPage } from '@/app/super-admin/SuperAdminCompaniesPage'
 import { SuperAdminSettingsPage } from '@/app/super-admin/SuperAdminSettingsPage'
 import { SuperAdminRegistrationSettingsPage } from '@/app/super-admin/SuperAdminRegistrationSettingsPage'
+import { SuperAdminAccessSettingsPage } from '@/app/super-admin/SuperAdminAccessSettingsPage'
+import { SuperAdminParticipantsPage } from '@/app/super-admin/SuperAdminParticipantsPage'
 import { LiveChatInboxPage } from '@/app/staff/LiveChatInboxPage'
+import { AccountProfilePage } from '@/app/panel/AccountProfilePage'
+import { PersonProfilePage } from '@/app/public/PersonProfilePage'
+import { SuperAdminPersonEditPage } from '@/app/super-admin/SuperAdminPersonEditPage'
 
 export default function App() {
   return (
@@ -64,6 +69,7 @@ export default function App() {
                 <Route index element={<HomePage />} />
                 <Route path="leagues" element={<LeaguesPage />} />
                 <Route path="leagues/:slug" element={<LeagueDetailPage />} />
+                <Route path="people/:slug" element={<PersonProfilePage />} />
                 <Route path="rankings" element={<RankingsPage />} />
                 <Route path="live" element={<LiveResultsPage />} />
                 <Route path="companies" element={<CompaniesPage />} />
@@ -92,11 +98,14 @@ export default function App() {
                 }
               >
                 <Route path="dashboard" element={<DashboardRedirectPage />} />
+                <Route path="account/profile" element={<AccountProfilePage />} />
 
                 <Route element={<ProtectedRoute roles={['super_admin']} />}>
                   <Route path="super-admin" element={<SuperAdminHomePage />} />
                   <Route path="super-admin/leagues" element={<SuperAdminLeaguesPage />} />
                   <Route path="super-admin/leagues/:leagueId" element={<SuperAdminLeagueEditPage />} />
+                  <Route path="super-admin/people/:personId" element={<SuperAdminPersonEditPage />} />
+                  <Route path="super-admin/participants" element={<SuperAdminParticipantsPage />} />
                   <Route path="super-admin/companies" element={<SuperAdminCompaniesPage />} />
                   <Route path="super-admin/review" element={<LeagueAdminPage section="review" />} />
                   <Route path="super-admin/tickets" element={<StaffPage section="tickets" />} />
@@ -110,6 +119,7 @@ export default function App() {
                   <Route path="super-admin/finance" element={<SuperAdminFinancePage />} />
                   <Route path="super-admin/analytics" element={<SuperAdminAnalyticsPage />} />
                   <Route path="super-admin/settings" element={<SuperAdminSettingsPage />} />
+                  <Route path="super-admin/access" element={<SuperAdminAccessSettingsPage />} />
                   <Route
                     path="super-admin/registration"
                     element={<SuperAdminRegistrationSettingsPage />}

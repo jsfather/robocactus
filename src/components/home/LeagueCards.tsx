@@ -6,6 +6,7 @@ import { formatAmountToman } from '@/features/payments/api'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import { leagueCoverUrl } from '@/lib/dates'
 import type { League } from '@/types/database'
+import { contentLocale, localizeLeague } from '@/features/leagues/localize'
 
 function LeagueIcon({ category }: { category: string | null }) {
   const key = (category ?? '').toLowerCase()
@@ -45,7 +46,7 @@ function LeagueIcon({ category }: { category: string | null }) {
 }
 
 export function LeagueCards({ leagues }: { leagues: League[] }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   if (!leagues.length) return null
 
@@ -53,7 +54,7 @@ export function LeagueCards({ leagues }: { leagues: League[] }) {
     <section className="bg-gradient-to-b from-emerald-50/60 via-white to-sky-50/50 py-24"><div className="mx-auto max-w-7xl px-4 sm:px-8">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <span className="mb-3 inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">میدان انتخاب شما</span><h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.leaguesTitle')}</h2>
+          <span className="mb-3 inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">{i18n.language === 'en' ? 'Your competition field' : 'میدان انتخاب شما'}</span><h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.leaguesTitle')}</h2>
           <p className="mt-1 text-rc-muted">{t('home.leaguesSubtitle')}</p>
         </div>
         <Link to="/leagues" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-md">
@@ -62,7 +63,8 @@ export function LeagueCards({ leagues }: { leagues: League[] }) {
       </div>
 
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {leagues.map((league, i) => {
+        {leagues.map((rawLeague, i) => {
+          const league = localizeLeague(rawLeague, contentLocale(i18n.language))
           const accent = leagueAccent(league.category)
           const period = computeLeaguePeriod(league)
           const cover = leagueCoverUrl(league)
@@ -103,7 +105,7 @@ export function LeagueCards({ leagues }: { leagues: League[] }) {
                   </span>
                 </div>
                 <div className="p-6">
-                  <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-rc-blue">{league.category || 'لیگ رباتیک'}</p><span className="text-xs text-slate-400">{league.slug}</span></div>
+                  <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-rc-blue">{league.category || (i18n.language === 'en' ? 'Competition league' : 'لیگ مسابقاتی')}</p><span className="text-xs text-slate-400">{league.slug}</span></div>
                   <h3 className="mt-3 text-xl font-black text-slate-800">{league.name}</h3>
                   {league.short_description || league.description ? (
                     <p className="mt-2 line-clamp-2 text-sm text-rc-muted">

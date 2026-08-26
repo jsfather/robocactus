@@ -8,6 +8,7 @@ type OtpRequestResult =
 
 type OtpVerifyResult =
   | { ok: true; token_hash: string; email: string }
+  | { ok: true; profile_verified: true }
   | { ok: false; error: string }
 
 async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -29,12 +30,14 @@ async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string,
   return json
 }
 
-export async function requestSmsOtp(phoneRaw: string): Promise<OtpRequestResult> {
+export type OtpPurpose = 'login' | 'signup' | 'profile'
+
+export async function requestSmsOtp(phoneRaw: string, purpose: OtpPurpose = 'login'): Promise<OtpRequestResult> {
   if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(phoneRaw)
   if (!phone) return { ok: false, error: 'invalid_phone' }
 
-  const json = await callSmsOtp({ action: 'request', phone })
+  const json = await callSmsOtp({ action: 'request', phone, purpose })
   if (json.error) {
     return {
       ok: false,
@@ -53,6 +56,7 @@ export async function verifySmsOtp(input: {
   phone: string
   code: string
   fullName?: string
+  purpose?: OtpPurpose
 }): Promise<OtpVerifyResult> {
   if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(input.phone)
@@ -63,8 +67,10 @@ export async function verifySmsOtp(input: {
     phone,
     code: input.code,
     full_name: input.fullName ?? '',
+    purpose: input.purpose ?? 'login',
   })
 
+  if (json.profile_verified === true) return { ok: true, profile_verified: true }
   if (json.error || !json.token_hash) {
     return { ok: false, error: String(json.error ?? 'verify_failed') }
   }

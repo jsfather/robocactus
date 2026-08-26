@@ -127,7 +127,7 @@ export function SuperAdminAnalyticsPage() {
     setError(null)
     try {
       const rows = await fetchAnalyticsExportRows()
-      downloadCsv(`robocactus-teams-${Date.now()}.csv`, rows)
+      downloadCsv(`tabarestan-cup-teams-${Date.now()}.csv`, rows)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {

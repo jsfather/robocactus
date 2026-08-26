@@ -66,7 +66,9 @@ export function TeamRegistrationWizard({
   const [idFiles, setIdFiles] = useState<Record<number, File | null>>({})
 
   useEffect(() => {
-    void fetchActiveLeagues().then(setLeagues).catch((err: Error) => setError(err.message))
+    void fetchActiveLeagues()
+      .then((rows) => setLeagues(rows.filter((league) => (league.registration_cycle_status ?? 'open') === 'open')))
+      .catch((err: Error) => setError(err.message))
   }, [])
 
   useEffect(() => {
@@ -112,11 +114,15 @@ export function TeamRegistrationWizard({
     if (draft.teamId) {
       await updateDraftTeam(draft.teamId, {
         name: draft.name.trim(),
+        name_en: draft.nameEn.trim() || null,
+        motto_fa: draft.mottoFa.trim() || null,
+        motto_en: draft.mottoEn.trim() || null,
         province: draft.province.trim(),
         city: draft.city.trim(),
         league_id: draft.leagueId,
         captain_id: captainId,
         member_count: memberCount,
+        season_year: selectedLeague?.current_season_year ?? new Date().getFullYear(),
       })
       if (!alreadyRegistered) {
         await createCaptainInvite({
@@ -134,10 +140,14 @@ export function TeamRegistrationWizard({
       companyId,
       leagueId: draft.leagueId,
       name: draft.name.trim(),
+      nameEn: draft.nameEn.trim(),
+      mottoFa: draft.mottoFa.trim(),
+      mottoEn: draft.mottoEn.trim(),
       province: draft.province.trim(),
       city: draft.city.trim(),
       captainId,
       memberCount,
+      seasonYear: selectedLeague?.current_season_year ?? new Date().getFullYear(),
     })
 
     if (!alreadyRegistered) {
@@ -186,18 +196,35 @@ export function TeamRegistrationWizard({
     setBusy(true)
     try {
       if (step === 0) {
-        if (!draft.name.trim() || !draft.leagueId || !draft.captainPhone.trim()) {
+        if (!draft.name.trim() || !draft.nameEn.trim() || !draft.leagueId || !draft.captainPhone.trim()) {
           throw new Error(t('auth.required'))
         }
         await ensureTeamRecord()
       }
       if (step === 1) {
+        const participantCount = draft.members.filter((member) => (member.first_name || member.last_name || member.full_name).trim()).length
+        if (selectedLeague?.team_size_min != null && participantCount < selectedLeague.team_size_min) {
+          throw new Error(`حداقل تعداد سرپرست و اعضای تیم ${selectedLeague.team_size_min} نفر است.`)
+        }
+        if (selectedLeague?.team_size_max != null && participantCount > selectedLeague.team_size_max) {
+          throw new Error(`حداکثر تعداد سرپرست و اعضای تیم ${selectedLeague.team_size_max} نفر است.`)
+        }
         const incomplete = draft.members.some(
           (m) =>
             (m.first_name || m.last_name || m.full_name).trim() &&
-            (!m.first_name.trim() || !m.last_name.trim() || !m.birth_date || !m.role),
+            (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.birth_date || !m.national_id.trim() || !m.role),
         )
         if (incomplete) throw new Error(t('auth.required'))
+        const invalidAge = draft.members.some((member) => {
+          const age = ageFromBirthDate(member.birth_date)
+          if (age == null) return true
+          if (selectedLeague?.min_age != null && age < selectedLeague.min_age) return true
+          if (selectedLeague?.max_age != null && age > selectedLeague.max_age) return true
+          return false
+        })
+        if (invalidAge) throw new Error('سن یک یا چند عضو با محدودیت سنی لیگ سازگار نیست.')
+        const missingCards = draft.members.some((member, index) => !member.national_id_doc_path && !idFiles[index])
+        if (missingCards) throw new Error('آپلود کارت ملی سرپرست و تمام اعضای تیم الزامی است.')
         const teamId = await ensureTeamRecord()
         await saveMembersWithIdCards(teamId)
       }
@@ -311,11 +338,14 @@ export function TeamRegistrationWizard({
       {step === 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           <Input
-            label={t('team.name')}
+            label="نام فارسی تیم"
             required
             value={draft.name}
             onChange={(e) => patchDraft({ name: e.target.value })}
           />
+          <Input label="نام انگلیسی تیم" required value={draft.nameEn} onChange={(e) => patchDraft({ nameEn: e.target.value })} dir="ltr" />
+          <Input label="شعار فارسی تیم" value={draft.mottoFa} onChange={(e) => patchDraft({ mottoFa: e.target.value })} />
+          <Input label="شعار انگلیسی تیم" value={draft.mottoEn} onChange={(e) => patchDraft({ mottoEn: e.target.value })} dir="ltr" />
           <Select
             label={t('team.league')}
             required
@@ -368,17 +398,19 @@ export function TeamRegistrationWizard({
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <Input
-                    label={t('team.memberFirstName')}
+                    label="نام فارسی"
                     required
                     value={member.first_name}
                     onChange={(e) => patchMember(index, { first_name: e.target.value })}
                   />
                   <Input
-                    label={t('team.memberLastName')}
+                    label="نام خانوادگی فارسی"
                     required
                     value={member.last_name}
                     onChange={(e) => patchMember(index, { last_name: e.target.value })}
                   />
+                  <Input label="نام انگلیسی" required value={member.first_name_en} onChange={(e) => patchMember(index, { first_name_en: e.target.value })} dir="ltr" />
+                  <Input label="نام خانوادگی انگلیسی" required value={member.last_name_en} onChange={(e) => patchMember(index, { last_name_en: e.target.value })} dir="ltr" />
                   <Select
                     label={t('team.memberRole')}
                     value={member.role === 'captain' ? 'captain' : 'member'}
@@ -413,6 +445,11 @@ export function TeamRegistrationWizard({
                     readOnly
                     dir="ltr"
                   />
+                  {(selectedLeague?.min_age != null || selectedLeague?.max_age != null) ? (
+                    <p className="self-end rounded-xl border border-rc-blue/20 bg-rc-blue/5 px-3 py-2 text-xs text-rc-muted">
+                      بازه مجاز این لیگ: {selectedLeague.min_age ?? '—'} تا {selectedLeague.max_age ?? '—'} سال
+                    </p>
+                  ) : null}
                   <Input
                     label={t('team.memberEducation')}
                     value={member.education}
@@ -512,7 +549,7 @@ export function TeamRegistrationWizard({
           </div>
           <p>
             <span className="text-rc-muted">{t('team.name')}: </span>
-            {draft.name}
+            {draft.name} / {draft.nameEn}
           </p>
           <p>
             <span className="text-rc-muted">{t('team.league')}: </span>
@@ -532,6 +569,15 @@ export function TeamRegistrationWizard({
             <span className="text-rc-muted">{t('team.docsCount')}: </span>
             {docs.length}
           </p>
+          <div className="rounded-xl border border-rc-blue/20 bg-rc-blue/5 p-4">
+            <p className="font-bold">برآورد هزینه ثبت‌نام</p>
+            <div className="mt-2 grid gap-1 text-xs text-rc-muted">
+              <span>ورودی لیگ: {Number(selectedLeague?.registration_fee ?? 0).toLocaleString('fa-IR')} ریال</span>
+              <span>هزینه سرپرست: {Number(selectedLeague?.captain_fee ?? 0).toLocaleString('fa-IR')} ریال</span>
+              <span>اعضا: {Math.max(0, draft.members.length - 1)} × {Number(selectedLeague?.member_fee ?? 0).toLocaleString('fa-IR')} ریال</span>
+              <strong className="mt-2 text-sm text-rc-text">مبلغ نهایی: {(Number(selectedLeague?.registration_fee ?? 0) + Number(selectedLeague?.captain_fee ?? 0) + Math.max(0, draft.members.length - 1) * Number(selectedLeague?.member_fee ?? 0)).toLocaleString('fa-IR')} ریال</strong>
+            </div>
+          </div>
           <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-100">
             {t('team.paymentLater')}
           </p>

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import type { CookieOptions, Request, Response, Router } from 'express'
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import { and, eq, gt, isNull, or, sql } from 'drizzle-orm'
 import { oneTimeTokens, sessions, users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, hashToken, type AuthUser, userFromRequest } from './db.js'
@@ -78,6 +78,59 @@ async function findUserByEmail(email: string) {
   return (await db.select().from(users).where(eq(users.email, email)).limit(1))[0] ?? null
 }
 
+export type AuthSettings = {
+  otp_login_enabled: boolean
+  password_login_enabled: boolean
+  email_magic_login_enabled: boolean
+  email_signup_enabled: boolean
+  phone_signup_enabled: boolean
+  online_payment_enabled: boolean
+  card_to_card_enabled: boolean
+  bank_card_number: string | null
+  bank_iban: string | null
+  bank_account_owner: string | null
+  email_provider?: string
+  email_from?: string | null
+  email_api_key?: string | null
+}
+
+const defaultAuthSettings: AuthSettings = {
+  otp_login_enabled: true,
+  password_login_enabled: true,
+  email_magic_login_enabled: true,
+  email_signup_enabled: true,
+  phone_signup_enabled: true,
+  online_payment_enabled: true,
+  card_to_card_enabled: false,
+  bank_card_number: null,
+  bank_iban: null,
+  bank_account_owner: null,
+}
+
+export async function getAuthSettings(includeSecrets = false): Promise<AuthSettings> {
+  const result = await db.execute(sql.raw(`select * from public.auth_settings where id = 1 limit 1`))
+    .catch(() => ({ rows: [] as Record<string, unknown>[] }))
+  const row = result.rows[0] as Partial<AuthSettings> | undefined
+  const settings = { ...defaultAuthSettings, ...(row ?? {}) }
+  if (!includeSecrets) {
+    delete settings.email_api_key
+    delete settings.email_provider
+    delete settings.email_from
+  }
+  return settings
+}
+
+async function findUserByIdentifier(identifier: string) {
+  const normalized = identifier.trim().toLowerCase()
+  const phone = normalized.replace(/\D/g, '')
+  const normalizedPhone = phone.length === 12 && phone.startsWith('98') ? `0${phone.slice(2)}` : phone
+  return (await db.select().from(users).where(or(
+    eq(users.email, normalized),
+    eq(users.username, normalized),
+    eq(users.phone, normalizedPhone),
+  )).limit(1))[0] ?? null
+}
+
 async function createOneTimeToken(userId: string, kind: string, redirectTo?: string | null) {
   const token = randomBytes(32).toString('base64url')
   await db.insert(oneTimeTokens).values({
@@ -92,7 +145,8 @@ async function createOneTimeToken(userId: string, kind: string, redirectTo?: str
 }
 
 async function sendMagicLink(email: string, link: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY
+  const emailSettings = await getAuthSettings(true)
+  const apiKey = emailSettings.email_api_key || process.env.RESEND_API_KEY
   if (config.emailMock || !apiKey) {
     console.log(`[email:mock] magic link for ${email}: ${link}`)
     return
@@ -101,9 +155,9 @@ async function sendMagicLink(email: string, link: string): Promise<void> {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? 'RoboCup Tabarestan <onboarding@resend.dev>',
+      from: emailSettings.email_from || process.env.EMAIL_FROM || 'Tabarestan Cup <onboarding@resend.dev>',
       to: [email],
-      subject: 'Sign in to RoboCup Tabarestan',
+      subject: 'Sign in to Tabarestan Cup',
       text: `Open this secure link to continue: ${link}`,
     }),
   })
@@ -111,19 +165,28 @@ async function sendMagicLink(email: string, link: string): Promise<void> {
 }
 
 export function registerAuthRoutes(router: Router): void {
+  router.get('/auth/options', async (_request, response) => {
+    response.json({ options: await getAuthSettings(false) })
+  })
+
   router.get('/auth/session', async (request, response) => {
     const user = await userFromRequest(request)
     response.json({ session: user ? { access_token: 'http-only-cookie', user } : null, user })
   })
 
   router.post('/auth/sign-in', async (request, response) => {
+    const settings = await getAuthSettings()
+    if (!settings.password_login_enabled) {
+      response.status(403).json({ error: 'password_login_disabled' })
+      return
+    }
     if (rateLimited(`sign-in:${request.ip}`, 15, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
     }
-    const email = String(request.body?.email ?? '').trim().toLowerCase()
+    const identifier = String(request.body?.identifier ?? request.body?.email ?? '').trim().toLowerCase()
     const password = String(request.body?.password ?? '')
-    const user = await findUserByEmail(email)
+    const user = await findUserByIdentifier(identifier)
     if (!user || !(await verifyPassword(password, user.encryptedPassword))) {
       response.status(400).json({ error: 'invalid_credentials' })
       return
@@ -136,6 +199,11 @@ export function registerAuthRoutes(router: Router): void {
   })
 
   router.post('/auth/sign-up', async (request, response) => {
+    const settings = await getAuthSettings()
+    if (!settings.email_signup_enabled) {
+      response.status(403).json({ error: 'email_signup_disabled' })
+      return
+    }
     if (rateLimited(`sign-up:${request.ip}`, 10, 60 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
@@ -143,8 +211,10 @@ export function registerAuthRoutes(router: Router): void {
     const email = String(request.body?.email ?? '').trim().toLowerCase()
     const password = String(request.body?.password ?? '')
     const requestedMetadata = (request.body?.metadata ?? {}) as Record<string, unknown>
+    const username = String(requestedMetadata.username ?? '').trim().toLowerCase() || null
     const metadata = {
       full_name: String(requestedMetadata.full_name ?? '').trim() || 'کاربر جدید',
+      username,
       phone: String(requestedMetadata.phone ?? '').trim(),
       auth_channel: requestedMetadata.auth_channel === 'phone' ? 'phone' : 'email',
       email,
@@ -157,11 +227,16 @@ export function registerAuthRoutes(router: Router): void {
       response.status(409).json({ error: 'user_already_exists' })
       return
     }
+    if (username && await findUserByIdentifier(username)) {
+      response.status(409).json({ error: 'username_already_exists' })
+      return
+    }
     const inserted = await db
       .insert(users)
       .values({
         id: randomUUID(),
         email,
+        username,
         phone: metadata.phone ? String(metadata.phone) : null,
         encryptedPassword: await hashPassword(password),
         rawUserMetaData: metadata,
@@ -182,6 +257,11 @@ export function registerAuthRoutes(router: Router): void {
   })
 
   router.post('/auth/magic-link', async (request, response) => {
+    const settings = await getAuthSettings()
+    if (!settings.email_magic_login_enabled) {
+      response.status(403).json({ error: 'email_magic_login_disabled' })
+      return
+    }
     const email = String(request.body?.email ?? '').trim().toLowerCase()
     if (rateLimited(`magic-link:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })

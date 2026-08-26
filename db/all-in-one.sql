@@ -142,7 +142,7 @@ grant usage on schema public, auth, storage to anon, authenticated, service_role
 grant select, insert, update, delete on storage.buckets, storage.objects to anon, authenticated, service_role;
 
 -- ===== 0001_init.sql =====
--- RoboCup Tabarestan Phase 0: initial schema, RLS, profile trigger
+-- Tabarestan Cup Phase 0: initial schema, RLS, profile trigger
 
 -- ============ ENUM TYPES ============
 create type user_role as enum (
@@ -2754,7 +2754,7 @@ create policy "contact_messages_select_admin"
 insert into home_banners (title, subtitle, image_url, link_url, sort_order, is_active)
 select * from (values
   (
-    'روبوکاپ تبرستان',
+    'جام تبرستان',
     'رقابت رباتیک، یک پلتفرم',
     'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1600&q=80',
     '/leagues',
@@ -3172,7 +3172,7 @@ alter table leagues
 update leagues
 set
   name = case slug
-    when 'rescue' then 'لیگ امدادگر پیشرفته RoboCup 2027'
+    when 'rescue' then 'لیگ امدادگر پیشرفته جام تبرستان 2027'
     when 'soccer' then 'لیگ فوتبال رباتیک'
     when 'humanoid' then 'لیگ ربات انسان‌نما'
     else name
@@ -3214,7 +3214,7 @@ set
   participation_mode = coalesce(participation_mode, 'team'),
   team_size_min = coalesce(team_size_min, 2),
   team_size_max = coalesce(team_size_max, 5),
-  venue_name = coalesce(venue_name, 'سالن اصلی روبوکاپ تبرستان'),
+  venue_name = coalesce(venue_name, 'سالن اصلی جام تبرستان'),
   venue_address = coalesce(venue_address, 'تهران، مرکز همایش‌های بین‌المللی'),
   difficulty_level = coalesce(difficulty_level, case slug when 'rescue' then 'پیشرفته' when 'soccer' then 'متوسط' else 'پیشرفته' end),
   competition_language = coalesce(competition_language, 'فارسی / English'),
@@ -3223,8 +3223,8 @@ set
   refund_policy = coalesce(nullif(refund_policy, ''), 'تا ۷ روز قبل از مسابقه امکان استرداد ۵۰٪ وجود دارد؛ پس از آن غیرقابل استرداد است.'),
   secretary_name = coalesce(secretary_name, 'دبیر لیگ'),
   secretary_phone = coalesce(secretary_phone, '02191000000'),
-  contact_email = coalesce(contact_email, 'league@robocactus.ir'),
-  secretary_telegram = coalesce(secretary_telegram, 'https://t.me/robocactus'),
+  contact_email = coalesce(contact_email, 'league@tabarestancup.ir'),
+  secretary_telegram = coalesce(secretary_telegram, 'https://t.me/tabarestancup'),
   registration_open_at = coalesce(registration_open_at, now() - interval '7 days'),
   registration_close_at = coalesce(registration_close_at, now() + interval '45 days'),
   event_starts_at = coalesce(event_starts_at, now() + interval '60 days'),
@@ -3288,7 +3288,7 @@ select l.id, x.full_name, x.photo_url, x.specialty, x.bio, x.role_kind, x.sort_o
 from leagues l
 cross join (values
   ('دکتر سارا احمدی', 'https://i.pravatar.cc/150?u=judge1', 'رباتیک سیار', 'داور بین‌المللی لیگ امداد', 'judge', 1),
-  ('مهندس رضا کرمی', 'https://i.pravatar.cc/150?u=judge2', 'بینایی ماشین', '۱۴ سال تجربه داوری RoboCup', 'judge', 2),
+  ('مهندس رضا کرمی', 'https://i.pravatar.cc/150?u=judge2', 'بینایی ماشین', '۱۴ سال تجربه داوری مسابقات ملی', 'judge', 2),
   ('مهندس نازنین مرادی', 'https://i.pravatar.cc/150?u=committee1', 'کمیته فنی', 'مسئول استاندارد زمین و تجهیزات', 'committee', 1),
   ('علی جعفری', 'https://i.pravatar.cc/150?u=committee2', 'هماهنگی فنی', 'پشتیبانی تیم‌ها در روز مسابقه', 'committee', 2)
 ) as x(full_name, photo_url, specialty, bio, role_kind, sort_order)
@@ -3300,7 +3300,7 @@ select l.id, x.name, x.logo_url, x.website_url, x.sort_order
 from leagues l
 cross join (values
   ('TechNova', 'https://placehold.co/160x48/png?text=TechNova', 'https://example.com', 1),
-  ('RoboParts', 'https://placehold.co/160x48/png?text=RoboParts', 'https://example.com', 2),
+  ('TechParts', 'https://placehold.co/160x48/png?text=TechParts', 'https://example.com', 2),
   ('IranAI', 'https://placehold.co/160x48/png?text=IranAI', 'https://example.com', 3)
 ) as x(name, logo_url, website_url, sort_order)
 where l.slug = 'rescue'
@@ -3456,8 +3456,8 @@ alter table static_pages
 
 create table if not exists site_settings (
   id int primary key default 1 check (id = 1),
-  site_name_fa text not null default 'روبوکاپ تبرستان',
-  site_name_en text not null default 'RoboCup Tabarestan',
+  site_name_fa text not null default 'جام تبرستان',
+  site_name_en text not null default 'Tabarestan Cup',
   tagline_fa text default 'پلتفرم مسابقات رباتیک',
   tagline_en text default 'Robotics competition platform',
   logo_url text,
@@ -4591,9 +4591,9 @@ $$;
 
 alter table site_settings
   add column if not exists copyright_fa text
-    default '© روبوککتوس — تمامی حقوق محفوظ است.',
+    default '© جام تبرستان — تمامی حقوق محفوظ است.',
   add column if not exists copyright_en text
-    default '© RoboCup Tabarestan — All rights reserved.',
+    default '© Tabarestan Cup — All rights reserved.',
   add column if not exists contact_email text,
   add column if not exists contact_address_fa text,
   add column if not exists contact_address_en text,
@@ -5370,22 +5370,22 @@ select * from (values
 where not exists (select 1 from gallery_categories limit 1);
 
 -- ===== 0032_tabarestan_rebrand.sql =====
--- Rebrand existing installations to RoboCup Tabarestan.
+-- Rebrand existing installations to Tabarestan Cup.
 update public.site_settings
-set site_name_fa = 'روبوکاپ تبرستان', site_name_en = 'RoboCup Tabarestan',
+set site_name_fa = 'جام تبرستان', site_name_en = 'Tabarestan Cup',
     tagline_fa = coalesce(nullif(tagline_fa, ''), 'از قلب مازندران، رو به آینده'),
     tagline_en = coalesce(nullif(tagline_en, ''), 'From Mazandaran to the future'),
     color_primary = '#2498d8', color_accent = '#25d366', updated_at = now()
 where id = 1;
 
 update public.static_pages
-set body = replace(replace(body, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan')
+set body = replace(replace(body, 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup')
 where body like '%روبوکاکتوس%' or body like '%RoboCactus%';
 
 update public.blog_posts
-set title = replace(replace(title, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
-    excerpt = replace(replace(excerpt, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
-    body = replace(replace(body, 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan')
+set title = replace(replace(title, 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup'),
+    excerpt = replace(replace(excerpt, 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup'),
+    body = replace(replace(body, 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup')
 where title like '%روبوکاکتوس%' or title like '%RoboCactus%'
    or excerpt like '%روبوکاکتوس%' or excerpt like '%RoboCactus%'
    or body like '%روبوکاکتوس%' or body like '%RoboCactus%';
@@ -5393,22 +5393,22 @@ where title like '%روبوکاکتوس%' or title like '%RoboCactus%'
 -- ===== 0033_competition_brand_positioning.sql =====
 -- Align existing CMS content with the competition organizer positioning.
 update public.site_settings
-set site_name_fa = 'روبوکاپ تبرستان',
-    site_name_en = 'RoboCup Tabarestan',
+set site_name_fa = 'جام تبرستان',
+    site_name_en = 'Tabarestan Cup',
     tagline_fa = 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک',
     tagline_en = 'Organizer of national and international robotics competitions',
-    footer_fa = replace(replace(replace(coalesce(footer_fa, ''), 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
-    footer_en = replace(coalesce(footer_en, ''), 'RoboCactus', 'RoboCup Tabarestan'),
+    footer_fa = replace(replace(replace(coalesce(footer_fa, ''), 'روبو کاکتوس', 'جام تبرستان'), 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup'),
+    footer_en = replace(coalesce(footer_en, ''), 'RoboCactus', 'Tabarestan Cup'),
     updated_at = now()
 where id = 1;
 
 update public.home_banners
-set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
-    subtitle = case when sort_order = 0 then 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک' else replace(replace(replace(subtitle, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan') end;
+set title = replace(replace(replace(title, 'روبو کاکتوس', 'جام تبرستان'), 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup'),
+    subtitle = case when sort_order = 0 then 'برگزارکننده مسابقات ملی و بین‌المللی رباتیک' else replace(replace(replace(subtitle, 'روبو کاکتوس', 'جام تبرستان'), 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup') end;
 
 update public.static_pages
-set title = replace(replace(replace(title, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan'),
-    body = replace(replace(replace(body, 'روبو کاکتوس', 'روبوکاپ تبرستان'), 'روبوکاکتوس', 'روبوکاپ تبرستان'), 'RoboCactus', 'RoboCup Tabarestan');
+set title = replace(replace(replace(title, 'روبو کاکتوس', 'جام تبرستان'), 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup'),
+    body = replace(replace(replace(body, 'روبو کاکتوس', 'جام تبرستان'), 'روبوکاکتوس', 'جام تبرستان'), 'RoboCactus', 'Tabarestan Cup');
 
 -- ===== 0034_replace_competition_leagues.sql =====
 -- Replace the legacy league catalog with the approved national competition list.
@@ -5470,14 +5470,14 @@ insert into public.leagues (
   rules_summary, scoring_rows, timeline_steps, is_active, period_override
 )
 values
-('لیگ ناجی داخل سالن زیر ۱۴ سال','indoor-rescue-u14','رقابت ربات‌های امدادگر خودران در زمین ماز و سناریوهای جست‌وجو و نجات داخل سالن.','مسیریابی، تشخیص مصدوم و اجرای عملیات نجات برای تیم‌های زیر ۱۴ سال.','تیم‌ها باید رباتی خودران طراحی کنند که در یک زمین استاندارد داخل سالن، مسیر را پیمایش کرده، علائم مصدوم را تشخیص دهد و مأموریت نجات را با بیشترین دقت انجام دهد.','امداد و نجات','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/indoor-rescue-cover.png','/images/leagues/indoor-rescue-hero.png','سالن مسابقات روبوکاپ تبرستان','مقدماتی تا متوسط','فارسی', 'ابعاد زمین ۴×۴ متر و کنترل داوری مطابق آیین‌نامه رسمی لیگ است.','[{"label":"تکمیل مأموریت","points":60},{"label":"دقت تشخیص","points":25},{"label":"زمان اجرا","points":15}]','[{"title":"پذیرش فنی"},{"title":"مرحله مقدماتی"},{"title":"مرحله نهایی"}]',true,'open'),
-('لیگ ناجی فضای باز آزاد','outdoor-rescue-open','رقابت ربات‌های امدادگر مقاوم برای عبور از موانع و سناریوهای عملیات در فضای باز.','عملیات امداد و نجات رباتیک در زمین ۵۰ متری فضای باز.','این لیگ توان حرکتی، پایداری، کنترل و سامانه دید ربات‌های امدادگر را در محیط‌های ناهموار و مأموریت‌های نزدیک به شرایط واقعی ارزیابی می‌کند.','امداد و نجات','آزاد',100,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/outdoor-rescue-cover.png','/images/leagues/outdoor-rescue-hero.png','محوطه مسابقات روبوکاپ تبرستان','پیشرفته','فارسی / انگلیسی','زمین مسابقه فضای باز با مسیر ناهموار و طول تقریبی ۵۰ متر است.','[{"label":"عبور از موانع","points":40},{"label":"تکمیل مأموریت","points":40},{"label":"زمان اجرا","points":20}]','[{"title":"بازرسی ایمنی"},{"title":"تست مسیر"},{"title":"فینال عملیات"}]',true,'open'),
-('لیگ Space Race آزاد','space-race-open','مسابقه سرعت و هدایت ربات‌های خودران در پیست فضایی و مسیرهای فنی.','رقابت سرعت رباتیک در پیست استاندارد ۲۰۰ متری.','ربات‌های خودران در پیستی با الهام از مأموریت‌های فضایی، بر اساس سرعت، دقت مسیریابی و پایداری فنی رقابت می‌کنند.','Space Race','آزاد',250,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/space-race-cover.png','/images/leagues/space-race-hero.png','پیست مسابقات روبوکاپ تبرستان','پیشرفته','فارسی / انگلیسی','پیست مسابقه حدود ۲۰۰ متر و کنترل ربات در بخش اصلی خودران است.','[{"label":"بهترین زمان","points":60},{"label":"دقت مسیر","points":25},{"label":"پایداری فنی","points":15}]','[{"title":"تأیید فنی"},{"title":"تایم‌تریال"},{"title":"مسابقه نهایی"}]',true,'open'),
-('لیگ آتش‌نشان آزاد','firefighter-open','رقابت شناسایی و مهار حریق توسط ربات‌های آتش‌نشان در زمین چندطبقه.','شناسایی منبع حریق و اجرای عملیات اطفا در زمین استاندارد.','ربات‌ها باید در زمینی چندبخشی حرکت کنند، منبع حریق را تشخیص دهند و با رعایت کامل الزامات ایمنی عملیات اطفا را انجام دهند.','آتش‌نشان','آزاد',50,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,5,'/images/leagues/firefighter-cover.png','/images/leagues/firefighter-hero.png','سالن مسابقات روبوکاپ تبرستان','پیشرفته','فارسی','زمین سه‌طبقه با سازه MDF و ورق، مطابق آیین‌نامه ایمنی مسابقه آماده می‌شود.','[{"label":"تشخیص حریق","points":30},{"label":"اطفای موفق","points":50},{"label":"زمان اجرا","points":20}]','[{"title":"کنترل ایمنی"},{"title":"مقدماتی"},{"title":"فینال اطفا"}]',true,'open'),
-('لیگ ربات‌های صنعتی دانش‌آموزی زیر ۱۹ سال','industrial-student-u19','چالش طراحی و برنامه‌ریزی ربات صنعتی برای اجرای مأموریت‌های تولید هوشمند.','رقابت صنعتی ویژه دانش‌آموزان زیر ۱۹ سال.','تیم‌ها در یک سلول تولید کوچک، مأموریت‌هایی مانند جابه‌جایی، دسته‌بندی و مونتاژ قطعات را با ربات صنعتی اجرا می‌کنند.','ربات صنعتی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/industrial-student-cover.png','/images/leagues/industrial-student-hero.png','سالن فناوری روبوکاپ تبرستان','متوسط','فارسی','کنسول داوری، میز ربات صنعتی و فضای استاندارد ۱۶ مترمربع برای هر تیم در نظر گرفته می‌شود.','[{"label":"دقت عملیات","points":45},{"label":"زمان چرخه","points":30},{"label":"ایمنی و طراحی","points":25}]','[{"title":"ارائه طراحی"},{"title":"آزمون عملکرد"},{"title":"مرحله نهایی"}]',true,'open'),
-('لیگ ربات‌های صنعتی دانشگاهی آزاد','industrial-university-open','رقابت پیشرفته اتوماسیون، بازوی رباتیک و ربات‌های متحرک صنعتی.','چالش صنعتی آزاد برای تیم‌های دانشگاهی.','تیم‌های دانشگاهی راهکار کامل اتوماسیون شامل ادراک، برنامه‌ریزی حرکت و اجرای دقیق مأموریت‌های صنعتی را ارائه می‌کنند.','ربات صنعتی','آزاد',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/industrial-university-cover.png','/images/leagues/industrial-university-hero.png','سالن فناوری روبوکاپ تبرستان','حرفه‌ای','فارسی / انگلیسی','فضای ۱۶ مترمربع، میز ربات صنعتی و کنسول داوری مستقل برای هر تیم فراهم می‌شود.','[{"label":"کیفیت اتوماسیون","points":45},{"label":"دقت و تکرارپذیری","points":35},{"label":"نوآوری","points":20}]','[{"title":"ارزیابی طرح"},{"title":"دموی صنعتی"},{"title":"فینال تخصصی"}]',true,'open'),
-('لیگ ربات‌های ورزشی زیر ۱۴ سال','sports-robots-u14','رقابت تیمی ربات‌های ورزشی در زمین استاندارد ویژه رده زیر ۱۴ سال.','فوتبال رباتیک و رقابت تیمی برای استعدادهای زیر ۱۴ سال.','سه ربات هر تیم در زمین مسابقه با تمرکز بر همکاری تیمی، کنترل دقیق و استراتژی بازی با یکدیگر رقابت می‌کنند.','ربات ورزشی','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u14-cover.png','/images/leagues/sports-u14-hero.png','سالن ورزشی روبوکاپ تبرستان','مقدماتی تا متوسط','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"بازی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"تست ربات‌ها"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open'),
-('لیگ ربات‌های ورزشی زیر ۱۹ سال','sports-robots-u19','رقابت حرفه‌ای ربات‌های ورزشی برای تیم‌های زیر ۱۹ سال.','فوتبال رباتیک سریع و تاکتیکی در رده زیر ۱۹ سال.','تیم‌ها با سه ربات و راهبردهای کنترلی پیشرفته در زمین استاندارد برای کسب عنوان قهرمانی رقابت می‌کنند.','ربات ورزشی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u19-cover.png','/images/leagues/sports-u19-hero.png','سالن ورزشی روبوکاپ تبرستان','پیشرفته','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"استراتژی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"بازرسی فنی"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open');
+('لیگ ناجی داخل سالن زیر ۱۴ سال','indoor-rescue-u14','رقابت ربات‌های امدادگر خودران در زمین ماز و سناریوهای جست‌وجو و نجات داخل سالن.','مسیریابی، تشخیص مصدوم و اجرای عملیات نجات برای تیم‌های زیر ۱۴ سال.','تیم‌ها باید رباتی خودران طراحی کنند که در یک زمین استاندارد داخل سالن، مسیر را پیمایش کرده، علائم مصدوم را تشخیص دهد و مأموریت نجات را با بیشترین دقت انجام دهد.','امداد و نجات','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/indoor-rescue-cover.png','/images/leagues/indoor-rescue-hero.png','سالن مسابقات جام تبرستان','مقدماتی تا متوسط','فارسی', 'ابعاد زمین ۴×۴ متر و کنترل داوری مطابق آیین‌نامه رسمی لیگ است.','[{"label":"تکمیل مأموریت","points":60},{"label":"دقت تشخیص","points":25},{"label":"زمان اجرا","points":15}]','[{"title":"پذیرش فنی"},{"title":"مرحله مقدماتی"},{"title":"مرحله نهایی"}]',true,'open'),
+('لیگ ناجی فضای باز آزاد','outdoor-rescue-open','رقابت ربات‌های امدادگر مقاوم برای عبور از موانع و سناریوهای عملیات در فضای باز.','عملیات امداد و نجات رباتیک در زمین ۵۰ متری فضای باز.','این لیگ توان حرکتی، پایداری، کنترل و سامانه دید ربات‌های امدادگر را در محیط‌های ناهموار و مأموریت‌های نزدیک به شرایط واقعی ارزیابی می‌کند.','امداد و نجات','آزاد',100,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/outdoor-rescue-cover.png','/images/leagues/outdoor-rescue-hero.png','محوطه مسابقات جام تبرستان','پیشرفته','فارسی / انگلیسی','زمین مسابقه فضای باز با مسیر ناهموار و طول تقریبی ۵۰ متر است.','[{"label":"عبور از موانع","points":40},{"label":"تکمیل مأموریت","points":40},{"label":"زمان اجرا","points":20}]','[{"title":"بازرسی ایمنی"},{"title":"تست مسیر"},{"title":"فینال عملیات"}]',true,'open'),
+('لیگ Space Race آزاد','space-race-open','مسابقه سرعت و هدایت ربات‌های خودران در پیست فضایی و مسیرهای فنی.','رقابت سرعت رباتیک در پیست استاندارد ۲۰۰ متری.','ربات‌های خودران در پیستی با الهام از مأموریت‌های فضایی، بر اساس سرعت، دقت مسیریابی و پایداری فنی رقابت می‌کنند.','Space Race','آزاد',250,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,4,'/images/leagues/space-race-cover.png','/images/leagues/space-race-hero.png','پیست مسابقات جام تبرستان','پیشرفته','فارسی / انگلیسی','پیست مسابقه حدود ۲۰۰ متر و کنترل ربات در بخش اصلی خودران است.','[{"label":"بهترین زمان","points":60},{"label":"دقت مسیر","points":25},{"label":"پایداری فنی","points":15}]','[{"title":"تأیید فنی"},{"title":"تایم‌تریال"},{"title":"مسابقه نهایی"}]',true,'open'),
+('لیگ آتش‌نشان آزاد','firefighter-open','رقابت شناسایی و مهار حریق توسط ربات‌های آتش‌نشان در زمین چندطبقه.','شناسایی منبع حریق و اجرای عملیات اطفا در زمین استاندارد.','ربات‌ها باید در زمینی چندبخشی حرکت کنند، منبع حریق را تشخیص دهند و با رعایت کامل الزامات ایمنی عملیات اطفا را انجام دهند.','آتش‌نشان','آزاد',50,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,5,'/images/leagues/firefighter-cover.png','/images/leagues/firefighter-hero.png','سالن مسابقات جام تبرستان','پیشرفته','فارسی','زمین سه‌طبقه با سازه MDF و ورق، مطابق آیین‌نامه ایمنی مسابقه آماده می‌شود.','[{"label":"تشخیص حریق","points":30},{"label":"اطفای موفق","points":50},{"label":"زمان اجرا","points":20}]','[{"title":"کنترل ایمنی"},{"title":"مقدماتی"},{"title":"فینال اطفا"}]',true,'open'),
+('لیگ ربات‌های صنعتی دانش‌آموزی زیر ۱۹ سال','industrial-student-u19','چالش طراحی و برنامه‌ریزی ربات صنعتی برای اجرای مأموریت‌های تولید هوشمند.','رقابت صنعتی ویژه دانش‌آموزان زیر ۱۹ سال.','تیم‌ها در یک سلول تولید کوچک، مأموریت‌هایی مانند جابه‌جایی، دسته‌بندی و مونتاژ قطعات را با ربات صنعتی اجرا می‌کنند.','ربات صنعتی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',1,3,'/images/leagues/industrial-student-cover.png','/images/leagues/industrial-student-hero.png','سالن فناوری جام تبرستان','متوسط','فارسی','کنسول داوری، میز ربات صنعتی و فضای استاندارد ۱۶ مترمربع برای هر تیم در نظر گرفته می‌شود.','[{"label":"دقت عملیات","points":45},{"label":"زمان چرخه","points":30},{"label":"ایمنی و طراحی","points":25}]','[{"title":"ارائه طراحی"},{"title":"آزمون عملکرد"},{"title":"مرحله نهایی"}]',true,'open'),
+('لیگ ربات‌های صنعتی دانشگاهی آزاد','industrial-university-open','رقابت پیشرفته اتوماسیون، بازوی رباتیک و ربات‌های متحرک صنعتی.','چالش صنعتی آزاد برای تیم‌های دانشگاهی.','تیم‌های دانشگاهی راهکار کامل اتوماسیون شامل ادراک، برنامه‌ریزی حرکت و اجرای دقیق مأموریت‌های صنعتی را ارائه می‌کنند.','ربات صنعتی','آزاد',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/industrial-university-cover.png','/images/leagues/industrial-university-hero.png','سالن فناوری جام تبرستان','حرفه‌ای','فارسی / انگلیسی','فضای ۱۶ مترمربع، میز ربات صنعتی و کنسول داوری مستقل برای هر تیم فراهم می‌شود.','[{"label":"کیفیت اتوماسیون","points":45},{"label":"دقت و تکرارپذیری","points":35},{"label":"نوآوری","points":20}]','[{"title":"ارزیابی طرح"},{"title":"دموی صنعتی"},{"title":"فینال تخصصی"}]',true,'open'),
+('لیگ ربات‌های ورزشی زیر ۱۴ سال','sports-robots-u14','رقابت تیمی ربات‌های ورزشی در زمین استاندارد ویژه رده زیر ۱۴ سال.','فوتبال رباتیک و رقابت تیمی برای استعدادهای زیر ۱۴ سال.','سه ربات هر تیم در زمین مسابقه با تمرکز بر همکاری تیمی، کنترل دقیق و استراتژی بازی با یکدیگر رقابت می‌کنند.','ربات ورزشی','زیر ۱۴ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u14-cover.png','/images/leagues/sports-u14-hero.png','سالن ورزشی جام تبرستان','مقدماتی تا متوسط','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"بازی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"تست ربات‌ها"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open'),
+('لیگ ربات‌های ورزشی زیر ۱۹ سال','sports-robots-u19','رقابت حرفه‌ای ربات‌های ورزشی برای تیم‌های زیر ۱۹ سال.','فوتبال رباتیک سریع و تاکتیکی در رده زیر ۱۹ سال.','تیم‌ها با سه ربات و راهبردهای کنترلی پیشرفته در زمین استاندارد برای کسب عنوان قهرمانی رقابت می‌کنند.','ربات ورزشی','زیر ۱۹ سال',25,0,now(),now()+interval '120 days',now()+interval '150 days',now()+interval '151 days','team',2,3,'/images/leagues/sports-u19-cover.png','/images/leagues/sports-u19-hero.png','سالن ورزشی جام تبرستان','پیشرفته','فارسی','زمین MDF به ابعاد تقریبی ۱۶ مترمربع و کنسول داوری استاندارد استفاده می‌شود.','[{"label":"نتیجه مسابقه","points":60},{"label":"استراتژی تیمی","points":25},{"label":"کیفیت فنی","points":15}]','[{"title":"بازرسی فنی"},{"title":"مرحله گروهی"},{"title":"حذفی و فینال"}]',true,'open');
 
 -- ===== 0035_league_fees_people_event.sql =====
 -- Complete the active competition catalog with fees, event date, officials and contact details.
@@ -5496,10 +5496,10 @@ set registration_fee = case slug
     event_starts_at = timestamptz '2026-10-23 08:00:00+03:30', -- ۱ آبان ۱۴۰۵
     event_ends_at = timestamptz '2026-10-23 18:00:00+03:30',
     registration_close_at = timestamptz '2026-10-16 23:59:00+03:30',
-    secretary_name = 'کمیته برگزاری روبوکاپ تبرستان',
+    secretary_name = 'کمیته برگزاری جام تبرستان',
     secretary_phone = coalesce((select support_phone from public.site_settings where id = 1), secretary_phone),
-    contact_email = 'competitions@robocuptabarestan.ir',
-    secretary_telegram = 'https://t.me/robocuptabarestan',
+    contact_email = 'competitions@tabarestancup.ir',
+    secretary_telegram = 'https://t.me/tabarestancup',
     technical_committee_notes = 'کمیته فنی مسئول نظارت بر اجرای آیین‌نامه، تأیید فنی ربات‌ها و پاسخ‌گویی تخصصی به تیم‌ها است.',
     day_schedule = '[{"time":"08:00","title":"پذیرش و کنترل فنی"},{"time":"10:00","title":"آغاز مسابقات"},{"time":"14:00","title":"مرحله نهایی"},{"time":"17:30","title":"اعلام نتایج و اختتامیه"}]'::jsonb
 where slug in (
@@ -5549,6 +5549,438 @@ cross join (values
 where l.slug in (
   'indoor-rescue-u14','outdoor-rescue-open','space-race-open','firefighter-open',
   'industrial-student-u19','industrial-university-open','sports-robots-u14','sports-robots-u19'
+);
+
+-- ===== 0036_cup_identity_auth_payments.sql =====
+-- Tabarestan Cup: configurable access, complete identities, reusable league cycles,
+-- bilingual teams and card-to-card payment review.
+
+alter table auth.users add column if not exists username text;
+create unique index if not exists auth_users_username_uidx
+  on auth.users (lower(username)) where username is not null and length(trim(username)) > 0;
+
+alter table public.profiles
+  add column if not exists username text,
+  add column if not exists first_name_fa text,
+  add column if not exists last_name_fa text,
+  add column if not exists first_name_en text,
+  add column if not exists last_name_en text,
+  add column if not exists birth_date date,
+  add column if not exists postal_code text,
+  add column if not exists legal_representative_national_id text,
+  add column if not exists phone_verified_at timestamptz,
+  add column if not exists identity_completed_at timestamptz;
+
+create unique index if not exists profiles_username_uidx
+  on public.profiles (lower(username)) where username is not null and length(trim(username)) > 0;
+
+update auth.users set email = replace(email, '@robocactus.demo', '@tabarestancup.demo')
+where email like '%@robocactus.demo'
+  and not exists (select 1 from auth.users newer where newer.email = replace(auth.users.email, '@robocactus.demo', '@tabarestancup.demo'));
+with demo_usernames(email, username) as (values
+  ('admin@tabarestancup.demo', 'admin'),
+  ('league@tabarestancup.demo', 'league-admin'),
+  ('staff@tabarestancup.demo', 'staff'),
+  ('company@tabarestancup.demo', 'company-admin'),
+  ('captain@tabarestancup.demo', 'captain')
+)
+update auth.users target set username = demo.username
+from demo_usernames demo
+where target.email = demo.email
+  and (target.username is null or length(trim(target.username)) = 0)
+  and not exists (
+    select 1 from auth.users occupied
+    where occupied.id <> target.id and lower(occupied.username) = lower(demo.username)
+  );
+update public.profiles p set username = u.username from auth.users u where u.id = p.id and u.username is not null;
+
+create or replace function public.sync_profile_username()
+returns trigger language plpgsql security definer set search_path = public, auth
+as $$
+begin
+  if new.username is distinct from old.username then
+    update auth.users set username = nullif(lower(trim(new.username)), ''), updated_at = now() where id = new.id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists sync_profile_username on public.profiles;
+create trigger sync_profile_username after update of username on public.profiles
+for each row execute function public.sync_profile_username();
+
+alter table public.leagues
+  add column if not exists captain_fee numeric not null default 0,
+  add column if not exists member_fee numeric not null default 0,
+  add column if not exists team_edit_deadline timestamptz,
+  add column if not exists min_age integer,
+  add column if not exists max_age integer,
+  add column if not exists current_season_year integer not null default extract(year from current_date)::integer,
+  add column if not exists registration_cycle_status text not null default 'open';
+
+alter table public.leagues drop constraint if exists leagues_registration_cycle_status_check;
+alter table public.leagues add constraint leagues_registration_cycle_status_check
+  check (registration_cycle_status in ('draft', 'open', 'closed', 'archived'));
+
+alter table public.teams
+  add column if not exists name_en text,
+  add column if not exists motto_fa text,
+  add column if not exists motto_en text,
+  add column if not exists season_year integer;
+
+update public.teams t set season_year = l.current_season_year
+from public.leagues l where l.id = t.league_id and t.season_year is null;
+
+alter table public.team_members
+  add column if not exists first_name_fa text,
+  add column if not exists last_name_fa text,
+  add column if not exists first_name_en text,
+  add column if not exists last_name_en text;
+
+drop policy if exists teams_insert on public.teams;
+create policy teams_insert on public.teams for insert to authenticated with check (
+  public.is_super_admin() or (
+    exists (select 1 from public.company_members cm where cm.company_id = teams.company_id and cm.user_id = auth.uid())
+    and exists (select 1 from public.leagues l where l.id = teams.league_id and l.is_active
+      and l.registration_cycle_status = 'open'
+      and (l.registration_open_at is null or l.registration_open_at <= now())
+      and (l.registration_close_at is null or l.registration_close_at >= now()))
+  )
+);
+
+drop policy if exists teams_update on public.teams;
+create policy teams_update on public.teams for update to authenticated using (
+  public.is_super_admin() or (
+    (captain_id = auth.uid() or exists (select 1 from public.company_members cm where cm.company_id = teams.company_id and cm.user_id = auth.uid()))
+    and exists (select 1 from public.leagues l where l.id = teams.league_id and (l.team_edit_deadline is null or l.team_edit_deadline >= now()))
+  )
+) with check (public.is_super_admin() or captain_id = auth.uid() or exists (
+  select 1 from public.company_members cm where cm.company_id = teams.company_id and cm.user_id = auth.uid()
+));
+
+drop policy if exists team_members_manage on public.team_members;
+create policy team_members_manage on public.team_members for all to authenticated using (
+  public.is_super_admin() or exists (
+    select 1 from public.teams t join public.leagues l on l.id = t.league_id
+    where t.id = team_members.team_id
+      and (t.captain_id = auth.uid() or exists (select 1 from public.company_members cm where cm.company_id = t.company_id and cm.user_id = auth.uid()))
+      and (l.team_edit_deadline is null or l.team_edit_deadline >= now())
+  )
+) with check (
+  public.is_super_admin() or exists (
+    select 1 from public.teams t join public.leagues l on l.id = t.league_id
+    where t.id = team_members.team_id
+      and (t.captain_id = auth.uid() or exists (select 1 from public.company_members cm where cm.company_id = t.company_id and cm.user_id = auth.uid()))
+      and (l.team_edit_deadline is null or l.team_edit_deadline >= now())
+  )
+);
+
+drop policy if exists documents_manage on public.documents;
+create policy documents_manage on public.documents for all to authenticated using (
+  public.is_super_admin() or exists (
+    select 1 from public.teams t join public.leagues l on l.id = t.league_id
+    where t.id = documents.team_id
+      and (t.captain_id = auth.uid() or exists (select 1 from public.company_members cm where cm.company_id = t.company_id and cm.user_id = auth.uid()))
+      and (l.team_edit_deadline is null or l.team_edit_deadline >= now())
+  )
+) with check (
+  public.is_super_admin() or exists (
+    select 1 from public.teams t join public.leagues l on l.id = t.league_id
+    where t.id = documents.team_id
+      and (t.captain_id = auth.uid() or exists (select 1 from public.company_members cm where cm.company_id = t.company_id and cm.user_id = auth.uid()))
+      and (l.team_edit_deadline is null or l.team_edit_deadline >= now())
+  )
+);
+
+alter table public.invoices
+  add column if not exists payment_method text not null default 'online',
+  add column if not exists receipt_path text,
+  add column if not exists receipt_status text,
+  add column if not exists receipt_rejection_reason text,
+  add column if not exists receipt_submitted_at timestamptz,
+  add column if not exists receipt_reviewed_at timestamptz,
+  add column if not exists receipt_reviewed_by uuid references public.profiles(id);
+
+alter table public.invoices drop constraint if exists invoices_payment_method_check;
+alter table public.invoices add constraint invoices_payment_method_check
+  check (payment_method in ('online', 'card_to_card'));
+alter table public.invoices drop constraint if exists invoices_receipt_status_check;
+alter table public.invoices add constraint invoices_receipt_status_check
+  check (receipt_status is null or receipt_status in ('pending_review', 'approved', 'rejected'));
+
+create table if not exists public.auth_settings (
+  id integer primary key default 1 check (id = 1),
+  otp_login_enabled boolean not null default true,
+  password_login_enabled boolean not null default true,
+  email_magic_login_enabled boolean not null default true,
+  email_signup_enabled boolean not null default true,
+  phone_signup_enabled boolean not null default true,
+  online_payment_enabled boolean not null default true,
+  card_to_card_enabled boolean not null default false,
+  bank_card_number text,
+  bank_iban text,
+  bank_account_owner text,
+  email_provider text not null default 'resend',
+  email_from text,
+  email_api_key text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.auth_settings (id, email_from)
+values (1, 'Tabarestan Cup <onboarding@resend.dev>') on conflict (id) do nothing;
+
+insert into public.registration_doc_types (code, label_fa, label_en, account_type, is_required, is_active, sort_order)
+values ('legal_representative_national_card', 'کارت ملی نماینده قانونی', 'Legal representative national ID', 'legal', true, true, 2)
+on conflict (code) do update set is_required = true, is_active = true;
+
+alter table public.auth_settings enable row level security;
+drop policy if exists auth_settings_super_admin on public.auth_settings;
+create policy auth_settings_super_admin on public.auth_settings for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+create or replace view public.public_auth_options
+with (security_invoker = false)
+as select
+  otp_login_enabled, password_login_enabled, email_magic_login_enabled,
+  email_signup_enabled, phone_signup_enabled, online_payment_enabled,
+  card_to_card_enabled, bank_card_number, bank_iban, bank_account_owner
+from public.auth_settings where id = 1;
+
+grant select on public.public_auth_options to anon, authenticated;
+grant select, insert, update, delete on public.auth_settings to authenticated, service_role;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('payment-receipts', 'payment-receipts', false, 5242880,
+  array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+
+drop policy if exists payment_receipts_insert on storage.objects;
+create policy payment_receipts_insert on storage.objects for insert to authenticated
+with check (bucket_id = 'payment-receipts' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists payment_receipts_select on storage.objects;
+create policy payment_receipts_select on storage.objects for select to authenticated
+using (bucket_id = 'payment-receipts' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_super_admin()));
+drop policy if exists payment_receipts_delete on storage.objects;
+create policy payment_receipts_delete on storage.objects for delete to authenticated
+using (bucket_id = 'payment-receipts' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_super_admin()));
+
+create or replace function public.create_invoice_for_team(p_team_id uuid)
+returns invoices
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team teams%rowtype;
+  v_fee numeric;
+  v_member_count integer;
+  v_invoice invoices%rowtype;
+begin
+  if v_uid is null then raise exception 'not authenticated'; end if;
+  select * into v_team from teams where id = p_team_id;
+  if not found then raise exception 'team not found'; end if;
+  if v_team.status <> 'draft' then raise exception 'team is not in draft status'; end if;
+  if not public.is_super_admin()
+     and not exists (select 1 from company_members cm where cm.company_id = v_team.company_id and cm.user_id = v_uid)
+     and v_team.captain_id <> v_uid then raise exception 'forbidden'; end if;
+
+  select count(*)::integer into v_member_count from team_members
+  where team_id = p_team_id and coalesce(role, 'member') <> 'captain';
+  select coalesce(registration_fee, 0) + coalesce(captain_fee, 0)
+       + coalesce(member_fee, 0) * greatest(v_member_count, 0)
+  into v_fee from leagues where id = v_team.league_id;
+
+  select * into v_invoice from invoices
+  where team_id = p_team_id and status in ('pending', 'failed')
+  order by created_at desc limit 1;
+  if found then
+    update invoices set amount = v_fee, company_id = v_team.company_id,
+      status = case when receipt_status = 'pending_review' then status else 'pending'::payment_status end
+    where id = v_invoice.id returning * into v_invoice;
+    return v_invoice;
+  end if;
+  insert into invoices (team_id, company_id, amount, status, invoice_number)
+  values (v_team.id, v_team.company_id, v_fee, 'pending', public._next_invoice_number())
+  returning * into v_invoice;
+  return v_invoice;
+end;
+$$;
+
+create or replace function public.submit_card_receipt(p_invoice_id uuid, p_receipt_path text)
+returns invoices
+language plpgsql security definer set search_path = public
+as $$
+declare v_uid uuid := auth.uid(); v_invoice invoices%rowtype;
+begin
+  if v_uid is null then raise exception 'not authenticated'; end if;
+  if not coalesce((select card_to_card_enabled from auth_settings where id = 1), false)
+    then raise exception 'card_to_card_disabled'; end if;
+  select * into v_invoice from invoices where id = p_invoice_id for update;
+  if not found then raise exception 'invoice not found'; end if;
+  if not public.is_super_admin()
+     and not exists (select 1 from company_members cm where cm.company_id = v_invoice.company_id and cm.user_id = v_uid)
+     and not exists (select 1 from teams t where t.id = v_invoice.team_id and t.captain_id = v_uid)
+    then raise exception 'forbidden'; end if;
+  update invoices set payment_method = 'card_to_card', receipt_path = p_receipt_path,
+    receipt_status = 'pending_review', receipt_rejection_reason = null,
+    receipt_submitted_at = now(), receipt_reviewed_at = null, receipt_reviewed_by = null,
+    status = 'pending'
+  where id = p_invoice_id returning * into v_invoice;
+  return v_invoice;
+end;
+$$;
+
+create or replace function public.review_card_receipt(p_invoice_id uuid, p_approved boolean, p_reason text default null)
+returns invoices
+language plpgsql security definer set search_path = public
+as $$
+declare v_invoice invoices%rowtype;
+begin
+  if not public.is_super_admin() then raise exception 'forbidden'; end if;
+  if not p_approved and length(trim(coalesce(p_reason, ''))) = 0 then raise exception 'rejection_reason_required'; end if;
+  update invoices set receipt_status = case when p_approved then 'approved' else 'rejected' end,
+    receipt_rejection_reason = case when p_approved then null else trim(p_reason) end,
+    receipt_reviewed_at = now(), receipt_reviewed_by = auth.uid(),
+    status = case when p_approved then 'paid'::payment_status else 'failed'::payment_status end,
+    paid_at = case when p_approved then now() else null end
+  where id = p_invoice_id and payment_method = 'card_to_card'
+  returning * into v_invoice;
+  if not found then raise exception 'receipt not found'; end if;
+  if p_approved then
+    update teams set status = 'submitted', submitted_at = coalesce(submitted_at, now())
+    where id = v_invoice.team_id and status = 'draft';
+  end if;
+  return v_invoice;
+end;
+$$;
+
+revoke all on function public.submit_card_receipt(uuid, text) from public;
+grant execute on function public.submit_card_receipt(uuid, text) to authenticated;
+revoke all on function public.review_card_receipt(uuid, boolean, text) from public;
+grant execute on function public.review_card_receipt(uuid, boolean, text) to authenticated;
+
+create or replace view public.invoice_finance_view with (security_invoker = true) as
+select i.*, t.name as team_name, t.status as team_status, t.league_id,
+  l.name as league_name, c.name as company_name, c.slug as company_slug
+from invoices i join teams t on t.id = i.team_id
+join leagues l on l.id = t.league_id join companies c on c.id = i.company_id;
+
+-- Replace the visible legacy brand in persisted content.
+create or replace function public._tabarestan_brand_text(p_value text)
+returns text language sql immutable as $$
+  select replace(replace(replace(replace(replace(replace(replace(replace(replace(coalesce(p_value, ''),
+    'روبوکاپ تبرستان', 'جام تبرستان'), 'روبو کاپ تبرستان', 'جام تبرستان'),
+    'روبوکاکتوس', 'جام تبرستان'), 'روبو کاکتوس', 'جام تبرستان'),
+    'روبوککتوس', 'جام تبرستان'), 'RoboCup Tabarestan', 'Tabarestan Cup'),
+    'RoboCactus', 'Tabarestan Cup'), 'RoboCup', 'Tabarestan Cup'), 'RoboParts', 'TechParts')
+$$;
+
+update public.site_settings set
+  site_name_fa = 'جام تبرستان', site_name_en = 'Tabarestan Cup',
+  tagline_fa = public._tabarestan_brand_text(tagline_fa),
+  tagline_en = public._tabarestan_brand_text(tagline_en),
+  footer_fa = public._tabarestan_brand_text(footer_fa),
+  footer_en = public._tabarestan_brand_text(footer_en),
+  copyright_fa = public._tabarestan_brand_text(copyright_fa),
+  copyright_en = public._tabarestan_brand_text(copyright_en), updated_at = now()
+where id = 1;
+
+update public.static_pages set title = public._tabarestan_brand_text(title), body = public._tabarestan_brand_text(body);
+update public.blog_posts set title = public._tabarestan_brand_text(title), excerpt = public._tabarestan_brand_text(excerpt), body = public._tabarestan_brand_text(body);
+update public.announcements set title = public._tabarestan_brand_text(title), body = public._tabarestan_brand_text(body);
+update public.home_banners set title = public._tabarestan_brand_text(title), subtitle = public._tabarestan_brand_text(subtitle);
+update public.leagues set name = public._tabarestan_brand_text(name), description = public._tabarestan_brand_text(description), venue_name = public._tabarestan_brand_text(venue_name);
+update public.league_people set full_name = public._tabarestan_brand_text(full_name), specialty = public._tabarestan_brand_text(specialty), bio = public._tabarestan_brand_text(bio);
+update public.league_sponsors set name = public._tabarestan_brand_text(name);
+
+drop function public._tabarestan_brand_text(text);
+
+-- ===== 0037_bilingual_leagues_people_profiles.sql =====
+-- Bilingual league content and public CV pages for judges / technical committee.
+
+alter table public.leagues
+  add column if not exists name_en text,
+  add column if not exists description_en text,
+  add column if not exists category_en text,
+  add column if not exists short_description_en text,
+  add column if not exists full_description_en text,
+  add column if not exists rules_summary_en text,
+  add column if not exists age_range_en text,
+  add column if not exists venue_name_en text,
+  add column if not exists venue_address_en text,
+  add column if not exists difficulty_level_en text,
+  add column if not exists competition_language_en text,
+  add column if not exists discount_info_en text,
+  add column if not exists refund_policy_en text,
+  add column if not exists secretary_name_en text,
+  add column if not exists judging_path_en text,
+  add column if not exists technical_committee_notes_en text,
+  add column if not exists scoring_rows_en jsonb not null default '[]'::jsonb,
+  add column if not exists timeline_steps_en jsonb not null default '[]'::jsonb,
+  add column if not exists day_schedule_en jsonb not null default '[]'::jsonb,
+  add column if not exists allowed_equipment_en jsonb not null default '[]'::jsonb,
+  add column if not exists forbidden_equipment_en jsonb not null default '[]'::jsonb;
+
+alter table public.league_files add column if not exists title_en text;
+alter table public.league_faqs
+  add column if not exists question_en text,
+  add column if not exists answer_en text;
+alter table public.league_sponsors add column if not exists name_en text;
+
+alter table public.league_people
+  add column if not exists slug text,
+  add column if not exists full_name_en text,
+  add column if not exists specialty_en text,
+  add column if not exists bio_en text,
+  add column if not exists identity_summary_fa text,
+  add column if not exists identity_summary_en text,
+  add column if not exists education_fa text,
+  add column if not exists education_en text,
+  add column if not exists honors_fa text,
+  add column if not exists honors_en text,
+  add column if not exists awards_fa text,
+  add column if not exists awards_en text,
+  add column if not exists courses_fa text,
+  add column if not exists courses_en text,
+  add column if not exists company_info_fa text,
+  add column if not exists company_info_en text,
+  add column if not exists birth_date date,
+  add column if not exists nationality_fa text,
+  add column if not exists nationality_en text,
+  add column if not exists city_fa text,
+  add column if not exists city_en text,
+  add column if not exists email text,
+  add column if not exists phone text,
+  add column if not exists website_url text,
+  add column if not exists linkedin_url text,
+  add column if not exists is_profile_published boolean not null default true,
+  add column if not exists updated_at timestamptz not null default now();
+
+update public.league_people
+set slug = 'person-' || substr(replace(id::text, '-', ''), 1, 12)
+where slug is null or length(trim(slug)) = 0;
+
+alter table public.league_people alter column slug set not null;
+create unique index if not exists league_people_slug_uidx on public.league_people (lower(slug));
+create index if not exists league_people_published_idx
+  on public.league_people (is_profile_published, role_kind, sort_order);
+
+-- Public lists and profiles only expose published people; admins retain their existing policy.
+drop policy if exists "league_people_public_select" on public.league_people;
+create policy "league_people_public_select" on public.league_people for select
+  using (is_profile_published = true or public.is_super_admin());
+
+-- ===== 0038_chat_wait_experience.sql =====
+-- Operational live-chat copy and configurable unanswered-message reminder.
+alter table public.site_settings
+  add column if not exists chat_wait_timeout_seconds integer not null default 180,
+  add column if not exists chat_wait_message_fa text not null default 'کارشناسان ما در اولین فرصت پاسخ‌گو هستند. می‌توانید منتظر بمانید یا برای پیگیری سریع‌تر با دبیرخانه تماس بگیرید.',
+  add column if not exists chat_wait_message_en text not null default 'Our specialists will respond as soon as possible. You can wait here or contact the secretariat for faster assistance.';
+
+update public.site_settings
+set chat_welcome_fa = 'سؤال خود را مطرح کنید؛ کارشناسان ما پاسخ‌گوی شما هستند.',
+    chat_welcome_en = 'Ask your question; our specialists are here to help.'
+where id = 1 and (
+  chat_welcome_fa is null or chat_welcome_fa ilike '%نام%' or chat_welcome_fa ilike '%مکالمه%'
+  or chat_welcome_en is null or chat_welcome_en ilike '%name%' or chat_welcome_en ilike '%conversation%'
 );
 
 -- ===== 9999_application_runtime.sql =====

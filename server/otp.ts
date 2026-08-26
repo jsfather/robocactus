@@ -3,8 +3,8 @@ import type { Request, Router } from 'express'
 import { eq, sql } from 'drizzle-orm'
 import { users } from '../db/schema.js'
 import { config } from './config.js'
-import { db } from './db.js'
-import { createOneTimeToken } from './auth.js'
+import { db, userFromRequest } from './db.js'
+import { createOneTimeToken, getAuthSettings } from './auth.js'
 
 const OTP_TTL_MS = 5 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
@@ -75,6 +75,8 @@ export function registerOtpRoutes(router: Router): void {
   router.post('/auth/sms-otp', async (request: Request, response) => {
     try {
       const action = String(request.body?.action ?? '')
+      const requestedPurpose = String(request.body?.purpose ?? 'login')
+      const purpose = requestedPurpose === 'profile' || requestedPurpose === 'signup' ? requestedPurpose : 'login'
       const phone = normalizeIranPhone(String(request.body?.phone ?? ''))
       if (!phone) {
         response.status(400).json({ error: 'invalid_phone' })
@@ -82,6 +84,29 @@ export function registerOtpRoutes(router: Router): void {
       }
 
       if (action === 'request') {
+        const settings = await getAuthSettings()
+        if (purpose === 'login' && !settings.otp_login_enabled) {
+          response.status(403).json({ error: 'otp_login_disabled' })
+          return
+        }
+        if (purpose === 'signup' && !settings.phone_signup_enabled) {
+          response.status(403).json({ error: 'phone_signup_disabled' })
+          return
+        }
+        if (purpose === 'profile') {
+          const currentUser = await userFromRequest(request)
+          if (!currentUser) {
+            response.status(401).json({ error: 'authentication_required' })
+            return
+          }
+          const occupied = await db.execute(sql`
+            select 1 from auth.users where phone = ${phone} and id <> ${currentUser.id}::uuid limit 1
+          `)
+          if (occupied.rows.length) {
+            response.status(409).json({ error: 'phone_in_use' })
+            return
+          }
+        }
         if (ipRateLimited(request.ip)) {
           response.status(429).json({ error: 'too_many_attempts' })
           return
@@ -127,12 +152,28 @@ export function registerOtpRoutes(router: Router): void {
         }
         await db.execute(sql`update public.auth_otp_challenges set consumed_at = now() where id = ${challenge.id}`)
 
+        if (purpose === 'profile') {
+          const currentUser = await userFromRequest(request)
+          if (!currentUser) throw new Error('authentication_required')
+          const occupied = await db.execute(sql`
+            select 1 from auth.users where phone = ${phone} and id <> ${currentUser.id}::uuid limit 1
+          `)
+          if (occupied.rows.length) throw new Error('phone_in_use')
+          await db.execute(sql`update auth.users set phone = ${phone}, updated_at = now() where id = ${currentUser.id}::uuid`)
+          await db.execute(sql`update public.profiles set phone = ${phone}, phone_verified_at = now() where id = ${currentUser.id}::uuid`)
+          response.json({ ok: true, profile_verified: true })
+          return
+        }
+
         let user = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
         const fullName = String(request.body?.full_name ?? '').trim()
         if (!user) {
+          if (purpose === 'login') throw new Error('account_not_found')
+          const settings = await getAuthSettings()
+          if (!settings.phone_signup_enabled) throw new Error('phone_signup_disabled')
           const inserted = await db.insert(users).values({
             id: randomUUID(),
-            email: `${phone.replace(/^0/, '98')}@phone.robocactus.local`,
+            email: `${phone.replace(/^0/, '98')}@phone.tabarestancup.local`,
             phone,
             rawUserMetaData: { full_name: fullName || 'کاربر جدید', phone, auth_channel: 'phone' },
             emailConfirmedAt: new Date(),
@@ -140,6 +181,7 @@ export function registerOtpRoutes(router: Router): void {
           user = inserted[0]
         }
         if (!user) throw new Error('session_failed')
+        await db.execute(sql`update public.profiles set phone = ${phone}, phone_verified_at = now() where id = ${user.id}`)
         if (fullName) {
           await db.execute(sql`update public.profiles set full_name = ${fullName} where id = ${user.id} and full_name = 'کاربر جدید'`)
         }

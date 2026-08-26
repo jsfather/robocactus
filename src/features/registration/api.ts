@@ -6,6 +6,8 @@ import type { DocumentRow, Team, TeamMember } from '@/types/database'
 export type TeamMemberDraft = {
   first_name: string
   last_name: string
+  first_name_en: string
+  last_name_en: string
   full_name: string
   role: 'captain' | 'member' | string
   national_id: string
@@ -18,6 +20,9 @@ export type TeamWizardDraft = {
   companyId: string
   leagueId: string
   name: string
+  nameEn: string
+  mottoFa: string
+  mottoEn: string
   province: string
   city: string
   captainPhone: string
@@ -39,10 +44,15 @@ export function loadTeamDraft(companyId: string): TeamWizardDraft | null {
     const raw = localStorage.getItem(DRAFT_KEY(companyId))
     if (!raw) return null
     const parsed = JSON.parse(raw) as TeamWizardDraft
+    parsed.nameEn = parsed.nameEn ?? ''
+    parsed.mottoFa = parsed.mottoFa ?? ''
+    parsed.mottoEn = parsed.mottoEn ?? ''
     // migrate older drafts
     parsed.members = (parsed.members ?? []).map((m) => ({
       first_name: m.first_name ?? (m.full_name?.split(' ')[0] ?? ''),
       last_name: m.last_name ?? (m.full_name?.split(' ').slice(1).join(' ') ?? ''),
+      first_name_en: m.first_name_en ?? '',
+      last_name_en: m.last_name_en ?? '',
       full_name: m.full_name ?? `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim(),
       role: m.role || 'member',
       national_id: m.national_id ?? '',
@@ -68,6 +78,8 @@ export function emptyMemberDraft(role: 'captain' | 'member' = 'member'): TeamMem
   return {
     first_name: '',
     last_name: '',
+    first_name_en: '',
+    last_name_en: '',
     full_name: '',
     role,
     national_id: '',
@@ -81,6 +93,9 @@ export function emptyTeamDraft(companyId: string, leagueId = ''): TeamWizardDraf
     companyId,
     leagueId,
     name: '',
+    nameEn: '',
+    mottoFa: '',
+    mottoEn: '',
     province: '',
     city: '',
     captainPhone: '',
@@ -116,10 +131,14 @@ export async function createDraftTeam(input: {
   companyId: string
   leagueId: string
   name: string
+  nameEn: string
+  mottoFa: string
+  mottoEn: string
   province: string
   city: string
   captainId: string
   memberCount: number
+  seasonYear: number
 }): Promise<Team> {
   const { data, error } = await backend
     .from('teams')
@@ -128,6 +147,10 @@ export async function createDraftTeam(input: {
       league_id: input.leagueId,
       captain_id: input.captainId,
       name: input.name,
+      name_en: input.nameEn || null,
+      motto_fa: input.mottoFa || null,
+      motto_en: input.mottoEn || null,
+      season_year: input.seasonYear,
       province: input.province,
       city: input.city,
       member_count: input.memberCount,
@@ -143,7 +166,7 @@ export async function createDraftTeam(input: {
 export async function updateDraftTeam(
   teamId: string,
   patch: Partial<
-    Pick<Team, 'name' | 'province' | 'city' | 'league_id' | 'captain_id' | 'member_count'>
+    Pick<Team, 'name' | 'name_en' | 'motto_fa' | 'motto_en' | 'province' | 'city' | 'league_id' | 'captain_id' | 'member_count' | 'season_year'>
   >,
 ): Promise<Team> {
   const { data, error } = await backend
@@ -177,6 +200,10 @@ export async function replaceTeamMembers(
         full_name: full,
         first_name: first || null,
         last_name: last || null,
+        first_name_fa: first || null,
+        last_name_fa: last || null,
+        first_name_en: m.first_name_en.trim() || null,
+        last_name_en: m.last_name_en.trim() || null,
         role: m.role === 'captain' ? 'captain' : m.role === 'member' ? 'member' : m.role?.trim() || 'member',
         national_id: m.national_id?.trim() || null,
         birth_date: toDateOnly(m.birth_date),

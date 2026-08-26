@@ -45,7 +45,7 @@ function TabarestanStory() {
         <div className="p-7 sm:p-10 lg:p-14">
           <span className="inline-flex rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">ریشه در تبرستان، نگاه به جهان</span>
           <h2 className="mt-5 text-3xl font-black leading-tight text-slate-800 sm:text-4xl">میزبان رقابت‌های بزرگ رباتیک ایران و جهان</h2>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">روبوکاپ تبرستان برگزارکننده مسابقات حرفه‌ای در سطح ملی و بین‌المللی است؛ رویدادی برای حضور تیم‌های برتر، داوری استاندارد، رقابت جدی و معرفی قهرمانان از آمل و مازندران به ایران و جهان.</p>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">جام تبرستان برگزارکننده مسابقات حرفه‌ای در سطح ملی و بین‌المللی است؛ رویدادی برای حضور تیم‌های برتر، داوری استاندارد، رقابت جدی و معرفی قهرمانان از آمل و مازندران به ایران و جهان.</p>
           <div className="mt-7 flex flex-wrap gap-3 text-sm font-semibold text-slate-700">
             <span className="rounded-full bg-sky-50 px-4 py-2">رقابت‌های کشوری</span><span className="rounded-full bg-emerald-50 px-4 py-2">مسابقات بین‌المللی</span><span className="rounded-full bg-teal-50 px-4 py-2">داوری حرفه‌ای</span>
           </div>

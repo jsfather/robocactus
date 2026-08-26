@@ -25,10 +25,21 @@ function profileLooksIncomplete(profile: {
   company_name?: string | null
   company_national_id?: string | null
   full_name?: string
+  email?: string | null
+  first_name_fa?: string | null
+  last_name_fa?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
+  birth_date?: string | null
+  postal_code?: string | null
+  address?: string | null
+  legal_representative_national_id?: string | null
+  identity_completed_at?: string | null
+  phone_verified_at?: string | null
 }): boolean {
-  if (!profile.full_name?.trim()) return true
+  if (!profile.full_name?.trim() || !profile.email?.trim() || !profile.first_name_fa?.trim() || !profile.last_name_fa?.trim() || !profile.first_name_en?.trim() || !profile.last_name_en?.trim() || !profile.birth_date || !profile.postal_code?.trim() || !profile.address?.trim() || !profile.phone_verified_at || !profile.identity_completed_at) return true
   if (profile.account_type === 'legal') {
-    return !profile.company_name?.trim() || !profile.company_national_id?.trim()
+    return !profile.company_name?.trim() || !profile.company_national_id?.trim() || !profile.legal_representative_national_id?.trim()
   }
   return !profile.national_id?.trim()
 }
@@ -57,7 +68,7 @@ function SidebarNav({
   const groups = useMemo(() => panelsForRole(role), [role])
 
   return (
-    <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+    <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-5">
       {groups.map((group) => (
         <div key={group.id}>
           <p className="mb-2 px-3 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
@@ -72,9 +83,9 @@ function SidebarNav({
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     [
-                      'flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-sm transition',
+                      'panel-nav-link flex items-center justify-between gap-2 border border-transparent px-3 py-3 text-sm font-semibold transition',
                       isActive
-                        ? 'border-rc-blue/30 bg-rc-blue/15 font-medium text-rc-blue'
+                        ? 'is-active border-rc-blue/20 bg-gradient-to-l from-rc-blue/15 to-emerald-500/10 text-rc-blue shadow-sm'
                         : 'text-rc-muted hover:border-rc-line hover:bg-rc-hover hover:text-rc-text',
                     ].join(' ')
                   }
@@ -105,6 +116,13 @@ export function PanelShell() {
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const close = (event: KeyboardEvent) => event.key === 'Escape' && setMobileOpen(false)
+    document.addEventListener('keydown', close)
+    return () => document.removeEventListener('keydown', close)
+  }, [mobileOpen])
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000)
@@ -151,6 +169,10 @@ export function PanelShell() {
   }
 
   const role = profile.role
+  const identityRequired = role === 'company_admin' || role === 'team_captain'
+  if (identityRequired && profileLooksIncomplete(profile) && location.pathname !== '/account/profile') {
+    return <Navigate to="/account/profile" replace />
+  }
   const home = roleHomePath(role)
   const active = activePanelGroup(location.pathname, role)
   const activeItem = activePanelItem(location.pathname, role)
@@ -170,7 +192,7 @@ export function PanelShell() {
   const dateLabel = formatAppDate(now.toISOString(), i18n.language, { withTime: true })
 
   return (
-    <div className="relative flex min-h-dvh bg-rc-bg text-rc-text">
+    <div className="panel-shell relative flex min-h-dvh bg-rc-bg text-rc-text">
       <div
         className="pointer-events-none fixed inset-0 opacity-40"
         style={{
@@ -179,14 +201,11 @@ export function PanelShell() {
         }}
       />
 
-      <aside className="fixed inset-y-0 right-0 z-30 hidden w-64 flex-col border-l border-rc-line bg-rc-navy/95 backdrop-blur-md lg:flex">
-        <div className="border-b border-rc-line px-4 py-4">
-          <Link to={home} className="block">
-            <p className="font-mono text-[10px] tracking-[0.3em] text-rc-blue uppercase">RoboCup · Tabarestan</p>
-            <p className="mt-1 text-sm font-semibold">{t('panel.shellTitle')}</p>
-            <p className="mt-1 font-mono text-[9px] tracking-[0.18em] text-rc-muted uppercase">
-              مدیریت مسابقات تبرستان
-            </p>
+      <aside className="panel-sidebar fixed inset-y-3 right-3 z-30 hidden w-72 flex-col overflow-hidden rounded-[1.75rem] border border-rc-line bg-rc-navy/95 backdrop-blur-xl lg:flex">
+        <div className="border-b border-rc-line px-5 py-5">
+          <Link to={home} className="flex items-center gap-3">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-emerald-500 text-lg font-black text-white shadow-lg shadow-sky-900/15">ت</span>
+            <span><span className="block text-base font-black">جام تبرستان</span><span className="mt-0.5 block text-[11px] text-rc-muted">Tabarestan Cup · {t('panel.shellTitle')}</span></span>
           </Link>
         </div>
         <SidebarNav role={role} />
@@ -220,8 +239,8 @@ export function PanelShell() {
         </div>
       ) : null}
 
-      <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-64">
-        <header className="sticky top-0 z-20 border-b border-rc-line bg-rc-bg/85 backdrop-blur-md">
+      <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19rem]">
+        <header className="panel-topbar sticky top-0 z-20 border-b border-rc-line bg-rc-bg/80 backdrop-blur-xl">
           <div className="flex h-16 items-center gap-3 px-4 md:px-6">
             <button
               type="button"
@@ -253,7 +272,7 @@ export function PanelShell() {
           </div>
         </header>
 
-        <main className="relative flex-1 px-4 py-6 md:px-6 md:py-8">
+        <main className="relative flex-1 px-4 py-6 md:px-8 md:py-8">
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />
