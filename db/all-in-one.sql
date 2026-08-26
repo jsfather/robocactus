@@ -5691,6 +5691,12 @@ create policy documents_manage on public.documents for all to authenticated usin
   )
 );
 
+-- The legacy finance view was defined with `i.*`. PostgreSQL freezes the
+-- expanded column order when a view is created, so adding invoice columns and
+-- then using CREATE OR REPLACE VIEW would try to rename `team_name` to the
+-- first newly-added column. Rebuild the view around the table change instead.
+drop view if exists public.invoice_finance_view;
+
 alter table public.invoices
   add column if not exists payment_method text not null default 'online',
   add column if not exists receipt_path text,
