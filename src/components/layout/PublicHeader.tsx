@@ -46,6 +46,7 @@ export function PublicHeader() {
     { href: '/companies', label: t('nav.companies') },
     { href: '/blog', label: t('nav.blog') },
     { href: '/gallery', label: t('nav.gallery') },
+    { href: '/registration-guide', label: t('nav.registrationGuide') },
     { href: '/about', label: t('nav.about') },
   ]
 
@@ -78,19 +79,13 @@ export function PublicHeader() {
     void i18n.changeLanguage(locale === 'fa' ? 'en' : 'fa')
   }
 
-  const links = navSource
-    ? navSource.map((item) => ({
-        href: item.href,
-        label: locale === 'en' ? item.label_en : item.label_fa,
-        end: item.href === '/',
-        key: item.id,
-      }))
-    : fallbackNav.map((item) => ({
-        href: item.href,
-        label: item.label,
-        end: Boolean(item.end),
-        key: item.href,
-      }))
+  const baseLinks = navSource
+    ? navSource.map((item) => ({ href: item.href, label: locale === 'en' ? item.label_en : item.label_fa, end: item.href === '/', key: item.id }))
+    : fallbackNav.map((item) => ({ href: item.href, label: item.label, end: Boolean(item.end), key: item.href }))
+  const links = [...baseLinks]
+  for (const required of [{ href: '/registration-guide', label: t('nav.registrationGuide') }, { href: '/terms', label: t('nav.terms') }]) {
+    if (!links.some((item) => item.href === required.href)) links.push({ ...required, end: false, key: required.href })
+  }
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-5">

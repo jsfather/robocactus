@@ -18,7 +18,7 @@ export function BackToTopButton() {
       aria-label={t('footer.backToTop')}
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       className={[
-        'fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] end-5 z-[55] flex size-12 items-center justify-center border border-rc-line bg-rc-navy/90 text-rc-blue shadow-lg backdrop-blur-md transition-all duration-300 ease-out hover:border-rc-blue/50 hover:bg-rc-blue hover:text-white md:bottom-5',
+        'fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] end-5 z-[55] flex size-12 items-center justify-center border border-rc-line bg-rc-navy/90 text-rc-blue shadow-lg backdrop-blur-md transition-all duration-300 ease-out hover:border-rc-blue/50 hover:bg-rc-blue hover:text-white md:bottom-5',
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
       ].join(' ')}
     >

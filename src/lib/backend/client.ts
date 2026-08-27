@@ -209,6 +209,14 @@ const auth = {
     const response = await authCall(`admin/users/${encodeURIComponent(userId)}/password-reset`, {})
     return { data: response, error: response.error ?? null }
   },
+  async adminSetPassword(userId: string, newPassword: string) {
+    const response = await authCall(`admin/users/${encodeURIComponent(userId)}/password`, { newPassword })
+    return { data: response, error: response.error ?? null }
+  },
+  async adminCreateCollaborator(input: { full_name: string; phone: string; email?: string; username?: string; password: string; role: 'staff' | 'league_admin' | 'super_admin' }) {
+    const response = await authCall('admin/collaborators', input)
+    return { data: response, error: response.error ?? null }
+  },
   async adminCreateUser(input: { full_name: string; phone: string; email?: string; username?: string; password?: string; account_type: 'individual' | 'legal'; account_status: 'pending' | 'active' }) {
     const response = await authCall('admin/users', input)
     return { data: response, error: response.error ?? null }

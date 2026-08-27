@@ -21,7 +21,13 @@ export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
     if (!sponsors.length) return
     const next = (index + sponsors.length) % sponsors.length
     const target = viewportRef.current?.querySelector<HTMLElement>(`[data-sponsor-index="${next}"]`)
-    target?.scrollIntoView({ behavior: reducedMotion ? 'auto' : behavior, block: 'nearest', inline: 'center' })
+    const viewport = viewportRef.current
+    if (target && viewport) {
+      const viewportRect = viewport.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      const horizontalDelta = targetRect.left + targetRect.width / 2 - (viewportRect.left + viewportRect.width / 2)
+      viewport.scrollBy({ left: horizontalDelta, behavior: reducedMotion ? 'auto' : behavior })
+    }
     setCurrent(next)
   }, [reducedMotion, sponsors.length])
 

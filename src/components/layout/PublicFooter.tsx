@@ -4,152 +4,68 @@ import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sortedNavItems } from '@/features/settings/api'
 
 const FALLBACK_LINKS = [
-  { href: '/leagues', labelKey: 'nav.leagues' },
-  { href: '/rankings', labelKey: 'nav.rankings' },
-  { href: '/companies', labelKey: 'nav.companies' },
-  { href: '/blog', labelKey: 'nav.blog' },
-  { href: '/gallery', labelKey: 'nav.gallery' },
-  { href: '/about', labelKey: 'nav.about' },
-  { href: '/contact', labelKey: 'nav.contact' },
-  { href: '/faq', labelKey: 'nav.faq' },
+  { href: '/leagues', labelKey: 'nav.leagues' }, { href: '/rankings', labelKey: 'nav.rankings' },
+  { href: '/companies', labelKey: 'nav.companies' }, { href: '/blog', labelKey: 'nav.blog' },
+  { href: '/gallery', labelKey: 'nav.gallery' }, { href: '/about', labelKey: 'nav.about' },
+  { href: '/contact', labelKey: 'nav.contact' }, { href: '/faq', labelKey: 'nav.faq' },
   { href: '/privacy', labelKey: 'nav.privacy' },
+  { href: '/terms', labelKey: 'nav.terms' }, { href: '/registration-guide', labelKey: 'nav.registrationGuide' },
 ] as const
+
+function ContactIcon({ kind }: { kind: 'phone' | 'email' | 'address' }) {
+  const paths = {
+    phone: <path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" />,
+    email: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>,
+    address: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
+  }
+  return <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/8 text-emerald-200"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind]}</svg></span>
+}
 
 export function PublicFooter() {
   const { t, i18n } = useTranslation()
   const { settings } = useSiteSettings()
   const isEn = i18n.language.startsWith('en')
-
-  const brand = isEn
-    ? settings?.site_name_en || t('app.name')
-    : settings?.site_name_fa || t('app.name')
-  const about = isEn
-    ? settings?.footer_en || settings?.tagline_en
-    : settings?.footer_fa || settings?.tagline_fa
+  const brand = isEn ? settings?.site_name_en || t('app.name') : settings?.site_name_fa || t('app.name')
+  const about = (isEn ? settings?.footer_en || settings?.tagline_en : settings?.footer_fa || settings?.tagline_fa) || t('home.footerTagline')
   const contactBlurb = isEn ? settings?.contact_blurb_en : settings?.contact_blurb_fa
   const address = isEn ? settings?.contact_address_en : settings?.contact_address_fa
-  const copyright = isEn
-    ? settings?.copyright_en || t('footer.copyrightDefault')
-    : settings?.copyright_fa || t('footer.copyrightDefault')
-  const phone = settings?.support_phone
-  const email = settings?.contact_email
-  const nav = sortedNavItems(settings?.nav_items)
-  const useful = nav.length
-    ? nav
-    : FALLBACK_LINKS.map((l, i) => ({
-        id: String(i),
-        href: l.href,
-        label_fa: t(l.labelKey),
-        label_en: t(l.labelKey),
-        enabled: true,
-        order: i,
-      }))
+  const copyright = isEn ? settings?.copyright_en || t('footer.copyrightDefault') : settings?.copyright_fa || t('footer.copyrightDefault')
+  const phone = settings?.support_phone?.trim()
+  const telephoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined
+  const email = settings?.contact_email?.trim()
+  const configuredNav = sortedNavItems(settings?.nav_items)
+  const useful = configuredNav.length ? [...configuredNav] : FALLBACK_LINKS.map((item, index) => ({ id: String(index), href: item.href, label_fa: t(item.labelKey), label_en: t(item.labelKey), enabled: true, order: index }))
+  for (const item of [{ href: '/terms', key: 'nav.terms' }, { href: '/registration-guide', key: 'nav.registrationGuide' }]) if (!useful.some((link) => link.href === item.href)) useful.push({ id: item.href, href: item.href, label_fa: t(item.key), label_en: t(item.key), enabled: true, order: useful.length })
 
-  return (
-    <footer className="relative mt-20 overflow-hidden rounded-t-[3.5rem] border-t border-emerald-100 bg-gradient-to-b from-[#edf9f7] via-white to-sky-50">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-70"
-        style={{
-          background:
-            'radial-gradient(ellipse 50% 60% at 20% 0%, var(--rc-glow-blue), transparent), radial-gradient(ellipse 40% 50% at 90% 100%, var(--rc-glow-orange), transparent)',
-        }}
-      />
-      <div className="pointer-events-none absolute -start-32 -top-40 size-96 rounded-full border-[70px] border-sky-100/70" />
+  return <footer className="relative mt-20 border-t border-sky-900 bg-[#052f46] text-white">
+    <div className="relative overflow-hidden">
+      <span className="pointer-events-none absolute -end-36 -top-48 size-[30rem] rounded-full border-[5rem] border-white/[0.025]" aria-hidden="true" />
+      <span className="pointer-events-none absolute -bottom-36 -start-32 size-96 rounded-full bg-emerald-400/[0.05] blur-3xl" aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-16 sm:px-8">
-        <div className="relative flex flex-col justify-between gap-6 overflow-hidden rounded-[2.25rem] bg-gradient-to-l from-[#087eb8] via-[#078b94] to-[#0ba66b] p-7 text-white shadow-[0_26px_75px_rgb(8_126_184/0.22)] sm:flex-row sm:items-center sm:p-10">
-          <span className="absolute -end-12 -top-20 size-64 rounded-full border-[38px] border-white/10" /><div className="relative"><p className="text-sm font-bold text-emerald-100">{isEn ? 'TABARESTAN CUP SECRETARIAT' : 'دبیرخانه جام تبرستان'}</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">{isEn ? 'Have a question? We are here for your team.' : 'سؤالی دارید؟ ما کنار تیم شما هستیم.'}</h2><p className="mt-2 text-sm text-white/70">{isEn ? 'Registration, league rules, payments, and event support.' : 'پاسخ‌گویی درباره ثبت‌نام، قوانین لیگ، پرداخت و برگزاری مسابقات'}</p></div>
-          <Link to="/contact" className="relative inline-flex shrink-0 items-center justify-center rounded-2xl bg-white px-6 py-3.5 font-bold text-rc-blue shadow-xl transition hover:-translate-y-1">{isEn ? 'Contact secretariat' : 'ارتباط با دبیرخانه'}</Link>
-        </div>
+      <div className="relative mx-auto max-w-7xl px-4 pt-10 sm:px-8 sm:pt-14">
+        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-white/15 bg-gradient-to-l from-sky-500/25 via-white/10 to-emerald-400/20 p-6 shadow-[0_24px_70px_rgb(0_0_0/0.18)] backdrop-blur md:grid-cols-[1fr_auto] md:items-center md:p-8">
+          <div><p className="text-xs font-black tracking-widest text-emerald-200">{brand}</p><h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight sm:text-3xl">{t('footer.ctaTitle')}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-sky-100/70">{t('footer.ctaSubtitle')}</p></div>
+          <Link to="/contact" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-6 font-black text-sky-800 shadow-xl transition duration-300 hover:-translate-y-1 hover:bg-emerald-50">{t('nav.contact')} <span aria-hidden>←</span></Link>
+        </section>
       </div>
 
-      <div className={`relative mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 sm:px-8 ${settings?.trust_seal_url ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
-        <div className="lg:col-span-2">
-          <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-rc-accent text-lg font-black text-white shadow-lg">RT</div>
-          <p className="mt-5 text-3xl font-black tracking-tight text-slate-800">{brand}</p>
-          <p className="mt-2 text-sm font-bold text-emerald-600">Tabarestan Cup · Amol</p>
-          {about ? <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">{about}</p> : <p className="mt-5 max-w-md text-sm leading-8 text-rc-muted">رویداد نوآوری و رباتیک شمال ایران؛ از قلب مازندران، رو به آینده.</p>}
-          <div className="mt-6 flex items-center gap-2">
-            <span className="size-2 rounded-full bg-rc-accent" />
-            <span className="text-xs font-semibold text-rc-muted">
-              از مازندران تا آینده
-            </span>
-          </div>
-        </div>
+      <div className={`relative mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-8 sm:py-14 md:grid-cols-2 ${settings?.trust_seal_url ? 'lg:grid-cols-[1.4fr_.9fr_1fr_.55fr]' : 'lg:grid-cols-[1.4fr_.9fr_1fr]'}`}>
+        <section>
+          <div className="flex items-center gap-4">{settings?.logo_url ? <span className="grid size-16 place-items-center rounded-2xl bg-white p-2 shadow-lg"><img src={settings.logo_url} alt={brand} className="max-h-12 max-w-full object-contain" /></span> : <span className="grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-emerald-400 text-lg font-black shadow-lg">TC</span>}<div><h2 className="text-2xl font-black">{brand}</h2><p className="mt-1 text-xs font-bold tracking-wide text-emerald-200">Tabarestan Cup · Amol</p></div></div>
+          <p className="mt-5 max-w-lg text-sm leading-8 text-sky-100/65">{about}</p>
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-emerald-100"><span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgb(110_231_183/0.1)]" />{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</div>
+        </section>
 
-        <div className="lg:col-span-1">
-          <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
-            {t('footer.usefulLinks')}
-          </p>
-          <ul className="grid grid-cols-1 gap-3 text-sm text-rc-muted">
-            {useful.map((item) => (
-              <li key={item.id}>
-                <Link
-                  to={item.href}
-                  className="inline-flex items-center gap-2 transition hover:text-rc-blue"
-                >
-                  <span className="size-1.5 rounded-full bg-rc-accent" />
-                  {isEn ? item.label_en : item.label_fa}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-5"><h3 className="text-sm font-black text-white">{t('footer.usefulLinks')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-sky-300/30 to-transparent" /><ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs font-bold text-sky-100/65">{useful.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex items-center gap-2 transition hover:translate-x-0.5 hover:text-white"><span className="size-1 rounded-full bg-emerald-300" />{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></section>
 
-        <div className="lg:col-span-1">
-          <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
-            {t('footer.contact')}
-          </p>
-          <ul className="space-y-3 text-sm text-rc-muted">
-            {phone ? (
-              <li>
-                <a href={`tel:${phone}`} className="hover:text-rc-blue" dir="ltr">
-                  {phone}
-                </a>
-              </li>
-            ) : null}
-            {email ? (
-              <li>
-                <a href={`mailto:${email}`} className="hover:text-rc-blue" dir="ltr">
-                  {email}
-                </a>
-              </li>
-            ) : null}
-            {address ? <li className="leading-relaxed">{address}</li> : null}
-            {contactBlurb ? <li className="leading-relaxed">{contactBlurb}</li> : null}
-            {!phone && !email && !address && !contactBlurb ? (
-              <li>{t('footer.contactEmpty')}</li>
-            ) : null}
-          </ul>
-        </div>
+        <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-5"><h3 className="text-sm font-black text-white">{t('footer.contact')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-emerald-300/30 to-transparent" /><ul className="mt-5 space-y-3 text-xs leading-6 text-sky-100/70">{phone && telephoneHref ? <li><a href={telephoneHref} className="flex items-center gap-3 transition hover:text-white"><ContactIcon kind="phone" /><span dir="ltr">{phone}</span></a></li> : null}{email ? <li><a href={`mailto:${email}`} className="flex items-center gap-3 transition hover:text-white"><ContactIcon kind="email" /><span className="min-w-0 truncate" dir="ltr">{email}</span></a></li> : null}{address ? <li className="flex items-start gap-3"><ContactIcon kind="address" /><span>{address}</span></li> : null}{contactBlurb ? <li className="border-t border-white/8 pt-3 text-sky-100/55">{contactBlurb}</li> : null}{!phone && !email && !address && !contactBlurb ? <li>{t('footer.contactEmpty')}</li> : null}</ul></section>
 
-        {settings?.trust_seal_url ? <div className="lg:col-span-1">
-          <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-rc-muted uppercase">
-            {t('footer.trust')}
-          </p>
-            <a
-              href={settings.trust_seal_href || '#'}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-block border border-rc-line bg-rc-surface/70 p-3 transition hover:border-rc-blue/40"
-            >
-              <img
-                src={settings.trust_seal_url}
-                alt={t('footer.trust')}
-                className="h-24 w-auto object-contain"
-              />
-            </a>
-        </div> : null}
+        {settings?.trust_seal_url ? <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-5"><h3 className="text-sm font-black">{t('footer.trust')}</h3><a href={settings.trust_seal_href || '#'} target="_blank" rel="noreferrer noopener" className="mt-5 grid aspect-square place-items-center rounded-2xl bg-white p-3 transition hover:-translate-y-1"><img src={settings.trust_seal_url} alt={t('footer.trust')} className="max-h-24 max-w-full object-contain" /></a></section> : null}
       </div>
+    </div>
 
-      <div className="relative border-t border-emerald-100 bg-white/60">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-rc-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>{copyright}</p>
-          <p className="font-mono text-[10px] tracking-[0.18em] text-rc-blue/80 uppercase">
-            Amol · Mazandaran · Iran
-          </p>
-        </div>
-      </div>
-    </footer>
-  )
+    <div className="relative border-t border-white/10 bg-[#03283b]">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-center text-xs text-sky-100/55 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:text-start"><p>{copyright}</p><p className="font-mono text-[10px] tracking-[0.18em] text-emerald-200/70 uppercase">Amol · Mazandaran · Iran</p></div>
+    </div>
+  </footer>
 }

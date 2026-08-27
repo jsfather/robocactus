@@ -34,13 +34,9 @@ export function CompaniesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-12">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('companies.title')}</h1>
-        <p className="mt-1 text-rc-muted">{t('companies.subtitle')}</p>
-      </div>
+    <div className="pb-20"><section className="bg-gradient-to-br from-[#063d59] via-[#087eb8] to-[#087a58] px-4 pb-20 pt-32 text-white"><div className="mx-auto max-w-6xl"><p className="text-xs font-black tracking-[.22em] text-cyan-200">PARTICIPANT DIRECTORY</p><div className="mt-3 flex flex-wrap items-end justify-between gap-5"><div><h1 className="text-4xl font-black sm:text-6xl">{t('companies.title')}</h1><p className="mt-4 max-w-2xl text-sm leading-7 text-white/75">{t('companies.subtitle')}</p></div><div className="rounded-2xl bg-white/10 px-5 py-3 text-center backdrop-blur"><strong className="block text-3xl">{companies.length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">پروفایل فعال</span></div></div></div></section><main className="mx-auto -mt-9 max-w-6xl space-y-6 px-4">
 
-      <form className="flex flex-wrap gap-2" onSubmit={onSearch}>
+      <form className="flex flex-wrap gap-2 rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-[0_20px_60px_rgb(7_59_85/0.12)]" onSubmit={onSearch}>
         <div className="min-w-64 flex-1">
           <Input
             label={t('rankings.search')}
@@ -65,27 +61,27 @@ export function CompaniesPage() {
             <li key={company.id}>
               <Link
                 to={`/companies/${company.slug}`}
-                className="flex h-full flex-col rounded-xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-rc-blue/40"
+                className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-[0_12px_36px_rgb(7_59_85/0.07)] transition duration-300 hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_20px_48px_rgb(8_126_184/0.14)]"
               >
                 <div className="mb-3 flex items-center gap-3">
                   {company.logo_url ? (
                     <img
                       src={company.logo_url}
                       alt=""
-                      className="size-12 rounded-md border border-white/10 object-cover"
+                      className="size-16 rounded-2xl border border-slate-100 bg-white object-contain p-2 shadow-sm"
                     />
                   ) : (
-                    <div className="flex size-12 items-center justify-center rounded-md border border-white/10 font-mono text-rc-blue">
+                    <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-emerald-50 font-mono font-black text-rc-blue">
                       CO
                     </div>
                   )}
                   <div>
-                    <h2 className="font-semibold text-rc-text">{company.name}</h2>
+                    <h2 className="font-black text-slate-900 transition group-hover:text-sky-700">{company.name}</h2>
                     <p className="font-mono text-xs text-rc-muted">{company.slug}</p>
                   </div>
                 </div>
                 {company.bio ? (
-                  <p className="line-clamp-3 text-sm text-rc-muted">{company.bio}</p>
+                  <p className="line-clamp-3 text-sm leading-7 text-slate-500">{company.bio}</p>
                 ) : (
                   <p className="text-sm text-rc-muted">{t('companies.noBio')}</p>
                 )}
@@ -94,6 +90,6 @@ export function CompaniesPage() {
           ))}
         </ul>
       )}
-    </div>
+    </main></div>
   )
 }

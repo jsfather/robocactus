@@ -23,6 +23,8 @@
     "contact": "Contact",
     "faq": "FAQ",
     "privacy": "Privacy",
+    "terms": "Terms and Conditions",
+    "registrationGuide": "Registration Guide",
     "login": "Log in",
     "signup": "Sign up",
     "logout": "Log out",
@@ -65,6 +67,7 @@
     "otpVerifying": "Verifying code…",
     "otpVerified": "Code verified; signing you in…",
     "otpResend": "Resend code",
+    "otpResendAfterExpiry": "Resend after the current code expires",
     "otpResendCountdown": "Resend in {{time}}",
     "otpCooldown": "Please wait before requesting another code",
     "otpTooMany": "Too many verification attempts; request a new code",
@@ -268,7 +271,7 @@
     "opsPulseHint": "Tickets and triage workload",
     "quickActions": "Quick actions",
     "latestUsers": "Latest users",
-    "latestCompanies": "Latest companies",
+    "latestCompanies": "Latest participants",
     "latestTeams": "Latest teams",
     "viewAll": "View all",
     "nav": {
@@ -606,16 +609,16 @@
       "saved": "User profile saved"
     },
     "companies": {
-      "title": "Companies",
-      "subtitle": "Registered organizations across the platform",
-      "total": "Total companies",
+      "title": "Participants",
+      "subtitle": "Manage individual and legal-entity registrants",
+      "total": "Total participants",
       "shown": "Shown",
       "search": "Search",
       "searchHint": "Name or slug…",
-      "list": "Company registry",
-      "empty": "No companies yet.",
-      "create": "New company",
-      "editing": "Editing company"
+      "list": "Participant registry",
+      "empty": "No participants yet.",
+      "create": "New participant",
+      "editing": "Editing participant"
     },
     "pages": {
       "title": "Static pages",
@@ -948,7 +951,7 @@
     "liveOn": "Live (Realtime)",
     "livePolling": "Auto-refresh every 20s",
     "totalTeams": "Teams",
-    "totalCompanies": "Companies",
+    "totalCompanies": "Participants",
     "paidInvoices": "Paid invoices",
     "paidAmount": "Paid amount",
     "byStatus": "By registration status",
@@ -1165,6 +1168,8 @@
     "help": "SMS delivery, reports, inbox, templates, media, and Kavenegar account controls."
   },
   "footer": {
+    "ctaTitle": "Have a question? The secretariat is here to help",
+    "ctaSubtitle": "Contact us for registration, league rules, payments, and event support.",
     "usefulLinks": "Useful links",
     "contact": "Contact",
     "trust": "Trust seal",

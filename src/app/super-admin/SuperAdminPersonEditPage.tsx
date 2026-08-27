@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Button, FieldError, Input, PanelCard, Select, Textarea } from '@/components/ui/FormControls'
-import { DateTimeField } from '@/components/ui/DateTimeField'
+import { BirthDateField } from '@/components/ui/BirthDateField'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { backend } from '@/lib/backend'
@@ -59,7 +59,7 @@ export function SuperAdminPersonEditPage() {
       </PanelCard>
 
       <PanelCard title="اطلاعات هویتی عمومی">
-        <div className="grid gap-3 md:grid-cols-2"><DateTimeField label="تاریخ تولد" withTime={false} value={form.birth_date ? `${form.birth_date}T12:00:00.000Z` : null} onChange={(iso) => patch({ birth_date: iso?.slice(0, 10) ?? null })} /><span />
+        <div className="grid gap-3 md:grid-cols-2"><BirthDateField label="تاریخ تولد" value={form.birth_date} onChange={(date) => patch({ birth_date: date })} /><span />
           <Input label="ملیت فارسی" value={form.nationality_fa ?? ''} onChange={(event) => patch({ nationality_fa: event.target.value })} /><Input label="Nationality" value={form.nationality_en ?? ''} onChange={(event) => patch({ nationality_en: event.target.value })} dir="ltr" />
           <Input label="شهر فارسی" value={form.city_fa ?? ''} onChange={(event) => patch({ city_fa: event.target.value })} /><Input label="City" value={form.city_en ?? ''} onChange={(event) => patch({ city_en: event.target.value })} dir="ltr" />
           <Textarea label="اطلاعات هویتی و معرفی فارسی" value={form.identity_summary_fa ?? ''} onChange={(event) => patch({ identity_summary_fa: event.target.value })} /><Textarea label="Identity & background" value={form.identity_summary_en ?? ''} onChange={(event) => patch({ identity_summary_en: event.target.value })} dir="ltr" />
@@ -83,4 +83,3 @@ export function SuperAdminPersonEditPage() {
     </form>
   </PanelPage>
 }
-

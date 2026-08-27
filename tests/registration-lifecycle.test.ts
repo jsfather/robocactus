@@ -22,6 +22,8 @@ const contactPage = readFileSync(new URL('../src/app/public/ContactPage.tsx', im
 const leagueDetailPage = readFileSync(new URL('../src/app/public/LeagueDetailPage.tsx', import.meta.url), 'utf8')
 const competitionStats = readFileSync(new URL('../src/components/home/CompetitionStats.tsx', import.meta.url), 'utf8')
 const sponsorsSlider = readFileSync(new URL('../src/components/home/SponsorsSlider.tsx', import.meta.url), 'utf8')
+const authServer = readFileSync(new URL('../server/auth.ts', import.meta.url), 'utf8')
+const smsOtpClient = readFileSync(new URL('../src/features/auth/smsOtp.ts', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
   assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 10, lifecycleStatus: 'incomplete' })
@@ -129,6 +131,23 @@ test('OTP expiration uses database time, challenge locking, and a client challen
   assert.match(otpLogin, /otpServerError/)
 })
 
+test('SMS OTP exchange accepts the issued token kind and consumes it atomically', () => {
+  assert.match(otpServer, /createOneTimeToken\(user\.id, 'sms_otp'\)/)
+  assert.match(smsOtpClient, /type: 'sms_otp'/)
+  assert.match(authServer, /row\.token\.kind === 'sms_otp'/)
+  assert.match(authServer, /requestedType === 'sms_otp'/)
+  assert.match(authServer, /Older deployed clients sent SMS token_hash/)
+  assert.match(authServer, /\.for\('update'\)/)
+})
+
+test('OTP UI exposes one validity clock and aligns resend availability with it', () => {
+  assert.match(otpServer, /created_at \+ interval '5 minutes'/)
+  assert.match(otpServer, /resend_after_sec: Number\(issued\.row\?\.expires_in_sec/)
+  assert.match(otpLogin, /otpResendAfterExpiry/)
+  assert.doesNotMatch(otpLogin, /otpResendCountdown/)
+  assert.doesNotMatch(signupPage, /otpResendCountdown/)
+})
+
 test('verified phone login routes new users into server-authorized registration', () => {
   assert.match(otpServer, /const isNewUser = !user/)
   assert.match(otpServer, /registration_required: isNewUser/)
@@ -153,7 +172,7 @@ test('mobile bottom navigation is safe-area aware and leaves content clearance',
   assert.match(mobileNavigation, /safe-area-inset-bottom/)
   assert.match(mobileNavigation, /isActive/)
   assert.match(mobileNavigation, /user \? '\/dashboard' : '\/login'/)
-  assert.match(publicLayout, /pb-\[calc\(4\.5rem\+env\(safe-area-inset-bottom\)\)\]/)
+  assert.match(publicLayout, /pb-\[calc\(5\.25rem\+env\(safe-area-inset-bottom\)\)\]/)
 })
 
 test('public contact phone comes from settings and opens the device dialer', () => {

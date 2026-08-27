@@ -37,6 +37,12 @@ export async function createInvoiceForTeam(teamId: string): Promise<Invoice> {
   return data as Invoice
 }
 
+export async function acceptInvoiceTerms(invoiceId: string): Promise<Invoice> {
+  const { data, error } = await backend.rpc('accept_invoice_terms', { p_invoice_id: invoiceId, p_version: '2026-08' })
+  if (error) throw new Error(error.message)
+  return data as Invoice
+}
+
 export async function fetchInvoice(invoiceId: string): Promise<Invoice | null> {
   const { data, error } = await backend
     .from('invoices')

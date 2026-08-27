@@ -87,7 +87,7 @@ export async function verifySmsOtp(input: {
 
 export async function completeSmsOtpSession(tokenHash: string): Promise<{ error: string | null }> {
   const { error } = await backend.auth.verifyOtp({
-    type: 'email',
+    type: 'sms_otp',
     token_hash: tokenHash,
   })
   if (error) return { error: error.message }

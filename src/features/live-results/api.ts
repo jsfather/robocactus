@@ -39,6 +39,31 @@ function mapResultRow(row: Record<string, unknown>): RankingsRow {
   }
 }
 
+async function hydrateResultRows(resultRows: ResultRow[]): Promise<RankingsRow[]> {
+  if (!resultRows.length) return []
+  const teamIds = [...new Set(resultRows.map((row) => row.team_id))]
+  const companyIds = [...new Set(resultRows.map((row) => row.company_id))]
+  const leagueIds = [...new Set(resultRows.map((row) => row.league_id))]
+  const [teamsResponse, companiesResponse, leaguesResponse] = await Promise.all([
+    backend.from('teams').select('id, name').in('id', teamIds),
+    backend.from('companies').select('id, name, slug, logo_url').in('id', companyIds),
+    backend.from('leagues').select('id, name, slug').in('id', leagueIds),
+  ])
+  const relatedError = teamsResponse.error ?? companiesResponse.error ?? leaguesResponse.error
+  if (relatedError) throw new Error(relatedError.message)
+
+  const teams = new Map(((teamsResponse.data ?? []) as Array<{ id: string; name: string }>).map((row) => [row.id, row]))
+  const companies = new Map(((companiesResponse.data ?? []) as Array<{ id: string; name: string; slug: string; logo_url: string | null }>).map((row) => [row.id, row]))
+  const leagues = new Map(((leaguesResponse.data ?? []) as Array<{ id: string; name: string; slug: string }>).map((row) => [row.id, row]))
+
+  return resultRows.map((row) => mapResultRow({
+    ...row,
+    teams: teams.get(row.team_id) ?? null,
+    companies: companies.get(row.company_id) ?? null,
+    leagues: leagues.get(row.league_id) ?? null,
+  }))
+}
+
 /** Resolve public board mode from explicit status or competition period. */
 export function resolveResultsBoardMode(league: League): ResultsBoardMode | null {
   const status = league.results_status ?? 'auto'
@@ -70,22 +95,7 @@ export async function fetchLiveResultsBoards(): Promise<LiveLeagueBoard[]> {
   const leagueIds = candidates.map((c) => c.league.id)
   const { data: resultsRaw, error: resultsError } = await backend
     .from('results')
-    .select(
-      `
-      id,
-      league_id,
-      team_id,
-      company_id,
-      season_year,
-      rank,
-      score,
-      notes,
-      published_at,
-      teams ( name ),
-      companies ( name, slug, logo_url ),
-      leagues ( name, slug )
-    `,
-    )
+    .select('id, league_id, team_id, company_id, season_year, rank, score, notes, published_at')
     .in('league_id', leagueIds)
     .eq('notes', 'official_multi_judge_engine')
     .order('rank', { ascending: true })
@@ -93,7 +103,7 @@ export async function fetchLiveResultsBoards(): Promise<LiveLeagueBoard[]> {
 
   if (resultsError) throw new Error(resultsError.message)
 
-  const allRows = ((resultsRaw ?? []) as Array<Record<string, unknown>>).map(mapResultRow)
+  const allRows = await hydrateResultRows((resultsRaw ?? []) as ResultRow[])
 
   const boards: LiveLeagueBoard[] = []
   for (const { league, mode } of candidates) {
@@ -155,27 +165,12 @@ export async function fetchTeamPublishedResult(teamId: string): Promise<ResultRo
 export async function fetchCompanyPublishedResults(companyId: string): Promise<RankingsRow[]> {
   const { data, error } = await backend
     .from('results')
-    .select(
-      `
-      id,
-      league_id,
-      team_id,
-      company_id,
-      season_year,
-      rank,
-      score,
-      notes,
-      published_at,
-      teams ( name ),
-      companies ( name, slug, logo_url ),
-      leagues ( name, slug )
-    `,
-    )
+    .select('id, league_id, team_id, company_id, season_year, rank, score, notes, published_at')
     .eq('company_id', companyId)
     .not('published_at', 'is', null)
     .order('season_year', { ascending: false })
     .order('rank', { ascending: true })
     .limit(30)
   if (error) throw new Error(error.message)
-  return ((data ?? []) as Array<Record<string, unknown>>).map(mapResultRow)
+  return hydrateResultRows((data ?? []) as ResultRow[])
 }

@@ -9,7 +9,6 @@ import { sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 import { verifyCaptcha } from './captcha.js'
 import { classifyOtpChallenge } from './otp-state.js'
 
-const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_ATTEMPTS = 5
 const requestWindows = new Map<string, { count: number; resetAt: number }>()
 const captchaGrants = new Map<string, number>()
@@ -149,7 +148,7 @@ export function registerOtpRoutes(router: Router): void {
           // cannot create two active challenges or bypass the cooldown.
           await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${`${phone}:${purpose}`}))`)
           const recent = await transaction.execute(sql`
-            select greatest(0,ceil(extract(epoch from (created_at + interval '60 seconds' - now()))))::integer retry_after_sec
+            select greatest(0,ceil(extract(epoch from (created_at + interval '5 minutes' - now()))))::integer retry_after_sec
             from public.auth_otp_challenges where phone=${phone} and purpose=${purpose}
             order by created_at desc limit 1
           `)
@@ -185,7 +184,7 @@ export function registerOtpRoutes(router: Router): void {
           expires_at: issued.row?.expires_at,
           server_time: issued.row?.server_time,
           expires_in_sec: Number(issued.row?.expires_in_sec ?? 0),
-          resend_after_sec: RESEND_COOLDOWN_MS / 1000,
+          resend_after_sec: Number(issued.row?.expires_in_sec ?? 0),
           ...(issued.mock ? { dev_code: code } : {}),
         })
         return

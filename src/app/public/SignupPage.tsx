@@ -1,9 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { Button, Input, Textarea } from '@/components/ui/FormControls'
-import { DateTimeField } from '@/components/ui/DateTimeField'
+import { BirthDateField } from '@/components/ui/BirthDateField'
 import {
   clearSignupDraft,
   saveSignupDraft,
@@ -17,9 +17,11 @@ import type { AccountType } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
 type AuthChannel = 'phone' | 'email'
+type OtpState = 'idle' | 'verifying' | 'success' | 'error'
 
 export function SignupPage() {
   const { t } = useTranslation()
@@ -67,6 +69,8 @@ export function SignupPage() {
   const [challengeId, setChallengeId] = useState('')
   const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0)
   const [resendSeconds, setResendSeconds] = useState(0)
+  const [otpState, setOtpState] = useState<OtpState>('idle')
+  const verifyInFlight = useRef(false)
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => setAuthOptions(data))
@@ -217,22 +221,27 @@ export function SignupPage() {
     toast.info(t('auth.otpSent'))
   }
 
-  const onVerifyOtp = async (event: FormEvent) => {
-    event.preventDefault()
+  const verifyOtp = async (completeCode = code) => {
+    if (completeCode.length !== 6 || verifyInFlight.current || otpState === 'success') return
     if (!challengeId) { setError(t('auth.otpInvalidSession')); return }
+    verifyInFlight.current = true
     setError(null)
     setSubmitting(true)
+    setOtpState('verifying')
     const result = await verifyPhoneOtp({
       phone: phone.trim(),
-      code: code.trim(),
+      code: completeCode.trim(),
       fullName: fullName.trim(),
       purpose: 'signup',
       challengeId,
     })
     if (result.error) {
       setSubmitting(false)
+      verifyInFlight.current = false
+      setOtpState('error')
       setError(mapOtpError(result.error))
       if (['expired', 'already_used', 'invalid_session', 'too_many_attempts'].includes(result.error)) setResendSeconds(0)
+      window.setTimeout(() => setOtpState('idle'), 650)
       return
     }
     try {
@@ -243,11 +252,16 @@ export function SignupPage() {
       setUserId(uid)
       await refreshProfile()
       clearSignupDraft()
-      setStep('docs')
+      setOtpState('success')
       toast.success(t('auth.phoneVerified'))
+      await new Promise((resolve) => window.setTimeout(resolve, 720))
+      setStep('docs')
     } catch (err) {
+      setOtpState('error')
       setError(err instanceof Error ? err.message : t('common.error'))
+      window.setTimeout(() => setOtpState('idle'), 650)
     } finally {
+      verifyInFlight.current = false
       setSubmitting(false)
     }
   }
@@ -272,7 +286,7 @@ export function SignupPage() {
 
   const onResendOtp = async () => {
     if (submitting || resendSeconds > 0) return
-    setSubmitting(true); setError(null); setCode('')
+    setSubmitting(true); setError(null); setCode(''); setOtpState('idle')
     const result = await requestPhoneOtp(phone.trim(), 'signup', '')
     setSubmitting(false)
     if (result.error) { setError(mapOtpError(result.error)); return }
@@ -490,7 +504,7 @@ export function SignupPage() {
             <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} dir="ltr" />
             <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} dir="ltr" />
           </div>
-          <DateTimeField label="تاریخ تولد" withTime={false} value={birthDate ? `${birthDate}T12:00:00.000Z` : null} onChange={(iso) => setBirthDate(iso?.slice(0, 10) ?? '')} />
+          <BirthDateField label="تاریخ تولد" value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
           <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} dir="ltr" />
           {accountType === 'individual' ? (
             <Input
@@ -595,16 +609,16 @@ export function SignupPage() {
               </div>
             </form>
           ) : (
-            <form onSubmit={(e) => void onVerifyOtp(e)} className="space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); void verifyOtp() }} className="space-y-3">
               {devCode ? (
                 <p className="font-mono text-xs text-rc-accent">DEV OTP: {devCode}</p>
               ) : null}
-              <Input label={t('auth.otpCode')} required value={code} onChange={(e) => setCode(e.target.value)} dir="ltr" />
+              <OtpCodeInput value={code} onChange={(next) => { setCode(next); setError(null) }} onComplete={(next) => void verifyOtp(next)} state={otpState} disabled={submitting || otpState === 'success'} />
               <p className={`text-xs font-bold ${otpRemainingSeconds > 0 ? 'text-sky-700' : 'text-rose-700'}`}>{otpRemainingSeconds > 0 ? `${t('auth.otpValidity')} ${String(Math.floor(otpRemainingSeconds / 60)).padStart(2, '0')}:${String(otpRemainingSeconds % 60).padStart(2, '0')}` : t('auth.otpExpired')}</p>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || code.length !== 6}>
                 {submitting ? t('app.loading') : t('auth.verifyAndContinue')}
               </Button>
-              <Button type="button" variant="ghost" disabled={submitting || resendSeconds > 0} onClick={() => void onResendOtp()}>{resendSeconds > 0 ? t('auth.otpResendCountdown', { time: `${String(Math.floor(resendSeconds / 60)).padStart(2, '0')}:${String(resendSeconds % 60).padStart(2, '0')}` }) : t('auth.otpResend')}</Button>
+              <Button type="button" variant="ghost" disabled={submitting || resendSeconds > 0} onClick={() => void onResendOtp()}>{resendSeconds > 0 ? t('auth.otpResendAfterExpiry') : t('auth.otpResend')}</Button>
             </form>
           )}
         </div>

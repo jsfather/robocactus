@@ -13,25 +13,27 @@ import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerso
 import type { LeaguePerson, LeagueSponsor } from '@/types/database'
 
 function CountdownHud({ target }: { target: string }) {
-  const { t } = useTranslation()
-  const [parts, setParts] = useState({ d: 0, h: 0, m: 0, done: false })
+  const { t, i18n } = useTranslation()
+  const isFa = i18n.language.startsWith('fa')
+  const [parts, setParts] = useState({ d: 0, h: 0, m: 0, s: 0, done: false })
 
   useEffect(() => {
     const tick = () => {
       const ms = new Date(target).getTime() - Date.now()
       if (ms <= 0) {
-        setParts({ d: 0, h: 0, m: 0, done: true })
+        setParts({ d: 0, h: 0, m: 0, s: 0, done: true })
         return
       }
       setParts({
         d: Math.floor(ms / 86400000),
         h: Math.floor((ms % 86400000) / 3600000),
         m: Math.floor((ms % 3600000) / 60000),
+        s: Math.floor((ms % 60000) / 1000),
         done: false,
       })
     }
     tick()
-    const id = window.setInterval(tick, 30_000)
+    const id = window.setInterval(tick, 1_000)
     return () => window.clearInterval(id)
   }, [target])
 
@@ -43,22 +45,20 @@ function CountdownHud({ target }: { target: string }) {
     )
   }
 
-  const cells = [
-    { label: 'D', value: parts.d },
-    { label: 'H', value: parts.h },
-    { label: 'M', value: parts.m },
-  ]
+  const cells = isFa
+    ? [{ label: 'ثانیه', value: parts.s }, { label: 'دقیقه', value: parts.m }, { label: 'ساعت', value: parts.h }, { label: 'روز', value: parts.d }]
+    : [{ label: 'Days', value: parts.d }, { label: 'Hours', value: parts.h }, { label: 'Minutes', value: parts.m }, { label: 'Seconds', value: parts.s }]
 
   return (
     <div>
       <p className="mb-3 text-sm font-bold text-white/80">
         {t('leaguePage.countdown')}
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid max-w-md grid-cols-4 gap-2" dir={isFa ? 'rtl' : 'ltr'}>
         {cells.map((cell) => (
           <div
             key={cell.label}
-            className="min-w-[4.75rem] rounded-2xl border border-white/30 bg-white/15 px-3 py-3 text-center text-white shadow-lg backdrop-blur-md"
+            className="min-w-0 rounded-2xl border border-white/30 bg-white/15 px-2 py-3 text-center text-white shadow-lg backdrop-blur-md"
           >
             <p className="text-2xl font-black tabular-nums text-white md:text-3xl">
               {String(cell.value).padStart(2, '0')}
@@ -227,12 +227,6 @@ export function LeagueDetailPage() {
   const forbidden = league.forbidden_equipment ?? []
   const canRegister = period === 'open'
   const regPath = user ? '/dashboard' : canRegister ? '/signup' : '/login'
-  const statusLabel =
-    period === 'open'
-      ? t('leaguePage.statusOpen')
-      : period === 'full'
-        ? t('leaguePage.statusFull')
-        : t('leaguePage.statusClosed')
   const cover = leagueCoverUrl(league)
   const showCountdown =
     Boolean(league.event_starts_at) && new Date(league.event_starts_at!).getTime() > Date.now()
@@ -318,13 +312,6 @@ export function LeagueDetailPage() {
                 <span className="size-1.5 rounded-full bg-current league-node-pulse" />
                 {t(`leaguePage.period.${period}`)}
               </span>
-              <span
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold backdrop-blur-md ${periodBadgeClass(
-                  period === 'open' ? 'open' : period === 'full' ? 'full' : 'ended',
-                )}`}
-              >
-                {statusLabel}
-              </span>
               {league.category ? (
                 <span className="rounded-full border border-rc-line bg-white/85 px-3 py-1 text-[11px] text-rc-muted shadow-sm backdrop-blur-sm">
                   {league.category}
@@ -370,12 +357,6 @@ export function LeagueDetailPage() {
               ) : null}
             </div>
 
-            {league.show_registered_count !== false ? (
-              <p className="mt-6 font-mono text-xs tracking-wide text-rc-muted">
-                <span className="text-rc-blue">▸</span>{' '}
-                {t('leaguePage.registeredCount', { count: bundle.registeredCount })}
-              </p>
-            ) : null}
           </motion.div>
         </div>
       </section>
@@ -471,13 +452,13 @@ export function LeagueDetailPage() {
 
         {timeline.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.timeline')}>
-            <ol className="relative grid gap-4 before:absolute before:inset-y-7 before:start-6 before:w-0.5 before:bg-gradient-to-b before:from-sky-300 before:via-emerald-300 before:to-sky-100 md:flex md:overflow-x-auto md:pb-3 md:before:inset-x-8 md:before:top-6 md:before:h-0.5 md:before:w-auto md:[scrollbar-width:thin]">
+            <ol className="relative grid gap-3 overflow-hidden rounded-[2rem] border border-sky-100 bg-gradient-to-br from-white to-sky-50/50 p-5 shadow-[0_18px_50px_rgb(18_76_98/0.07)] before:absolute before:bottom-10 before:start-[2.9rem] before:top-10 before:w-0.5 before:bg-gradient-to-b before:from-sky-400 before:via-emerald-400 before:to-sky-200 md:flex md:gap-4 md:overflow-x-auto md:pb-6 md:before:inset-x-12 md:before:bottom-auto md:before:top-[2.95rem] md:before:h-0.5 md:before:w-auto md:[scrollbar-width:thin]">
               {timeline.map((step, i) => (
                 <motion.li key={i} initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * .06 }} className="group relative grid grid-cols-[3rem_1fr] items-start gap-3 md:block md:min-w-64 md:flex-1">
-                  <div className="relative z-10 grid size-12 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-sky-500 to-emerald-500 text-white shadow-lg"><TimelineIcon index={i} /></div>
-                  <div className="relative min-h-28 rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_12px_32px_rgb(18_76_98/0.06)] transition duration-300 group-hover:border-emerald-200 group-hover:shadow-[0_16px_38px_rgb(18_76_98/0.1)] md:mt-4">
-                  <span className="absolute end-4 top-3 font-mono text-[10px] font-black text-sky-300">{String(i + 1).padStart(2, '0')}</span>
-                  <p className="pe-8 text-base font-black text-slate-800">{step.title}</p>
+                  <div className="relative z-10 grid size-12 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-[#087eb8] to-[#0b9b65] text-white shadow-[0_10px_25px_rgb(8_126_184/0.28)]"><TimelineIcon index={i} /></div>
+                  <div className="relative min-h-28 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_10px_28px_rgb(18_76_98/0.06)] transition duration-300 group-hover:-translate-y-1 group-hover:border-emerald-200 group-hover:shadow-[0_18px_40px_rgb(18_76_98/0.12)] md:mt-5">
+                  <span className="absolute end-4 top-3 rounded-full bg-sky-50 px-2 py-1 font-mono text-[10px] font-black text-sky-700">{String(i + 1).padStart(2, '0')}</span>
+                  <p className="pe-10 text-base font-black text-slate-900">{step.title}</p>
                   {step.date ? (
                     <p className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                       {Number.isNaN(new Date(step.date).getTime())
@@ -486,7 +467,7 @@ export function LeagueDetailPage() {
                     </p>
                   ) : null}
                   {step.description ? (
-                    <p className="mt-3 text-xs leading-6 text-rc-muted">{step.description}</p>
+                    <p className="mt-3 text-xs font-medium leading-6 text-slate-600">{step.description}</p>
                   ) : null}
                   </div>
                 </motion.li>
@@ -734,10 +715,10 @@ export function LeagueDetailPage() {
             <span className="absolute -end-16 -top-20 size-64 rounded-full border-[42px] border-white/10" aria-hidden />
             <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 text-white backdrop-blur"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M16 12h5M7 10h4M7 14h6" /></svg></span><div>
-            <p className="text-xs font-black tracking-wide text-emerald-100">{t('leaguePage.entryFeeLabel')}</p>
+            <p className="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-black tracking-wide text-white ring-1 ring-white/20">{t('leaguePage.entryFeeLabel')}</p>
             <p className="mt-1 font-mono text-3xl font-black text-white md:text-4xl">
               {formatAmountToman(Number(league.registration_fee))}{' '}
-              <span className="text-sm text-white/70">{t('payment.currency')}</span>
+              <span className="text-sm font-bold text-emerald-100">{t('payment.currency')}</span>
             </p>
             </div></div>
             <Link to={regPath} className="shrink-0"><Button type="button" className="border border-white/40 bg-white !px-6 text-rc-blue shadow-xl hover:bg-sky-50">{ctaLabel}</Button></Link>

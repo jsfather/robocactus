@@ -61,6 +61,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [queueLeague, setQueueLeague] = useState('all')
+  const [queueStatus, setQueueStatus] = useState('all')
   const tab = section
 
   const selected = useMemo(
@@ -69,6 +71,11 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   )
   const selectedLeague = useMemo(() => leagues.find((league) => league.id === selected?.league_id) ?? null, [leagues, selected?.league_id])
   const scoringCriteria = selectedLeague?.scoring_rows?.length ? selectedLeague.scoring_rows : [{ label: 'امتیاز کل', points: '100' }]
+  const visibleTeams = useMemo(() => teams.filter((team) => (queueLeague === 'all' || team.league_id === queueLeague) && (queueStatus === 'all' || team.status === queueStatus)), [queueLeague, queueStatus, teams])
+  const completedCriteria = scoringCriteria.filter((_, index) => Number.isFinite(criterionScores[String(index)]) && criterionScores[String(index)] >= 0).length
+  const scoringPercent = scoringCriteria.length ? Math.round((completedCriteria / scoringCriteria.length) * 100) : 0
+  const enteredTotal = Object.values(criterionScores).reduce((sum, value) => sum + (Number(value) || 0), 0)
+  const maximumTotal = scoringCriteria.reduce((sum, criterion) => sum + (Number(criterion.points) || 0), 0)
 
   const reload = async () => {
     if (!user) return
@@ -179,15 +186,19 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     setBusy(true)
     setError(null)
     try {
-      const updated = publish
-        ? await publishOfficialTeamResult(selected.id, Number(seasonYear))
-        : await saveJudgeScore({ teamId: selected.id, seasonYear: Number(seasonYear), scores: criterionScores, notes, submit: false }).then(() => fetchTeamResult(selected.id, Number(seasonYear)))
-      if (!updated) throw new Error('نتیجه رسمی هنوز آماده نیست.')
+      if (!publish) {
+        const draft = await saveJudgeScore({ teamId: selected.id, seasonYear: Number(seasonYear), scores: criterionScores, notes, submit: false })
+        setJudgeStatus('draft')
+        setResultUpdatedAt(draft.updated_at ?? new Date().toISOString())
+        toast.success(t('judging.resultDraftSuccess'))
+        return
+      }
+      const updated = await publishOfficialTeamResult(selected.id, Number(seasonYear))
       setResultPublishedAt(updated.published_at ?? null)
-      setResultUpdatedAt(new Date().toISOString())
+      setResultUpdatedAt(updated.published_at ?? new Date().toISOString())
       setShowResultPreview(false)
-      toast.success(t(publish ? 'judging.resultPublishedSuccess' : 'judging.resultDraftSuccess'))
-      if (publish) void dispatchPendingSms()
+      toast.success(t('judging.resultPublishedSuccess'))
+      void dispatchPendingSms()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -273,24 +284,28 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       ) : loading ? (
         <p className="text-rc-muted">{t('app.loading')}</p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <PanelCard title={t('judging.queue')}>
+        <div className="space-y-4">
+          <section className="overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#073b55] via-[#087eb8] to-[#0b8b66] p-5 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-5"><div><p className="text-xs font-black text-cyan-200">میز داوری مسابقه</p><h2 className="mt-2 text-2xl font-black">بررسی سریع، ثبت دقیق، انتشار مطمئن</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-white/80">ابتدا لیگ و تیم را انتخاب کنید؛ پرونده و مدارک را بررسی کنید، سپس برای هر معیار امتیاز بدهید. پیش‌نویس قابل ویرایش است اما ثبت نهایی قفل می‌شود.</p></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{visibleTeams.length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">تیم در صف</span></div><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{teams.filter((team) => team.status === 'under_review').length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">در حال بررسی</span></div></div></div>
+          </section>
+          <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+          <PanelCard title={t('judging.queue')} description="فیلتر کنید و تیم بعدی را بدون خروج از صفحه انتخاب کنید.">
+            <div className="mb-4 grid grid-cols-2 gap-2"><Select label="لیگ" value={queueLeague} onChange={(event) => setQueueLeague(event.target.value)}><option value="all">همه لیگ‌ها</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select><Select label="وضعیت" value={queueStatus} onChange={(event) => setQueueStatus(event.target.value)}><option value="all">همه</option><option value="submitted">جدید</option><option value="under_review">در حال بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></Select></div>
             <ul className="max-h-[32rem] space-y-1 overflow-y-auto">
-              {teams.length === 0 ? (
-                <li className="text-sm text-rc-muted">{t('judging.emptyQueue')}</li>
+              {visibleTeams.length === 0 ? (
+                <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-xl shadow-sm">✓</span><p className="mt-3 text-sm font-black text-slate-700">تیمی در این فیلتر باقی نمانده است</p><p className="mt-1 text-xs leading-5 text-slate-400">فیلتر وضعیت یا لیگ را تغییر دهید.</p></li>
               ) : (
-                teams.map((team) => (
+                visibleTeams.map((team, teamIndex) => (
                   <li key={team.id}>
                     <button
                       type="button"
-                      className={`w-full rounded-md px-3 py-2 text-start text-sm ${
-                        selectedId === team.id ? 'bg-rc-blue/15 text-rc-blue' : 'hover:bg-white/5'
+                      className={`w-full rounded-2xl border px-4 py-3 text-start text-sm transition ${
+                        selectedId === team.id ? 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm' : 'border-transparent bg-slate-50/70 hover:border-slate-200 hover:bg-white'
                       }`}
                       onClick={() => setSelectedId(team.id)}
                     >
-                      <span className="block font-medium">{team.name}</span>
-                      <span className="text-xs text-rc-muted">{leagueName(team.league_id)}</span>
-                      <div className="mt-1">
+                      <span className="flex items-center gap-2"><b className="grid size-7 shrink-0 place-items-center rounded-lg bg-white text-[11px] text-slate-400 shadow-sm">{String(teamIndex + 1).padStart(2, '0')}</b><span className="block min-w-0"><strong className="block truncate font-black">{team.name}</strong><small className="mt-0.5 block truncate text-xs text-slate-500">{leagueName(team.league_id)}</small></span></span>
+                      <div className="mt-2 ps-9">
                         <StatusBadge
                           status={team.status}
                           label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
@@ -305,7 +320,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
           {selected ? (
             <div className="space-y-4">
-              <PanelCard title={selected.name} description={leagueName(selected.league_id)}>
+              <section className="rounded-[1.75rem] border border-sky-100 bg-gradient-to-l from-sky-50 via-white to-emerald-50 p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black text-sky-600">لیگ فعال</p><h2 className="mt-1 text-xl font-black text-slate-900">{selectedLeague?.name}</h2><p className="mt-1 text-sm text-slate-500">تیم در حال بررسی: <strong className="text-slate-800">{selected.name}</strong> · فصل {seasonYear}</p></div><div className="flex flex-wrap items-center gap-2"><StatusBadge status={judgeStatus ?? 'draft'} label={judgeStatus === 'submitted' ? 'امتیاز نهایی‌شده' : judgeStatus === 'draft' ? 'پیش‌نویس ذخیره‌شده' : 'امتیازدهی شروع نشده'} /><span className={`rounded-full px-3 py-1.5 text-xs font-black ${resultPublishedAt ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 shadow-sm'}`}>{resultPublishedAt ? 'نتیجه منتشرشده' : 'منتشرنشده'}</span></div></div></section>
+              <PanelCard title={`پرونده تیم · ${selected.name}`} description={`${leagueName(selected.league_id)} — مدارک، اعضا و وضعیت پذیرش را پیش از امتیازدهی کنترل کنید.`}>
                 <div className="mb-3 flex flex-wrap gap-2">
                   <StatusBadge
                     status={selected.status}
@@ -463,9 +479,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                   <ResultStep index="۲" title={t('judging.workflowPreview')} active={showResultPreview} done={Boolean(resultPublishedAt)} />
                   <ResultStep index="۳" title={t('judging.workflowPublish')} active={Boolean(resultPublishedAt)} done={Boolean(resultPublishedAt)} />
                 </div>
-                <div className="mb-5 rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-white p-4 text-sm leading-7 text-sky-900">
-                  امتیاز شما مستقل از سایر داوران ذخیره می‌شود. پس از نهایی‌کردن، نتیجه رسمی فقط وقتی محاسبه می‌شود که همه داوران الزامی امتیاز خود را ثبت کرده باشند.
-                </div>
+                <div className="mb-5 rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-white p-4 text-sm leading-7 text-sky-900"><strong className="block">راهنمای ثبت نتیجه</strong>امتیاز هر معیار را در بازه نمایش‌داده‌شده وارد و ابتدا «ذخیره پیش‌نویس» را بزنید. ثبت نهایی برگشت‌پذیر نیست. نتیجه رسمی پس از تکمیل امتیاز همه داوران الزامی، توسط سرداور منتشر می‌شود.</div>
+                <div className="mb-5 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold text-slate-400">معیارهای تکمیل‌شده</p><strong className="mt-1 block text-xl text-slate-800">{completedCriteria} از {scoringCriteria.length}</strong></div><div className="rounded-2xl bg-sky-50 p-4"><p className="text-xs font-bold text-sky-500">مجموع امتیاز شما</p><strong className="mt-1 block text-xl text-sky-800">{enteredTotal.toLocaleString('fa-IR')} / {maximumTotal.toLocaleString('fa-IR')}</strong></div><div className="rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-600">وضعیت ذخیره</p><strong className="mt-1 block text-base text-emerald-800">{judgeStatus === 'submitted' ? 'نهایی و قفل‌شده' : resultUpdatedAt ? 'پیش‌نویس ذخیره شده' : 'هنوز ذخیره نشده'}</strong></div></div>
+                <div className="mb-5"><div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500"><span>پیشرفت امتیازدهی</span><span>{scoringPercent.toLocaleString('fa-IR')}٪</span></div><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-gradient-to-l from-sky-500 to-emerald-500 transition-all duration-500" style={{ width: `${scoringPercent}%` }} /></div></div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <Input
                     label={t('judging.season')}
@@ -474,7 +490,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     onChange={(e) => setSeasonYear(e.target.value)}
                     dir="ltr"
                   />
-                  {scoringCriteria.map((criterion, index) => <Input key={`${criterion.label}-${index}`} label={`${criterion.label} (حداکثر ${criterion.points || '—'})`} type="number" min={0} max={Number(criterion.points) || undefined} value={criterionScores[String(index)] ?? ''} disabled={judgeStatus === 'submitted'} onChange={(e) => setCriterionScores((current) => ({ ...current, [String(index)]: Number(e.target.value) }))} dir="ltr" />)}
+                  {scoringCriteria.map((criterion, index) => <div key={`${criterion.label}-${index}`} className={`rounded-2xl border p-4 transition ${criterionScores[String(index)] != null ? 'border-sky-200 bg-sky-50/50' : 'border-slate-200 bg-white'}`}><div className="mb-3 flex items-center justify-between gap-3"><div><p className="font-black text-slate-800">{criterion.label}</p><p className="mt-1 text-xs text-slate-400">امتیاز مجاز: صفر تا {criterion.points || '—'}</p></div><span className={`grid size-8 place-items-center rounded-xl text-xs font-black ${criterionScores[String(index)] != null ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{criterionScores[String(index)] != null ? '✓' : index + 1}</span></div><Input label="امتیاز داور" type="number" min={0} max={Number(criterion.points) || undefined} value={criterionScores[String(index)] ?? ''} disabled={judgeStatus === 'submitted'} onChange={(e) => { const raw = e.target.value; setCriterionScores((current) => { if (raw === '') { const next = { ...current }; delete next[String(index)]; return next } return { ...current, [String(index)]: Math.max(0, Math.min(Number(criterion.points) || Number.MAX_SAFE_INTEGER, Number(raw))) } }) }} dir="ltr" /></div>)}
                 </div>
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><p className="font-black text-slate-800">پیشرفت داوری</p><span className="rounded-full bg-white px-3 py-1 text-sm font-black text-sky-700">{judgeProgress?.submitted_count ?? 0} از {judgeProgress?.required_count ?? 0}</span></div>{judgeProgress?.missing_judges?.length ? <p className="mt-2 text-xs leading-6 text-amber-700">در انتظار: {judgeProgress.missing_judges.join('، ')}</p> : <p className="mt-2 text-xs text-emerald-700">همه داوری‌های الزامی تکمیل شده‌اند.</p>}</div>
                 <div className="mt-3">
@@ -493,7 +509,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                   <Button type="button" variant="secondary" disabled={busy || judgeStatus === 'submitted'} onClick={() => void onSaveResult(false)}>
                     {t('judging.saveDraft')}
                   </Button>
-                  <Button type="button" disabled={busy || judgeStatus === 'submitted' || !Object.keys(criterionScores).length} onClick={() => void onSubmitJudging()}>نهایی‌کردن امتیاز من</Button>
+                  <Button type="button" disabled={busy || judgeStatus === 'submitted' || completedCriteria < scoringCriteria.length} onClick={() => void onSubmitJudging()}>ثبت نهایی امتیاز من</Button>
                   <Button type="button" disabled={busy || !judgeProgress || judgeProgress.submitted_count < judgeProgress.required_count} onClick={() => setShowResultPreview(true)}>{t('judging.previewAndPublish')}</Button>
                   {resultPublishedAt ? <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">{t('judging.publishedState')}</span> : <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-500">{t('judging.draftState')}</span>}
                   {resultUpdatedAt ? <span className="inline-flex items-center px-2 text-xs font-bold text-slate-400">{t('judging.lastUpdated')}: {formatAppDateTime(resultUpdatedAt, i18n.language)}</span> : null}
@@ -501,8 +517,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
               </PanelCard>
             </div>
           ) : (
-            <p className="text-sm text-rc-muted">{t('judging.selectTeam')}</p>
+            <div className="grid min-h-80 place-items-center rounded-[1.75rem] border-2 border-dashed border-slate-200 bg-white/70 p-8 text-center"><div><span className="mx-auto grid size-16 place-items-center rounded-3xl bg-sky-50 text-2xl text-sky-600">⌁</span><h2 className="mt-4 text-lg font-black text-slate-800">یک تیم را برای بررسی انتخاب کنید</h2><p className="mt-2 max-w-sm text-sm leading-7 text-slate-500">با انتخاب تیم از صف، پرونده، معیارهای امتیازدهی و وضعیت ذخیره در همین بخش نمایش داده می‌شود.</p></div></div>
           )}
+          </div>
         </div>
       )}
     </PanelPage>

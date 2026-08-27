@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, PanelCard, StatusBadge } from '@/components/ui/FormControls'
-import { DateTimeField } from '@/components/ui/DateTimeField'
+import { BirthDateField } from '@/components/ui/BirthDateField'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -170,7 +170,7 @@ export function TeamPanelPage() {
               <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />
               <Input label="نام خانوادگی انگلیسی" value={member.last_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_en: event.target.value } : row))} dir="ltr" />
               <Input label="کد ملی" value={member.national_id ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, national_id: event.target.value } : row))} dir="ltr" />
-              <DateTimeField label="تاریخ تولد" withTime={false} value={member.birth_date ? `${member.birth_date}T12:00:00.000Z` : null} onChange={(iso) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: iso?.slice(0, 10) ?? null } : row))} />
+              <BirthDateField label="تاریخ تولد" value={member.birth_date} onChange={(date) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: date } : row))} />
             </div>)}
             <Button type="button" onClick={() => void saveMemberEdits()} disabled={saving}>{saving ? 'در حال ذخیره…' : 'ذخیره تغییرات اعضا'}</Button>
           </div> : members.length ? (

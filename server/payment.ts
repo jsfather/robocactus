@@ -10,12 +10,13 @@ type PayableInvoice = {
   amount: string | number
   status: string
   gateway_ref: string | null
+  terms_accepted_at: string | null
 }
 
 async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<PayableInvoice | null> {
   return withRequestRole(user, async (transaction) => {
     const result = await transaction.execute(sql`
-      select id, team_id, amount, status, gateway_ref
+      select id, team_id, amount, status, gateway_ref, terms_accepted_at
       from public.invoices
       where id = ${invoiceId}
       limit 1
@@ -45,6 +46,10 @@ export function registerPaymentRoutes(router: Router): void {
     const invoice = invoiceId ? await visibleInvoice(user, invoiceId) : null
     if (!invoice || !['pending', 'failed'].includes(invoice.status)) {
       response.status(404).json({ error: 'payable_invoice_not_found' })
+      return
+    }
+    if (!invoice.terms_accepted_at) {
+      response.status(409).json({ error: 'terms_not_accepted' })
       return
     }
     const settings = await getAuthSettings(true)

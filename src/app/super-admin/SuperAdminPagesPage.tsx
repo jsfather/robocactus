@@ -10,7 +10,7 @@ import { fetchStaticPages, upsertStaticPage } from '@/features/leagues/adminApi'
 import type { StaticPage } from '@/types/database'
 import { formatAppDateTime } from '@/lib/dates'
 
-const KNOWN_SLUGS = ['about', 'contact', 'faq', 'privacy'] as const
+const KNOWN_SLUGS = ['about', 'contact', 'faq', 'privacy', 'terms', 'registration-guide'] as const
 
 export function SuperAdminPagesPage() {
   const { t, i18n } = useTranslation()
@@ -18,6 +18,9 @@ export function SuperAdminPagesPage() {
   const [slug, setSlug] = useState<(typeof KNOWN_SLUGS)[number]>('about')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [titleEn, setTitleEn] = useState('')
+  const [bodyEn, setBodyEn] = useState('')
+  const [excerptEn, setExcerptEn] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [seoTitle, setSeoTitle] = useState('')
   const [meta, setMeta] = useState('')
@@ -31,6 +34,9 @@ export function SuperAdminPagesPage() {
   const applyPage = (current: StaticPage | undefined) => {
     setTitle(current?.title ?? '')
     setBody(current?.body ?? '')
+    setTitleEn(current?.title_en ?? '')
+    setBodyEn(current?.body_en ?? '')
+    setExcerptEn(current?.excerpt_en ?? '')
     setExcerpt(current?.excerpt ?? '')
     setSeoTitle(current?.seo_title ?? '')
     setMeta(current?.meta_description ?? '')
@@ -72,6 +78,9 @@ export function SuperAdminPagesPage() {
         slug,
         title: title.trim(),
         body,
+        title_en: titleEn,
+        body_en: bodyEn,
+        excerpt_en: excerptEn,
         excerpt,
         seo_title: seoTitle,
         meta_description: meta,
@@ -90,7 +99,7 @@ export function SuperAdminPagesPage() {
     }
   }
 
-  const publicPath = slug === 'about' ? '/about' : slug === 'privacy' ? '/privacy' : `/${slug}`
+  const publicPath = `/${slug}`
 
   return (
     <PanelPage index="CMS.03" title={t('admin.pages.title')} description={t('admin.pages.subtitle')}>
@@ -126,6 +135,7 @@ export function SuperAdminPagesPage() {
             resetKey={`${slug}-${editorKey}`}
             hint={t('content.editorHint')}
           />
+          <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50/50 p-4" dir="ltr"><p className="text-sm font-black text-sky-800">English content</p><Input label="English title" value={titleEn} onChange={(event) => setTitleEn(event.target.value)} /><Textarea label="English excerpt" className="min-h-20" value={excerptEn} onChange={(event) => setExcerptEn(event.target.value)} /><RichTextEditor label="English body" value={bodyEn} onChange={setBodyEn} resetKey={`${slug}-en-${editorKey}`} /></div>
           <div className="space-y-3 border border-rc-line bg-rc-navy/30 p-3">
             <p className="text-sm font-medium">{t('content.seoSection')}</p>
             <Input

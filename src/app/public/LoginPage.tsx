@@ -177,10 +177,11 @@ export function LoginPage() {
               {!otpSent ? <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
               <FieldError message={error ?? undefined} />
               <Button type="submit" className="w-full" disabled={submitting || (otpSent && code.length !== 6)}>{submitting ? t('app.loading') : otpSent ? t('auth.verifyOtp') : t('auth.sendOtp')}</Button>
-              {otpSent ? <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold text-slate-500 hover:text-rc-blue" onClick={resetPhone}>{t('auth.changePhone')}</button><button type="button" disabled={resendSeconds > 0 || submitting} className="font-black text-rc-blue disabled:cursor-not-allowed disabled:text-slate-400" onClick={() => void onResend()}>{resendSeconds > 0 ? t('auth.otpResendCountdown', { time: `${String(Math.floor(resendSeconds / 60)).padStart(2, '0')}:${String(resendSeconds % 60).padStart(2, '0')}` }) : t('auth.otpResend')}</button></div> : null}
+              {otpSent ? <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold text-slate-500 hover:text-rc-blue" onClick={resetPhone}>{t('auth.changePhone')}</button><button type="button" disabled={resendSeconds > 0 || submitting} className="font-black text-rc-blue disabled:cursor-not-allowed disabled:text-slate-400" onClick={() => void onResend()}>{resendSeconds > 0 ? t('auth.otpResendAfterExpiry') : t('auth.otpResend')}</button></div> : null}
             </form>
           )}
           {options?.show_registration_link !== false && (options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <p className="mt-6 text-center text-sm text-slate-500">{t('auth.noAccount')} <Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></p> : null}
+          <p className="mt-4 text-center text-xs leading-6 text-slate-400">{isEn ? 'By signing in, you accept the ' : 'با ورود به سایت، '}<Link to="/terms" className="font-bold text-sky-700 hover:underline">{t('nav.terms')}</Link>{isEn ? '.' : ' را می‌پذیرید.'} <Link to="/registration-guide" className="ms-2 font-bold text-emerald-700 hover:underline">{t('nav.registrationGuide')}</Link></p>
         </main>
       </div>
     </div>

@@ -29,9 +29,20 @@ export function LiveChatWidget() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [clock, setClock] = useState(() => Date.now())
+  const [launcherVisible, setLauncherVisible] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   const enabled = settings?.chat_enabled !== false
+
+  useEffect(() => {
+    if (!enabled) {
+      setLauncherVisible(false)
+      setOpen(false)
+      return
+    }
+    const timer = window.setTimeout(() => setLauncherVisible(true), 20_000)
+    return () => window.clearTimeout(timer)
+  }, [enabled])
 
   useEffect(() => {
     if (!open) {
@@ -75,7 +86,7 @@ export function LiveChatWidget() {
     return () => window.clearInterval(id)
   }, [token, open])
 
-  if (!enabled) return null
+  if (!enabled || !launcherVisible) return null
 
   const latestGuest = [...messages].reverse().find((message) => message.sender_kind === 'guest')
   const answeredAfter = latestGuest ? messages.some((message) => message.sender_kind === 'agent' && new Date(message.created_at).getTime() > new Date(latestGuest.created_at).getTime()) : false
@@ -126,7 +137,7 @@ export function LiveChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] start-4 z-[60] flex flex-col items-start gap-3 sm:start-7 md:bottom-7">
+    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] start-4 z-[60] flex animate-rc-fade-up flex-col items-start gap-3 sm:start-7 md:bottom-7">
       {open ? (
         <div
           className={[

@@ -36,6 +36,8 @@ export function SuperAdminUsersPage() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [passwordTarget, setPasswordTarget] = useState<Profile | null>(null)
+  const [adminPassword, setAdminPassword] = useState({ next: '', repeat: '' })
   const [createForm, setCreateForm] = useState({ full_name: '', phone: '', email: '', username: '', password: '', account_type: 'individual' as 'individual' | 'legal', account_status: 'pending' as 'pending' | 'active' })
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -236,6 +238,8 @@ export function SuperAdminUsersPage() {
         </PanelCard>
       ) : null}
 
+      {passwordTarget ? <PanelCard title="تعیین رمز جدید حساب" description={`برای ${passwordTarget.full_name} — پس از ذخیره، نشست‌های فعال این حساب بسته می‌شوند.`}><form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void (async () => { event.preventDefault(); if (adminPassword.next.length < 8) return toast.error('رمز باید حداقل ۸ کاراکتر باشد.'); if (adminPassword.next !== adminPassword.repeat) return toast.error('تکرار رمز یکسان نیست.'); setBusy(true); const result = await backend.auth.adminSetPassword(passwordTarget.id, adminPassword.next); setBusy(false); if (result.error) return toast.error(result.error.message); setPasswordTarget(null); setAdminPassword({ next: '', repeat: '' }); toast.success('رمز جدید تنظیم و نشست‌های قبلی بسته شد.') })()}><Input label="رمز جدید" required type="password" autoComplete="new-password" value={adminPassword.next} onChange={(event) => setAdminPassword({ ...adminPassword, next: event.target.value })} /><Input label="تکرار رمز جدید" required type="password" autoComplete="new-password" value={adminPassword.repeat} onChange={(event) => setAdminPassword({ ...adminPassword, repeat: event.target.value })} /><div className="flex gap-2"><Button type="submit" disabled={busy}>تنظیم امن رمز</Button><Button type="button" variant="ghost" onClick={() => setPasswordTarget(null)}>انصراف</Button></div></form></PanelCard> : null}
+
       <PanelCard title={t('admin.users.listTitle')}>
         <div className="mb-5 grid gap-3 md:grid-cols-4 xl:grid-cols-7"><Input label="جست‌وجوی نام یا موبایل" value={search} onChange={(e) => setSearch(e.target.value)} /><Select label="نوع" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">همه</option><option value="individual">حقیقی</option><option value="legal">حقوقی</option></Select><Select label="جنسیت" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}><option value="all">همه</option><option value="male">مرد</option><option value="female">زن</option><option value="other">سایر</option></Select><Select label="تکمیل پرونده" value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value)}><option value="all">همه</option><option value="complete">تکمیل</option><option value="incomplete">ناقص</option></Select><Select label="استان" value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}><option value="all">همه</option>{[...new Set(participants.map((p) => p.province).filter(Boolean))].map((value) => <option key={value} value={value!}>{value}</option>)}</Select><Select label="شهر" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}><option value="all">همه</option>{[...new Set(participants.filter((p) => provinceFilter === 'all' || p.province === provinceFilter).map((p) => p.city).filter(Boolean))].map((value) => <option key={value} value={value!}>{value}</option>)}</Select><div className="flex items-end"><Button className="w-full" type="button" variant="ghost" onClick={() => { setSearch(''); setTypeFilter('all'); setGenderFilter('all'); setCompletionFilter('all'); setProvinceFilter('all'); setCityFilter('all') }}>پاک‌کردن</Button></div></div>
         {loading ? (
@@ -289,6 +293,7 @@ export function SuperAdminUsersPage() {
                           {t('common.edit')}
                         </Button>
                         <Button type="button" variant="ghost" disabled={busy || !profile.email} onClick={() => void backend.auth.adminRequestPasswordReset(profile.id).then(({ error }) => error ? toast.error(error.message) : toast.success('پیوند بازنشانی رمز به ایمیل کاربر ارسال شد.'))}>بازنشانی رمز</Button>
+                        <Button type="button" variant="ghost" disabled={busy} onClick={() => { setPasswordTarget(profile); setAdminPassword({ next: '', repeat: '' }) }}>تعیین رمز جدید</Button>
                         {profile.account_status === 'pending' ? (
                           <Button
                             type="button"

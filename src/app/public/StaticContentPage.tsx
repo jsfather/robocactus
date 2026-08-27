@@ -15,16 +15,20 @@ export function StaticContentPage({
 }) {
   const { slug: paramSlug } = useParams()
   const slug = slugProp ?? paramSlug ?? 'about'
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isEn = i18n.language.startsWith('en')
   const [page, setPage] = useState<StaticPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   usePageSeo({
-    title: page?.seo_title || page?.title,
+    title: page?.seo_title || (isEn ? page?.title_en : page?.title) || page?.title,
     description: page?.meta_description || page?.excerpt || undefined,
     image: page?.og_image || page?.cover_image || undefined,
   })
+  const localizedTitle = (isEn ? page?.title_en : page?.title) || page?.title
+  const localizedExcerpt = (isEn ? page?.excerpt_en : page?.excerpt) || page?.excerpt
+  const localizedBody = (isEn ? page?.body_en : page?.body) || page?.body
 
   useEffect(() => {
     let mounted = true
@@ -59,18 +63,18 @@ export function StaticContentPage({
         <div className="relative mx-auto flex max-w-3xl flex-col justify-end px-4 pb-10 pt-24">
           <p className="font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">{slug}</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-            {page?.title ?? (fallbackTitleKey ? t(fallbackTitleKey) : slug)}
+            {localizedTitle ?? (fallbackTitleKey ? t(fallbackTitleKey) : slug)}
           </h1>
-          {page?.excerpt ? <p className="mt-3 max-w-2xl text-lg text-rc-muted">{page.excerpt}</p> : null}
+          {localizedExcerpt ? <p className="mt-3 max-w-2xl text-lg text-rc-muted">{localizedExcerpt}</p> : null}
         </div>
       </section>
 
       <div className="mx-auto max-w-3xl px-4 pt-10">
         {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
-        {page?.body ? (
+        {localizedBody ? (
           <div
             className="prose-invert space-y-4 leading-relaxed text-rc-muted [&_a]:text-rc-blue [&_blockquote]:border-s-2 [&_blockquote]:border-rc-blue/40 [&_blockquote]:ps-3 [&_h2]:text-rc-text [&_h3]:text-rc-text [&_img]:my-4 [&_img]:w-full [&_img]:border [&_img]:border-rc-line [&_ol]:list-decimal [&_ol]:ps-5 [&_strong]:text-rc-text [&_ul]:list-disc [&_ul]:ps-5"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.body) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(localizedBody) }}
           />
         ) : (
           <p className="text-rc-muted">{t('admin.pages.emptyPublic')}</p>

@@ -388,6 +388,9 @@ export type StaticPage = {
   slug: string
   title: string
   body: string
+  title_en?: string | null
+  body_en?: string | null
+  excerpt_en?: string | null
   updated_at: string
   excerpt?: string | null
   seo_title?: string | null
@@ -468,6 +471,8 @@ export type Invoice = {
   paid_at: string | null
   invoice_number: string | null
   created_at: string
+  terms_accepted_at?: string | null
+  terms_version?: string | null
   payment_method?: 'online' | 'card_to_card'
   receipt_path?: string | null
   receipt_status?: 'pending_review' | 'approved' | 'rejected' | null

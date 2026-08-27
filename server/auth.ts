@@ -451,6 +451,49 @@ export function registerAuthRoutes(router: Router): void {
     response.json({ ok: true })
   })
 
+  router.post('/auth/admin/users/:userId/password', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const newPassword = String(request.body?.newPassword ?? '')
+    if (newPassword.length < 8) return void response.status(400).json({ error: 'password_too_short' })
+    const targetId = String(request.params.userId)
+    const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
+    if (!target) return void response.status(404).json({ error: 'user_not_found' })
+    await db.transaction(async (transaction) => {
+      await transaction.update(users).set({ encryptedPassword: await hashPassword(newPassword), updatedAt: new Date() }).where(eq(users.id, targetId))
+      await transaction.delete(sessions).where(eq(sessions.userId, targetId))
+    })
+    response.json({ ok: true })
+  })
+
+  router.post('/auth/admin/collaborators', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const fullName = String(request.body?.full_name ?? '').trim()
+    const phone = normalizeIranPhoneInput(String(request.body?.phone ?? ''))
+    const email = String(request.body?.email ?? '').trim().toLowerCase() || null
+    const username = String(request.body?.username ?? '').trim().toLowerCase() || null
+    const password = String(request.body?.password ?? '')
+    const role = ['staff', 'league_admin', 'super_admin'].includes(String(request.body?.role)) ? String(request.body.role) : 'staff'
+    if (fullName.length < 2 || !/^09\d{9}$/.test(phone) || password.length < 8) return void response.status(400).json({ error: 'invalid_user_data' })
+    try {
+      const profile = await db.transaction(async (transaction) => {
+        const id = randomUUID()
+        await transaction.insert(users).values({ id, email, username, phone, encryptedPassword: await hashPassword(password), emailConfirmedAt: email ? new Date() : null, rawUserMetaData: { full_name: fullName, phone, role, internal_collaborator: true } })
+        const updated = await transaction.execute(sql`update public.profiles set full_name=${fullName},email=${email},username=${username},phone=${phone},role=${role},account_status='active',phone_verified_at=now(),activated_at=now() where id=${id}::uuid returning *`)
+        return updated.rows[0]
+      })
+      response.status(201).json({ profile })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      response.status(/unique|duplicate/i.test(message) ? 409 : 400).json({ error: /unique|duplicate/i.test(message) ? 'user_already_exists' : message })
+    }
+  })
+
   router.post('/auth/admin/users', async (request: Request, response) => {
     const actor = await userFromRequest(request)
     if (!actor) return void response.status(401).json({ error: 'authentication_required' })
@@ -498,6 +541,7 @@ export function registerAuthRoutes(router: Router): void {
   })
 
   router.post('/auth/exchange', async (request, response) => {
+    const requestedType = String(request.body?.type ?? '')
     const tokenHash = hashToken(String(request.body?.code ?? request.body?.token_hash ?? ''))
     const result = await db.transaction(async (transaction) => {
       const rows = await transaction
@@ -508,18 +552,25 @@ export function registerAuthRoutes(router: Router): void {
           and(
             eq(oneTimeTokens.tokenHash, tokenHash),
             isNull(oneTimeTokens.consumedAt),
-            gt(oneTimeTokens.expiresAt, new Date()),
+            sql`${oneTimeTokens.expiresAt} > now()`,
           ),
         )
         .limit(1)
+        .for('update')
       const row = rows[0]
       if (!row) return null
-      if (row.token.kind !== 'email_confirmation' && row.token.kind !== 'magic_link') return null
+      const isSmsToken = row.token.kind === 'sms_otp'
+      const isEmailToken = row.token.kind === 'email_confirmation' || row.token.kind === 'magic_link'
+      // Older deployed clients sent SMS token_hash values with type="email".
+      // The stored token kind is authoritative; keep accepting those clients
+      // while requiring the new explicit SMS type to resolve only SMS tokens.
+      if (!isSmsToken && !isEmailToken) return null
+      if (requestedType === 'sms_otp' && !isSmsToken) return null
       await transaction
         .update(oneTimeTokens)
         .set({ consumedAt: new Date() })
         .where(eq(oneTimeTokens.id, row.token.id))
-      if (row.token.kind === 'email_confirmation' || row.token.kind === 'magic_link') {
+      if (isEmailToken) {
         const confirmedAt = new Date()
         await transaction.update(users).set({ emailConfirmedAt: confirmedAt }).where(eq(users.id, row.user.id))
         row.user.emailConfirmedAt = confirmedAt

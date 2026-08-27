@@ -61,6 +61,9 @@ import { PersonProfilePage } from '@/app/public/PersonProfilePage'
 import { SuperAdminPersonEditPage } from '@/app/super-admin/SuperAdminPersonEditPage'
 import { ForgotPasswordPage } from '@/app/public/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/app/public/ResetPasswordPage'
+import { ScrollToTop } from '@/components/layout/ScrollToTop'
+import { RegistrationGuidePage } from '@/app/public/RegistrationGuidePage'
+import { AboutPage } from '@/app/public/AboutPage'
 
 export default function App() {
   return (
@@ -69,6 +72,7 @@ export default function App() {
         <ToastProvider>
           <UnreadTicketsProvider>
             <BrowserRouter>
+              <ScrollToTop />
               <SeoManager />
               <Routes>
               <Route element={<PublicLayout />}>
@@ -87,13 +91,15 @@ export default function App() {
                 <Route path="blog/:slug" element={<BlogPostPage />} />
                 <Route path="news" element={<NewsPage />} />
                 <Route path="gallery" element={<GalleryPage />} />
-                <Route path="about" element={<StaticContentPage slug="about" fallbackTitleKey="nav.about" />} />
+                <Route path="about" element={<AboutPage />} />
                 <Route path="contact" element={<ContactPage />} />
                 <Route path="faq" element={<FaqPage />} />
                 <Route
                   path="privacy"
                   element={<StaticContentPage slug="privacy" fallbackTitleKey="nav.privacy" />}
                 />
+                <Route path="terms" element={<StaticContentPage slug="terms" fallbackTitleKey="nav.terms" />} />
+                <Route path="registration-guide" element={<RegistrationGuidePage />} />
                 <Route path="login" element={<LoginPage />} />
                 <Route path="forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="reset-password" element={<ResetPasswordPage />} />

@@ -627,6 +627,9 @@ export async function upsertStaticPage(input: {
   slug: string
   title: string
   body: string
+  title_en?: string | null
+  body_en?: string | null
+  excerpt_en?: string | null
   excerpt?: string | null
   seo_title?: string | null
   meta_description?: string | null
@@ -639,6 +642,9 @@ export async function upsertStaticPage(input: {
       slug: input.slug,
       title: input.title.trim(),
       body: input.body,
+      title_en: input.title_en?.trim() || null,
+      body_en: input.body_en ?? null,
+      excerpt_en: input.excerpt_en?.trim() || null,
       excerpt: input.excerpt?.trim() || null,
       seo_title: input.seo_title?.trim() || null,
       meta_description: input.meta_description?.trim() || null,
