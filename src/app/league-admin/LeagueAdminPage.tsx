@@ -239,30 +239,32 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
       <FieldError message={error ?? undefined} />
 
-      {tab === 'review' ? (
-        <PanelCard title={t('judging.guideTitle')}>
-          <p className="text-sm leading-relaxed text-rc-muted">{t('judging.guideBody')}</p>
-        </PanelCard>
+      {tab === 'review' && profile?.role === 'super_admin' ? (
+        <section className="overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_18px_55px_rgb(18_76_98/0.08)]">
+          <div className="bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white sm:p-7"><p className="text-xs font-black tracking-widest text-emerald-200">{i18n.language.startsWith('en') ? 'MANAGEMENT WORKFLOW' : 'مسیر مدیریتی پرونده تا انتشار'}</p><h2 className="mt-2 text-xl font-black">{t('judging.guideTitle')}</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-sky-50/85">{i18n.language.startsWith('en') ? 'This overview and public-board control are administrative tools. Judges only see the focused review and scoring workspace.' : 'این راهنما و کنترل تابلوی عمومی ابزار مدیریتی هستند؛ داور فقط میز متمرکز بررسی و امتیازدهی مربوط به خود را می‌بیند.'}</p></div>
+          <div className="grid gap-3 p-5 md:grid-cols-3 sm:p-7">
+            {[
+              [i18n.language.startsWith('en') ? '1. Initial triage' : '۱. بررسی اولیه', i18n.language.startsWith('en') ? 'Staff checks submission completeness; no scoring happens here.' : 'کارشناس کامل‌بودن اطلاعات و مدارک را کنترل می‌کند؛ امتیازدهی انجام نمی‌شود.'],
+              [i18n.language.startsWith('en') ? '2. Team review' : '۲. بررسی تیم‌ها', i18n.language.startsWith('en') ? 'Eligibility, documents, members and judging criteria are reviewed.' : 'صلاحیت، مدارک، اعضا و معیارهای داوری به‌صورت تخصصی بررسی می‌شوند.'],
+              [i18n.language.startsWith('en') ? '3. Public results' : '۳. انتشار عمومی', i18n.language.startsWith('en') ? 'Management chooses when verified results appear on the public board.' : 'مدیریت زمان نمایش نتایج تأییدشده در تابلوی عمومی را تعیین می‌کند.'],
+            ].map(([title, body], index) => <article key={title} className="relative rounded-2xl border border-slate-100 bg-slate-50/70 p-5"><span className={`absolute start-0 top-5 h-10 w-1 rounded-e-full ${index === 2 ? 'bg-emerald-500' : 'bg-sky-500'}`} /><h3 className="font-black text-slate-900">{title}</h3><p className="mt-2 text-xs leading-6 text-slate-600">{body}</p></article>)}
+          </div>
+        </section>
       ) : null}
 
-      {tab === 'review' && !loading && leagues.length > 0 ? (
-        <PanelCard title={t('liveResults.boardMode')} description={t('liveResults.subtitle')}>
+      {tab === 'review' && profile?.role === 'super_admin' && !loading && leagues.length > 0 ? (
+        <PanelCard title={t('liveResults.boardMode')} description={i18n.language.startsWith('en') ? 'Administrative control for what visitors see on the public results page. Changes take effect immediately.' : 'کنترل مدیریتی محتوایی که بازدیدکنندگان در صفحه نتایج عمومی می‌بینند؛ تغییر حالت بلافاصله اعمال می‌شود.'}>
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">{i18n.language.startsWith('en') ? 'Auto follows the competition state; Live shows in-progress results; Final locks the final presentation; Hidden removes the league from the public board.' : '«خودکار» از وضعیت مسابقه پیروی می‌کند؛ «زنده» نتایج در جریان، «نهایی» نتیجه قطعی و «پنهان» عدم نمایش لیگ در تابلوی عمومی است.'}</div>
           <div className="grid gap-3 sm:grid-cols-2">
             {leagues
               .filter((l) => profile?.role === 'super_admin' || leagueIds.includes(l.id))
               .map((league) => (
-                <Select
-                  key={league.id}
-                  label={league.name}
-                  value={(league.results_status as string) || 'auto'}
-                  disabled={busy}
-                  onChange={(e) => void onBoardMode(league.id, e.target.value)}
-                >
+                <div key={league.id} className="rounded-2xl border border-sky-100 bg-gradient-to-l from-white to-sky-50/60 p-4 shadow-sm"><Select label={league.name} value={(league.results_status as string) || 'auto'} disabled={busy} onChange={(e) => void onBoardMode(league.id, e.target.value)}>
                   <option value="auto">{t('liveResults.modeAuto')}</option>
                   <option value="live">{t('liveResults.modeLive')}</option>
                   <option value="final">{t('liveResults.modeFinal')}</option>
                   <option value="hidden">{t('liveResults.modeHidden')}</option>
-                </Select>
+                </Select><p className="mt-2 text-[11px] text-slate-500">{i18n.language.startsWith('en') ? 'Public visibility for this league' : 'وضعیت نمایش عمومی این لیگ'}</p></div>
               ))}
           </div>
           <p className="mt-2 text-xs text-rc-muted">

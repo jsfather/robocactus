@@ -16,7 +16,8 @@ import { useAuth } from '@/hooks/useAuth'
 import type { Team, TicketDepartment } from '@/types/database'
 
 export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'triage' }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isEn = i18n.language.startsWith('en')
   const { profile } = useAuth()
   const { count: unread } = useUnreadTicketCount()
   const [teams, setTeams] = useState<Team[]>([])
@@ -139,15 +140,31 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
           <TicketInbox mode="staff" departmentId={deptFilter || undefined} />
         </>
       ) : (
-        <PanelCard title={t('staff.triageTitle')} description={t('staff.triageHint')}>
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div><p className="text-xs font-black tracking-widest text-emerald-200">{isEn ? 'INITIAL TRIAGE' : 'کنترل ورودی پرونده'}</p><h2 className="mt-2 text-2xl font-black">{isEn ? 'A quick completeness check before technical review' : 'بررسی سریع کامل‌بودن پرونده، پیش از ارزیابی تخصصی'}</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-sky-50/85">{isEn ? 'Check that the team has submitted the required identity details, people and documents. This stage does not approve technical eligibility and does not record scores.' : 'در این مرحله فقط وجود اطلاعات هویتی، اعضا و مدارک ضروری کنترل می‌شود. تأیید صلاحیت فنی، داوری و امتیازدهی در «بررسی تیم‌ها» انجام می‌شود.'}</p></div>
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-center backdrop-blur"><strong className="block text-3xl">{teams.length.toLocaleString(isEn ? 'en-US' : 'fa-IR')}</strong><span className="text-xs text-sky-100">{isEn ? 'new files' : 'پرونده جدید'}</span></div>
+            </div>
+          </section>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              [isEn ? '1. Submitted' : '۱. ثبت‌شده', isEn ? 'A newly completed registration enters this queue.' : 'ثبت‌نام تکمیل‌شده وارد صف بررسی اولیه می‌شود.'],
+              [isEn ? '2. Completeness check' : '۲. کنترل کامل‌بودن', isEn ? 'Confirm the basic profile, people and required documents exist.' : 'وجود اطلاعات پایه، افراد و مدارک ضروری را کنترل کنید.'],
+              [isEn ? '3. Technical review' : '۳. ارجاع تخصصی', isEn ? 'Send a complete file to Team Review for eligibility and scoring.' : 'پرونده کامل را برای احراز صلاحیت و داوری به بررسی تیم‌ها بفرستید.'],
+            ].map(([title, body], index) => <article key={title} className="relative rounded-2xl border border-sky-100 bg-white p-5 shadow-sm"><span className={`absolute start-0 top-5 h-10 w-1 rounded-e-full ${index === 2 ? 'bg-emerald-500' : 'bg-sky-500'}`} /><h3 className="font-black text-slate-900">{title}</h3><p className="mt-2 text-xs leading-6 text-slate-600">{body}</p></article>)}
+          </div>
+
+        <PanelCard title={t('staff.triageTitle')} description={isEn ? 'Only move a file forward after its basic submission is complete.' : 'پس از اطمینان از کامل‌بودن اطلاعات پایه، پرونده را به بررسی تخصصی ارجاع دهید.'}>
           {loading ? (
             <p className="text-sm text-rc-muted">{t('app.loading')}</p>
           ) : teams.length === 0 ? (
-            <p className="text-sm text-rc-muted">{t('staff.triageEmpty')}</p>
+            <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 px-5 py-10 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-emerald-600 shadow-sm">✓</span><p className="mt-3 font-black text-slate-800">{t('staff.triageEmpty')}</p><p className="mt-1 text-xs text-slate-500">{isEn ? 'There is no registration waiting for an initial check.' : 'در حال حاضر پرونده‌ای منتظر کنترل اولیه نیست.'}</p></div>
           ) : (
             <ul className="divide-y divide-rc-line">
               {teams.map((team) => (
-                <li key={team.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li key={team.id} className="my-3 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-sky-100 bg-gradient-to-l from-white to-sky-50/60 p-4 shadow-sm">
                   <div>
                     <p className="font-medium">{team.name}</p>
                     <StatusBadge
@@ -161,13 +178,14 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
                     disabled={busy}
                     onClick={() => void markReview(team.id)}
                   >
-                    {t('staff.markUnderReview')}
+                    {isEn ? 'Send to Team Review' : 'ارسال به بررسی تیم‌ها'}
                   </Button>
                 </li>
               ))}
             </ul>
           )}
         </PanelCard>
+        </div>
       )}
     </PanelPage>
   )

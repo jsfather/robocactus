@@ -554,6 +554,10 @@ export type SiteSettings = {
   chat_wait_message_en?: string | null
   copyright_fa?: string | null
   copyright_en?: string | null
+  developer_credit_fa?: string | null
+  developer_credit_en?: string | null
+  developer_name?: string | null
+  developer_url?: string | null
   contact_email?: string | null
   contact_address_fa?: string | null
   contact_address_en?: string | null

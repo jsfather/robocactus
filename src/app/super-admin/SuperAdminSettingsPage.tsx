@@ -295,6 +295,27 @@ export function SuperAdminSettingsPage() {
               onChange={(e) => patch({ copyright_en: e.target.value })}
             />
             <Input
+              label={t('settings.developerCreditFa')}
+              value={form.developer_credit_fa ?? ''}
+              onChange={(e) => patch({ developer_credit_fa: e.target.value })}
+            />
+            <Input
+              label={t('settings.developerCreditEn')}
+              value={form.developer_credit_en ?? ''}
+              onChange={(e) => patch({ developer_credit_en: e.target.value })}
+            />
+            <Input
+              label={t('settings.developerName')}
+              value={form.developer_name ?? ''}
+              onChange={(e) => patch({ developer_name: e.target.value })}
+            />
+            <Input
+              label={t('settings.developerUrl')}
+              value={form.developer_url ?? ''}
+              onChange={(e) => patch({ developer_url: e.target.value })}
+              dir="ltr"
+            />
+            <Input
               label={t('settings.contactEmail')}
               value={form.contact_email ?? ''}
               onChange={(e) => patch({ contact_email: e.target.value })}

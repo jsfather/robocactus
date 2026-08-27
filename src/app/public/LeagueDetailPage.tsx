@@ -711,23 +711,23 @@ export function LeagueDetailPage() {
         )}
 
         <SectionFrame index={nextIndex()} title={t('leaguePage.fees')} tone="accent">
-          <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-[#064e5f] via-[#087e8f] to-[#0b9b65] p-6 text-white shadow-[0_24px_65px_rgb(8_126_143/0.22)] md:p-8">
-            <span className="absolute -end-16 -top-20 size-64 rounded-full border-[42px] border-white/10" aria-hidden />
+          <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200 bg-white p-6 text-slate-950 shadow-[0_24px_65px_rgb(8_126_143/0.14)] md:p-8">
+            <span className="absolute -end-16 -top-20 size-64 rounded-full border-[42px] border-emerald-50" aria-hidden />
             <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 text-white backdrop-blur"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M16 12h5M7 10h4M7 14h6" /></svg></span><div>
-            <p className="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-black tracking-wide text-white ring-1 ring-white/20">{t('leaguePage.entryFeeLabel')}</p>
-            <p className="mt-1 font-mono text-3xl font-black text-white md:text-4xl">
+            <div className="flex items-start gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-600 text-white shadow-lg"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M16 12h5M7 10h4M7 14h6" /></svg></span><div>
+            <p className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black tracking-wide text-emerald-800 ring-1 ring-emerald-200">{t('leaguePage.entryFeeLabel')}</p>
+            <p className="mt-2 font-mono text-3xl font-black text-slate-950 md:text-4xl">
               {formatAmountToman(Number(league.registration_fee))}{' '}
-              <span className="text-sm font-bold text-emerald-100">{t('payment.currency')}</span>
+              <span className="text-sm font-bold text-slate-600">{t('payment.currency')}</span>
             </p>
             </div></div>
-            <Link to={regPath} className="shrink-0"><Button type="button" className="border border-white/40 bg-white !px-6 text-rc-blue shadow-xl hover:bg-sky-50">{ctaLabel}</Button></Link>
+            <Link to={regPath} className="shrink-0"><Button type="button" className="!px-6 shadow-xl">{ctaLabel}</Button></Link>
             </div>
             {league.discount_info ? (
-              <p className="relative mt-5 max-w-2xl border-t border-white/15 pt-4 text-sm leading-7 text-white/80">{league.discount_info}</p>
+              <p className="relative mt-5 max-w-2xl border-t border-slate-200 pt-4 text-sm leading-7 text-slate-700">{league.discount_info}</p>
             ) : null}
             {league.refund_policy ? (
-              <p className="relative mt-2 max-w-2xl text-xs leading-6 text-white/65">{league.refund_policy}</p>
+              <p className="relative mt-2 max-w-2xl text-xs leading-6 text-slate-600">{league.refund_policy}</p>
             ) : null}
           </div>
         </SectionFrame>

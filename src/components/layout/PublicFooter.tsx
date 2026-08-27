@@ -30,6 +30,11 @@ export function PublicFooter() {
   const contactBlurb = isEn ? settings?.contact_blurb_en : settings?.contact_blurb_fa
   const address = isEn ? settings?.contact_address_en : settings?.contact_address_fa
   const copyright = isEn ? settings?.copyright_en || t('footer.copyrightDefault') : settings?.copyright_fa || t('footer.copyrightDefault')
+  const developerCredit = isEn
+    ? settings?.developer_credit_en || 'Designed and developed by'
+    : settings?.developer_credit_fa || 'طراحی و توسعه'
+  const developerName = settings?.developer_name?.trim() || (isEn ? 'Farino' : 'فارینو')
+  const developerUrl = settings?.developer_url?.trim() || 'https://farino.ir'
   const phone = settings?.support_phone?.trim()
   const telephoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined
   const email = settings?.contact_email?.trim()
@@ -56,7 +61,7 @@ export function PublicFooter() {
           <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-emerald-100"><span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgb(110_231_183/0.1)]" />{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</div>
         </section>
 
-        <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-5"><h3 className="text-sm font-black text-white">{t('footer.usefulLinks')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-sky-300/30 to-transparent" /><ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs font-bold text-sky-100/65">{useful.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex items-center gap-2 transition hover:translate-x-0.5 hover:text-white"><span className="size-1 rounded-full bg-emerald-300" />{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></section>
+        <section className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-900 shadow-[0_18px_45px_rgb(1_24_38/0.18)]"><h3 className="text-sm font-black text-slate-950">{t('footer.usefulLinks')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent" /><ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs font-bold text-slate-700">{useful.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex min-h-8 items-center gap-2 rounded-lg px-1 transition hover:bg-sky-50 hover:text-sky-800"><span className="size-1.5 rounded-full bg-emerald-500" />{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></section>
 
         <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-5"><h3 className="text-sm font-black text-white">{t('footer.contact')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-emerald-300/30 to-transparent" /><ul className="mt-5 space-y-3 text-xs leading-6 text-sky-100/70">{phone && telephoneHref ? <li><a href={telephoneHref} className="flex items-center gap-3 transition hover:text-white"><ContactIcon kind="phone" /><span dir="ltr">{phone}</span></a></li> : null}{email ? <li><a href={`mailto:${email}`} className="flex items-center gap-3 transition hover:text-white"><ContactIcon kind="email" /><span className="min-w-0 truncate" dir="ltr">{email}</span></a></li> : null}{address ? <li className="flex items-start gap-3"><ContactIcon kind="address" /><span>{address}</span></li> : null}{contactBlurb ? <li className="border-t border-white/8 pt-3 text-sky-100/55">{contactBlurb}</li> : null}{!phone && !email && !address && !contactBlurb ? <li>{t('footer.contactEmpty')}</li> : null}</ul></section>
 
@@ -65,7 +70,10 @@ export function PublicFooter() {
     </div>
 
     <div className="relative border-t border-white/10 bg-[#03283b]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-center text-xs text-sky-100/55 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:text-start"><p>{copyright}</p><p className="font-mono text-[10px] tracking-[0.18em] text-emerald-200/70 uppercase">Amol · Mazandaran · Iran</p></div>
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-6 text-center text-xs text-sky-50 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:pb-7 sm:text-start">
+        <div className="space-y-1.5"><p>{copyright}</p><p className="text-sky-100/75">{developerCredit}: <a href={developerUrl} target="_blank" rel="noreferrer noopener" className="font-black text-emerald-200 underline decoration-emerald-400/50 underline-offset-4 transition hover:text-white">{developerName}</a></p></div>
+        <p className="font-mono text-[10px] tracking-[0.18em] text-emerald-200 uppercase">Amol · Mazandaran · Iran</p>
+      </div>
     </div>
   </footer>
 }
