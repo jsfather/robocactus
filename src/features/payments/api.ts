@@ -11,6 +11,24 @@ export type FinanceRow = Invoice & {
   company_slug: string
 }
 
+export type FinanceDeposit = {
+  id: string
+  invoice_id: string
+  transaction_type: 'deposit' | 'refund' | 'adjustment'
+  status: 'posted' | 'reversed'
+  amount: number
+  payment_method: 'online' | 'card_to_card' | 'manual'
+  reference: string | null
+  occurred_at: string
+  invoice_number: string | null
+  invoice_status: string
+  team_name: string
+  league_id: string
+  league_name: string
+  company_id: string
+  company_name: string
+}
+
 export async function createInvoiceForTeam(teamId: string): Promise<Invoice> {
   const { data, error } = await backend.rpc('create_invoice_for_team', {
     p_team_id: teamId,
@@ -227,6 +245,38 @@ export async function fetchFinanceRows(filters?: {
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []) as FinanceRow[]
+}
+
+export async function fetchFinanceDeposits(): Promise<FinanceDeposit[]> {
+  const { data, error } = await backend.from('finance_deposit_view').select('*').order('occurred_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as FinanceDeposit[]
+}
+
+export async function adminUpdateInvoice(input: {
+  invoiceId: string
+  amount: number
+  status: 'pending' | 'paid' | 'failed' | 'refunded'
+  paymentMethod: 'online' | 'card_to_card'
+  adminNote?: string | null
+}): Promise<Invoice> {
+  const { data, error } = await backend.rpc('admin_update_invoice', {
+    p_invoice_id: input.invoiceId, p_amount: input.amount, p_status: input.status,
+    p_payment_method: input.paymentMethod, p_admin_note: input.adminNote?.trim() || null,
+  })
+  if (error) throw new Error(error.message)
+  return data as Invoice
+}
+
+export async function adminArchiveInvoice(invoiceId: string, archived = true): Promise<Invoice> {
+  const { data, error } = await backend.rpc('admin_archive_invoice', { p_invoice_id: invoiceId, p_archived: archived })
+  if (error) throw new Error(error.message)
+  return data as Invoice
+}
+
+export async function adminDeleteInvoice(invoiceId: string): Promise<void> {
+  const { error } = await backend.rpc('admin_delete_invoice', { p_invoice_id: invoiceId })
+  if (error) throw new Error(error.message)
 }
 
 export function formatAmountToman(amount: number): string {

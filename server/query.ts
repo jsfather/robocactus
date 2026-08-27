@@ -26,7 +26,7 @@ const TABLES = new Set([
   'account_issues', 'announcements', 'blog_posts', 'captain_invites',
   'companies', 'company_achievements', 'company_members', 'contact_messages', 'documents',
   'gallery_categories', 'gallery_items', 'home_banners', 'home_events', 'home_faqs',
-  'home_partners', 'home_sponsors', 'home_stat_cards', 'home_why_cards', 'invoice_finance_view',
+  'home_partners', 'home_sponsors', 'home_stat_cards', 'home_why_cards', 'invoice_finance_view', 'finance_deposit_view',
   'invoices', 'league_admins', 'league_faqs', 'league_files', 'league_past_results',
   'league_people', 'league_sponsors', 'leagues', 'live_chat_messages', 'live_chat_sessions',
   'notification_log', 'profile_documents', 'profiles', 'public_companies', 'registration_doc_types',
@@ -36,7 +36,7 @@ const TABLES = new Set([
 ])
 
 const RPCS = new Set([
-  'activate_user_account', 'admin_update_profile', 'analytics_export_teams', 'analytics_snapshot',
+  'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'analytics_export_teams', 'analytics_snapshot',
   'apply_payment_result', 'close_live_chat_session', 'count_unread_tickets', 'create_company',
   'create_invoice_for_team', 'create_ticket', 'enqueue_broadcast_sms', 'enqueue_incomplete_profile_sms',
   'fetch_live_chat_guest_messages', 'home_stats', 'issue_mock_payment_authority',

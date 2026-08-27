@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import type { BlogPost } from '@/types/database'
+import { formatAppDate } from '@/lib/dates'
 
 export function LatestNews({ posts }: { posts: BlogPost[] }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
@@ -50,7 +51,7 @@ export function LatestNews({ posts }: { posts: BlogPost[] }) {
                   <h3 className="line-clamp-2 font-semibold">{post.title}</h3>
                   {post.published_at ? (
                     <p className="mt-2 font-mono text-xs text-rc-muted">
-                      {new Date(post.published_at).toLocaleDateString()}
+                      {formatAppDate(post.published_at, i18n.language)}
                     </p>
                   ) : null}
                 </div>

@@ -431,25 +431,27 @@ main :is(button, a[class*="px-"]):hover { transform: translateY(-1px); }
 
 .panel-sidebar-v4 {
   background:
-    radial-gradient(circle at 30% 0%, rgb(14 165 233 / .24), transparent 18rem),
-    linear-gradient(165deg, #092e43 0%, #07354a 48%, #062b3c 100%) !important;
-  box-shadow: 0 28px 90px rgb(3 30 45 / .28) !important;
+    radial-gradient(circle at 25% 0%, rgb(14 165 233 / .09), transparent 17rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fbfc 55%, #f2f8f7 100%) !important;
+  color: #123047 !important;
+  box-shadow: 0 24px 75px rgb(18 76 98 / .13) !important;
 }
 
-.panel-nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / .16) transparent; }
+.panel-nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(8 126 184 / .24) transparent; }
 .panel-topbar-v4 { box-shadow: 0 14px 45px rgb(18 76 98 / .09), inset 0 1px 0 white; }
 .panel-topbar-v5 {
   background:
-    radial-gradient(circle at 12% -80%, rgb(56 189 248 / .45), transparent 15rem),
-    linear-gradient(105deg, #092f43 0%, #07516c 58%, #08775d 100%) !important;
-  box-shadow: 0 18px 55px rgb(6 50 70 / .20), inset 0 1px 0 rgb(255 255 255 / .12) !important;
+    radial-gradient(circle at 12% -80%, rgb(56 189 248 / .16), transparent 15rem),
+    linear-gradient(105deg, #ffffff 0%, #f7fbfc 62%, #f2faf7 100%) !important;
+  color: #123047 !important;
+  box-shadow: 0 14px 45px rgb(18 76 98 / .11), inset 0 1px 0 white !important;
 }
-.panel-topbar-v5 .panel-header-action { background: rgb(255 255 255 / .10) !important; border-color: rgb(255 255 255 / .18) !important; }
-.panel-topbar-v5 .panel-header-action:hover { background: rgb(255 255 255 / .18) !important; }
-.panel-sidebar-profile { background: rgb(255 255 255 / .07) !important; }
-.panel-sidebar-v4 .panel-nav-link:not(.is-active) [class*="bg-white/"] { background: rgb(255 255 255 / .08) !important; }
-.panel-sidebar-v4 .panel-nav-link:not(.is-active):hover { background: rgb(255 255 255 / .09) !important; }
-.panel-sidebar-v4 .panel-nav-link.is-active [class*="bg-white/"] { background: rgb(8 126 184 / .10) !important; }
+.panel-topbar-v5 .panel-header-action { background: #fff !important; border-color: rgb(17 86 112 / .15) !important; color: #24485b !important; }
+.panel-topbar-v5 .panel-header-action:hover { background: #f0f8fb !important; color: #075e86 !important; }
+.panel-sidebar-profile { background: rgb(255 255 255 / .72) !important; }
+.panel-sidebar-v4 .panel-nav-link:not(.is-active):hover { background: #fff !important; }
+.panel-sidebar-v4 .panel-nav-link.is-active { background: #e9f7fc !important; color: #075e86 !important; }
+.panel-sidebar-v4 .panel-nav-link.is-active > span > span:first-child { background: #d9f0fa !important; color: #087eb8 !important; }
 .panel-page-head::after {
   content: "";
   position: absolute;

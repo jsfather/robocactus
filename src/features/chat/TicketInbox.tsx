@@ -19,6 +19,7 @@ import {
 } from '@/features/tickets/api'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { backend } from '@/lib/backend'
+import { formatAppDateTime } from '@/lib/dates'
 import type { League, Profile, Ticket, TicketDepartment, TicketMessage } from '@/types/database'
 
 type Mode = 'team' | 'staff' | 'league'
@@ -44,7 +45,7 @@ export function TicketInbox({
   leagueIds?: string[]
   departmentId?: string
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user } = useAuth()
   const { unreadIds, refresh: refreshUnread } = useUnreadTicketCount()
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -415,7 +416,7 @@ export function TicketInbox({
                       </a>
                     ) : null}
                     <p className="mt-1 font-mono text-[10px] text-rc-muted">
-                      {new Date(msg.created_at).toLocaleString()}
+                      {formatAppDateTime(msg.created_at, i18n.language)}
                     </p>
                   </div>
                 )

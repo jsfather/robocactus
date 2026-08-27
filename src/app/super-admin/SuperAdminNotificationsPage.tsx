@@ -15,12 +15,13 @@ import {
   type SmsSettings,
 } from '@/features/notifications/api'
 import { backend } from '@/lib/backend'
+import { formatAppDateTime } from '@/lib/dates'
 import type { NotificationLog, Profile, UserRole } from '@/types/database'
 
 type Tab = 'log' | 'broadcast' | 'sms' | 'inapp'
 
 export function SuperAdminNotificationsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('log')
   const [rows, setRows] = useState<NotificationLog[]>([])
@@ -222,9 +223,9 @@ export function SuperAdminNotificationsPage() {
                       </td>
                       <td className="px-2 py-2 text-xs text-rc-muted">
                         {row.sent_at
-                          ? new Date(row.sent_at).toLocaleString()
+                          ? formatAppDateTime(row.sent_at, i18n.language)
                           : row.created_at
-                            ? new Date(row.created_at).toLocaleString()
+                            ? formatAppDateTime(row.created_at, i18n.language)
                             : '—'}
                       </td>
                     </tr>

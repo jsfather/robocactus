@@ -33,6 +33,16 @@ export function formatAppDateTime(iso: string | null | undefined, language: stri
   return formatAppDate(iso, language, { withTime: true })
 }
 
+export function formatAppTime(iso: string | null | undefined, language: string): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  const isFa = language.toLowerCase().startsWith('fa')
+  return new Intl.DateTimeFormat(isFa ? 'fa-IR-u-ca-persian' : 'en-GB', {
+    hour: '2-digit', minute: '2-digit',
+  }).format(date)
+}
+
 export function ageFromBirthDate(isoOrDate: string | null | undefined): number | null {
   if (!isoOrDate) return null
   const d = new Date(isoOrDate.length === 10 ? `${isoOrDate}T12:00:00` : isoOrDate)

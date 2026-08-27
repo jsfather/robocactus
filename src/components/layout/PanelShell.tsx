@@ -86,7 +86,7 @@ function SidebarNav({
     <nav className="panel-nav-scroll flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
       {groups.map((group) => (
         <div key={group.id}>
-          <p className="mb-2.5 px-3 text-[11px] font-black tracking-[0.08em] text-sky-200 uppercase">
+          <p className="mb-2.5 px-3 text-[11px] font-black tracking-[0.08em] text-slate-500 uppercase">
             {t(group.titleKey)}
           </p>
           <ul className="space-y-1">
@@ -100,12 +100,12 @@ function SidebarNav({
                     [
                       'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
                       isActive
-                        ? 'is-active border-white/10 bg-white text-[#0b5875] shadow-[0_10px_25px_rgb(0_20_35/0.18)]'
-                        : 'text-slate-200 hover:border-white/15 hover:bg-white/10 hover:text-white',
+                        ? 'is-active border-sky-200 bg-sky-50 text-sky-900 shadow-[0_8px_22px_rgb(8_126_184/0.10)]'
+                        : 'text-slate-700 hover:border-sky-100 hover:bg-white hover:text-sky-800',
                     ].join(' ')
                   }
                 >
-                  <span className="flex min-w-0 items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8 transition group-hover:bg-white/12"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
+                  <span className="flex min-w-0 items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition group-hover:bg-sky-100 group-hover:text-sky-700"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
                   {item.badge === 'tickets' && count > 0 ? (
                     <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
                       {count > 99 ? '99+' : count}
@@ -216,16 +216,16 @@ export function PanelShell() {
         }}
       />
 
-      <aside className="panel-sidebar panel-sidebar-v4 fixed inset-y-3 right-3 z-30 hidden w-[18.5rem] flex-col overflow-hidden rounded-[2rem] border border-white/10 lg:flex">
-        <div className="border-b border-white/10 px-5 py-5">
+      <aside className="panel-sidebar panel-sidebar-v4 fixed inset-y-3 right-3 z-30 hidden w-[18.5rem] flex-col overflow-hidden rounded-[2rem] border border-slate-200 lg:flex">
+        <div className="border-b border-slate-200 px-5 py-5">
           <Link to={home} className="flex items-center gap-3">
             <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-emerald-50 text-xl font-black text-[#087eb8] shadow-lg shadow-black/15">ت</span>
-            <span><span className="block text-base font-black text-white">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-medium tracking-wide text-white/45">TABARESTAN CONTROL CENTER</span></span>
+            <span><span className="block text-base font-black text-slate-900">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-bold tracking-wide text-slate-500">TABARESTAN CONTROL CENTER</span></span>
           </Link>
         </div>
         <SidebarNav role={role} />
-        <div className="panel-sidebar-profile m-3 rounded-2xl border border-white/10 p-3.5">
-          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-emerald-400/15 text-sm font-black text-emerald-300">{(profile?.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-white">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] text-white/45">{t(`dashboard.roles.${role}`)}</p></span></div>
+        <div className="panel-sidebar-profile m-3 rounded-2xl border border-slate-200 p-3.5">
+          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700">{(profile?.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] font-medium text-slate-500">{t(`dashboard.roles.${role}`)}</p></span></div>
         </div>
       </aside>
 
@@ -237,12 +237,12 @@ export function PanelShell() {
             aria-label="close"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="panel-sidebar-v4 absolute inset-y-0 right-0 flex w-[min(19rem,88vw)] flex-col border-l border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
-              <p className="text-sm font-bold text-white">{t('panel.shellTitle')}</p>
+          <aside className="panel-sidebar-v4 absolute inset-y-0 right-0 flex w-[min(19rem,88vw)] flex-col border-l border-slate-200 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+              <p className="text-sm font-bold text-slate-900">{t('panel.shellTitle')}</p>
               <button
                 type="button"
-                className="rounded-xl p-2 text-white/65 hover:bg-white/10 hover:text-white"
+                className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 onClick={() => setMobileOpen(false)}
               >
                 <MenuIcon open />
@@ -254,7 +254,7 @@ export function PanelShell() {
       ) : null}
 
       <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19.5rem]">
-        <header className="panel-topbar panel-topbar-v5 sticky top-3 z-20 mx-3 mt-3 overflow-visible rounded-2xl border border-white/10 lg:mx-5">
+        <header className="panel-topbar panel-topbar-v5 sticky top-3 z-20 mx-3 mt-3 overflow-visible rounded-2xl border border-slate-200 lg:mx-5">
           <div className="flex min-h-[4.5rem] items-center gap-3 px-4 md:px-5">
             <button
               type="button"
@@ -266,18 +266,18 @@ export function PanelShell() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-extrabold tracking-[0.1em] text-emerald-300 uppercase">
+              <p className="text-[10px] font-extrabold tracking-[0.1em] text-emerald-700 uppercase">
                 {active ? t(active.titleKey) : 'SYS'}
               </p>
-              <p className="truncate text-base font-black text-white md:text-lg">{title}</p>
+              <p className="truncate text-base font-black text-slate-900 md:text-lg">{title}</p>
               {activeItem?.helpKey ? (
-                <p className="mt-0.5 line-clamp-2 text-xs text-slate-300">{t(activeItem.helpKey)}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs font-medium text-slate-600">{t(activeItem.helpKey)}</p>
               ) : null}
             </div>
 
-            <Link to="/" className="hidden items-center rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 md:flex">مشاهده سایت</Link>
-            <div className="hidden items-center rounded-xl border border-white/15 bg-white/10 px-3 py-2 md:flex">
-              <span className="font-mono text-[10px] tracking-wide text-slate-200 tabular-nums">
+            <Link to="/" className="hidden items-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800 transition hover:bg-sky-100 md:flex">مشاهده سایت</Link>
+            <div className="hidden items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
+              <span className="font-mono text-[10px] font-semibold tracking-wide text-slate-600 tabular-nums">
                 {dateLabel}
               </span>
             </div>

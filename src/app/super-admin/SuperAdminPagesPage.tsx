@@ -8,11 +8,12 @@ import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { RichTextEditor } from '@/components/ui/RichTextEditor'
 import { fetchStaticPages, upsertStaticPage } from '@/features/leagues/adminApi'
 import type { StaticPage } from '@/types/database'
+import { formatAppDateTime } from '@/lib/dates'
 
 const KNOWN_SLUGS = ['about', 'contact', 'faq', 'privacy'] as const
 
 export function SuperAdminPagesPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [pages, setPages] = useState<StaticPage[]>([])
   const [slug, setSlug] = useState<(typeof KNOWN_SLUGS)[number]>('about')
   const [title, setTitle] = useState('')
@@ -151,7 +152,7 @@ export function SuperAdminPagesPage() {
           </div>
           {savedAt ? (
             <p className="text-xs text-rc-muted">
-              {t('admin.pages.saved')} {new Date(savedAt).toLocaleString()}
+              {t('admin.pages.saved')} {formatAppDateTime(savedAt, i18n.language)}
             </p>
           ) : null}
         </form>

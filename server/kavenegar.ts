@@ -229,6 +229,20 @@ export async function sendKavenegarLookup(params: {
   return invoke(null, 'lookup', selectParams(actions.lookup!, params))
 }
 
+export async function sendKavenegarText(params: {
+  receptor: string
+  message: string
+  sender?: string
+}): Promise<KavenegarResponse> {
+  const defaults = await providerSettings()
+  return invoke(null, 'send', selectParams(actions.send!, {
+    receptor: params.receptor,
+    message: params.message,
+    sender: params.sender || defaults.sender,
+    type: defaults.type ?? 1,
+  }))
+}
+
 function safeSecretEqual(expected: string, received: string): boolean {
   const a = Buffer.from(expected)
   const b = Buffer.from(received)

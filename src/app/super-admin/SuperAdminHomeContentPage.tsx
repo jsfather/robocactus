@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
+import { DateTimeField } from '@/components/ui/DateTimeField'
 import {
   deleteBanner,
   fetchAllBanners,
@@ -605,10 +606,10 @@ function EventForm({
     >
       <Input label="Title FA" value={titleFa} onChange={(e) => setTitleFa(e.target.value)} required />
       <Input label="Title EN" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
-      <Input label={t('home.eventDate')} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+      <DateTimeField label={t('home.eventDate')} withTime={false} value={date ? `${date}T12:00:00.000Z` : null} onChange={(iso) => setDate(iso?.slice(0, 10) ?? '')} />
       <Input label={t('home.eventLocation')} value={locFa} onChange={(e) => setLocFa(e.target.value)} />
       <Textarea label={t('content.body')} value={descFa} onChange={(e) => setDescFa(e.target.value)} />
-      <Button type="submit" disabled={busy}>
+      <Button type="submit" disabled={busy || !date}>
         {t('common.save')}
       </Button>
     </form>

@@ -5,7 +5,7 @@ import { users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, userFromRequest } from './db.js'
 import { createOneTimeToken, getAuthSettings } from './auth.js'
-import { sendKavenegarLookup } from './kavenegar.js'
+import { sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 import { verifyCaptcha } from './captcha.js'
 
 const OTP_TTL_MS = 5 * 60 * 1000
@@ -51,8 +51,18 @@ async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> 
     return { mock: true }
   }
   if (provider === 'kavenegar') {
-    const template = settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp ?? 'auth_otp'
-    await sendKavenegarLookup({ receptor: phone, template, token: code })
+    const template = settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp
+    if (!template) {
+      await sendKavenegarText({ receptor: phone, message: `کد یک‌بارمصرف جام تبرستان: ${code}\nاعتبار: ۵ دقیقه` })
+      return { mock: false }
+    }
+    try {
+      await sendKavenegarLookup({ receptor: phone, template, token: code })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!/الگو|template/i.test(message)) throw error
+      await sendKavenegarText({ receptor: phone, message: `کد یک‌بارمصرف جام تبرستان: ${code}\nاعتبار: ۵ دقیقه` })
+    }
     return { mock: false }
   }
   const response = await fetch('https://api2.ippanel.com/api/v1/sms/pattern/normal/send', {

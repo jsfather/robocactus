@@ -5,6 +5,7 @@ import { HudFrame } from '@/components/panel/HudKit'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { backend } from '@/lib/backend'
+import { formatAppDateTime } from '@/lib/dates'
 
 export type AccountIssue = {
   id: string
@@ -141,7 +142,7 @@ export function AccountIssuesPanel() {
 }
 
 export function AccountIssuesAdminList() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const [issues, setIssues] = useState<AccountIssue[]>([])
   const [busy, setBusy] = useState(false)
@@ -165,7 +166,7 @@ export function AccountIssuesAdminList() {
               <div>
                 <p className="font-medium">{issue.title}</p>
                 <p className="text-xs text-rc-muted">
-                  {issue.status} · {new Date(issue.created_at).toLocaleString()}
+                  {issue.status} · {formatAppDateTime(issue.created_at, i18n.language)}
                 </p>
                 {issue.user_response ? (
                   <p className="mt-2 text-sm text-rc-text">{issue.user_response}</p>

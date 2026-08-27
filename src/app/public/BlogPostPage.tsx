@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { usePageSeo } from '@/components/seo/SeoManager'
 import { fetchPublishedPostBySlug } from '@/features/content/api'
 import type { BlogPost } from '@/types/database'
+import { formatAppDateTime } from '@/lib/dates'
 
 export function BlogPostPage() {
   const { slug } = useParams()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [post, setPost] = useState<BlogPost | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,7 +60,7 @@ export function BlogPostPage() {
         />
       ) : null}
       <p className="font-mono text-xs text-rc-blue">
-        {post.published_at ? new Date(post.published_at).toLocaleString() : ''}
+        {post.published_at ? formatAppDateTime(post.published_at, i18n.language) : ''}
       </p>
       <h1 className="mt-2 text-3xl font-semibold">{post.title}</h1>
       {post.excerpt ? <p className="mt-3 text-lg text-rc-muted">{post.excerpt}</p> : null}

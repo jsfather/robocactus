@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchPublishedPosts } from '@/features/content/api'
 import type { BlogPost } from '@/types/database'
+import { formatAppDate } from '@/lib/dates'
 
 export function BlogListPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,7 +53,7 @@ export function BlogListPage() {
                   <h2 className="text-lg font-semibold text-rc-text">{post.title}</h2>
                   {post.published_at ? (
                     <p className="mt-2 font-mono text-xs text-rc-muted">
-                      {new Date(post.published_at).toLocaleDateString()}
+                      {formatAppDate(post.published_at, i18n.language)}
                     </p>
                   ) : null}
                 </div>

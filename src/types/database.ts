@@ -405,6 +405,10 @@ export type Invoice = {
   receipt_rejection_reason?: string | null
   receipt_submitted_at?: string | null
   receipt_reviewed_at?: string | null
+  admin_note?: string | null
+  archived_at?: string | null
+  archived_by?: string | null
+  updated_at?: string
 }
 
 export type Ticket = {

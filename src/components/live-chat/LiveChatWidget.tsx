@@ -12,6 +12,7 @@ import {
 } from '@/features/live-chat/api'
 import { normalizePhone } from '@/lib/validation'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
+import { formatAppTime } from '@/lib/dates'
 
 export function LiveChatWidget() {
   const { t, i18n } = useTranslation()
@@ -205,7 +206,7 @@ export function LiveChatWidget() {
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>
                     <p className={`mt-1 text-[9px] ${m.sender_kind === 'guest' ? 'text-white/70' : 'text-rc-muted'}`}>
-                      {new Date(m.created_at).toLocaleTimeString()}
+                      {formatAppTime(m.created_at, i18n.language)}
                     </p>
                   </div>
                 ))}

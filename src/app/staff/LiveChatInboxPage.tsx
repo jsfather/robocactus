@@ -11,9 +11,10 @@ import {
   type LiveChatSession,
 } from '@/features/live-chat/api'
 import { backend } from '@/lib/backend'
+import { formatAppDateTime } from '@/lib/dates'
 
 export function LiveChatInboxPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [sessions, setSessions] = useState<LiveChatSession[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
@@ -166,7 +167,7 @@ export function LiveChatInboxPage() {
                 >
                   <p className="whitespace-pre-wrap">{m.body}</p>
                   <p className="mt-1 font-mono text-[9px] text-rc-muted">
-                    {new Date(m.created_at).toLocaleString()}
+                    {formatAppDateTime(m.created_at, i18n.language)}
                   </p>
                 </div>
               ))}

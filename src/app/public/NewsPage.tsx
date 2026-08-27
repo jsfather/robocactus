@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { PanelCard } from '@/components/ui/FormControls'
 import { fetchPublishedAnnouncements } from '@/features/content/api'
 import type { Announcement } from '@/types/database'
+import { formatAppDateTime } from '@/lib/dates'
 
 export function NewsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [items, setItems] = useState<Announcement[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -37,7 +38,7 @@ export function NewsPage() {
                 title={item.title}
                 description={
                   item.published_at
-                    ? new Date(item.published_at).toLocaleString()
+                    ? formatAppDateTime(item.published_at, i18n.language)
                     : undefined
                 }
               >

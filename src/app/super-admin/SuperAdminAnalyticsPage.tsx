@@ -13,6 +13,7 @@ import { Button, PanelCard } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { formatAmountToman } from '@/features/payments/api'
+import { formatAppDateTime } from '@/lib/dates'
 import {
   downloadCsv,
   fetchAnalyticsExportRows,
@@ -77,7 +78,7 @@ function ChartBlock({
 }
 
 export function SuperAdminAnalyticsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [snap, setSnap] = useState<AnalyticsSnapshot>(emptySnapshot)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -161,7 +162,7 @@ export function SuperAdminAnalyticsPage() {
           <p className="inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
             {live ? t('analytics.liveOn') : t('analytics.livePolling')}
             {snap.generated_at
-              ? ` · ${new Date(snap.generated_at).toLocaleTimeString()}`
+              ? ` · ${formatAppDateTime(snap.generated_at, i18n.language)}`
               : null}
           </p>
 

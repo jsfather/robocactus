@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm'
 import { config } from './config.js'
 import { db } from './db.js'
 import { getAuthSettings } from './auth.js'
-import { requireSuperAdminRequest, sendKavenegarLookup } from './kavenegar.js'
+import { requireSuperAdminRequest, sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 
 type Notification = {
   id: string
@@ -27,13 +27,20 @@ async function sendSms(row: Notification): Promise<string> {
   }
   if (provider === 'kavenegar') {
     const values = Object.values(row.meta ?? {}).map(String)
-    const result = await sendKavenegarLookup({
-      receptor: row.phone,
-      template: patterns[row.template_key] ?? row.template_key,
-      token: values[0] ?? row.template_key,
-      token2: values[1] ?? '',
-      token3: values[2] ?? '',
-    })
+    const template = patterns[row.template_key]
+    const plainMessage = `جام تبرستان\n${row.template_key}\n${Object.entries(row.meta ?? {}).map(([key, value]) => `${key}: ${String(value)}`).join('\n')}`
+    let result
+    if (!template) {
+      result = await sendKavenegarText({ receptor: row.phone, message: plainMessage })
+    } else {
+      try {
+        result = await sendKavenegarLookup({ receptor: row.phone, template, token: values[0] ?? row.template_key, token2: values[1] ?? '', token3: values[2] ?? '' })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!/الگو|template/i.test(message)) throw error
+        result = await sendKavenegarText({ receptor: row.phone, message: plainMessage })
+      }
+    }
     const entries = Array.isArray(result.entries) ? result.entries : [result.entries]
     const messageId = (entries[0] as Record<string, unknown> | undefined)?.messageid
     return messageId ? String(messageId) : `kavenegar-${Date.now()}`
