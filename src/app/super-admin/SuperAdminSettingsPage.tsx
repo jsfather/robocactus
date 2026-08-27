@@ -116,6 +116,18 @@ export function SuperAdminSettingsPage() {
           />
         </HudFrame>
 
+        <HudFrame className="space-y-4 p-4">
+          <SectionLabel index="AUTH.02" title="ظاهر صفحه ورود" hint="لوگو، تصویر و پیام خوش‌آمدگویی بدون نیاز به تغییر کد از همین‌جا مدیریت می‌شوند." />
+          <div className="grid gap-4 md:grid-cols-2">
+            <ImageUploadField label="لوگوی صفحه ورود" value={form.login_logo_url ?? null} onChange={(url) => patch({ login_logo_url: url })} />
+            <ImageUploadField label="تصویر پس‌زمینه صفحه ورود" value={form.login_cover_url ?? null} onChange={(url) => patch({ login_cover_url: url })} />
+            <Input label="عنوان خوش‌آمدگویی (فارسی)" value={form.login_welcome_title_fa ?? ''} onChange={(e) => patch({ login_welcome_title_fa: e.target.value })} />
+            <Input label="Welcome title (English)" value={form.login_welcome_title_en ?? ''} onChange={(e) => patch({ login_welcome_title_en: e.target.value })} dir="ltr" />
+            <Textarea label="متن خوش‌آمدگویی (فارسی)" value={form.login_welcome_text_fa ?? ''} onChange={(e) => patch({ login_welcome_text_fa: e.target.value })} className="min-h-24" />
+            <Textarea label="Welcome text (English)" value={form.login_welcome_text_en ?? ''} onChange={(e) => patch({ login_welcome_text_en: e.target.value })} className="min-h-24" dir="ltr" />
+          </div>
+        </HudFrame>
+
         <HudFrame className="space-y-3 p-4">
           <SectionLabel index="CL.02" title={t('settings.colors')} hint={t('settings.colorsHint')} />
           <div className="grid gap-3 md:grid-cols-2">

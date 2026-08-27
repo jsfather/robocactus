@@ -65,6 +65,7 @@ export function TicketInbox({
   const [newBody, setNewBody] = useState('')
   const [liveHint, setLiveHint] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
+  const [query, setQuery] = useState('')
   const fileRef = useRef<HTMLInputElement | null>(null)
   const selectedIdRef = useRef<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -190,6 +191,8 @@ export function TicketInbox({
   }, [referLeagueId])
 
   const selected = tickets.find((x) => x.id === selectedId) ?? null
+  const statusLabel = (status: string) => ({ open: 'باز', answered: 'پاسخ داده‌شده', pending: 'در انتظار پاسخ', closed: 'بسته‌شده' })[status] ?? status
+  const visibleTickets = tickets.filter((ticket) => ticket.subject.toLowerCase().includes(query.trim().toLowerCase()))
 
   useEffect(() => {
     setAssignDeptId(selected?.department_id ?? '')
@@ -276,31 +279,32 @@ export function TicketInbox({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       <PanelCard
         title={t('tickets.inbox')}
         description={liveHint ? t('tickets.realtimeOn') : t('tickets.realtimeConnecting')}
       >
-        <ul className="max-h-96 space-y-1 overflow-y-auto">
+        <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-2"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="جست‌وجو در گفتگوها…" className="w-full rounded-xl border border-transparent bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-200 focus:ring-4 focus:ring-sky-50" /></div>
+        <ul className="max-h-[36rem] space-y-2 overflow-y-auto pe-1">
           {tickets.length === 0 ? (
             <li className="text-sm text-rc-muted">{t('tickets.empty')}</li>
           ) : (
-            tickets.map((ticket) => (
+            visibleTickets.map((ticket) => (
               <li key={ticket.id}>
                 <button
                   type="button"
                   onClick={() => setSelectedId(ticket.id)}
-                  className={`w-full rounded-md px-3 py-2 text-start text-sm transition ${
+                  className={`w-full rounded-2xl border px-4 py-3.5 text-start text-sm transition ${
                     selectedId === ticket.id
-                      ? 'bg-rc-blue/15 text-rc-blue'
-                      : 'text-rc-text hover:bg-white/5'
+                      ? 'border-sky-200 bg-gradient-to-l from-sky-50 to-emerald-50 text-sky-900 shadow-sm'
+                      : 'border-slate-100 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-sky-100 hover:shadow-md'
                   }`}
                 >
                   <span className="flex items-center font-medium">
                     <span className="line-clamp-1">{ticket.subject}</span>
                     <UnreadDot show={unreadIds.includes(ticket.id)} />
                   </span>
-                  <span className="font-mono text-xs text-rc-muted">{ticket.status}</span>
+                  <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${ticket.status === 'closed' ? 'bg-slate-100 text-slate-500' : ticket.status === 'answered' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{statusLabel(ticket.status)}</span>
                   {ticket.league_id ? (
                     <span className="ms-2 font-mono text-xs text-rc-orange">
                       {t('tickets.specialized')}
@@ -344,7 +348,7 @@ export function TicketInbox({
         {selected ? (
           <PanelCard
             title={selected.subject}
-            description={`${t('tickets.status')}: ${selected.status}`}
+            description={`${t('tickets.status')}: ${statusLabel(selected.status)}`}
             actions={
               mode !== 'team' && selected.status !== 'closed' ? (
                 <Button
@@ -392,14 +396,14 @@ export function TicketInbox({
               </div>
             ) : null}
 
-            <div className="mb-3 flex max-h-[28rem] flex-col gap-2 overflow-y-auto border border-rc-line bg-rc-bg/40 p-3">
+            <div className="mb-4 flex min-h-80 max-h-[32rem] flex-col gap-3 overflow-y-auto rounded-3xl border border-slate-100 bg-[radial-gradient(circle_at_top,_#effaff,_#f8fafc_60%)] p-4 sm:p-5">
               {messages.map((msg) => {
                 const mine = msg.sender_id === user?.id
                 return (
                   <div
                     key={msg.id}
-                    className={`max-w-[85%] px-3 py-2 text-sm ${
-                      mine ? 'ms-auto bg-rc-blue/20' : 'me-auto bg-rc-surface'
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-7 shadow-sm ${
+                      mine ? 'ms-auto rounded-ee-md bg-gradient-to-br from-sky-600 to-cyan-600 text-white' : 'me-auto rounded-es-md border border-slate-100 bg-white text-slate-700'
                     }`}
                   >
                     {msg.body && msg.body !== '📎' ? (
@@ -415,7 +419,7 @@ export function TicketInbox({
                         📎 {msg.attachment_name ?? t('tickets.attachment')}
                       </a>
                     ) : null}
-                    <p className="mt-1 font-mono text-[10px] text-rc-muted">
+                    <p className={`mt-1 font-mono text-[10px] ${mine ? 'text-white/70' : 'text-slate-400'}`}>
                       {formatAppDateTime(msg.created_at, i18n.language)}
                     </p>
                   </div>
@@ -493,7 +497,7 @@ export function TicketInbox({
             ) : null}
           </PanelCard>
         ) : (
-          <p className="text-sm text-rc-muted">{t('tickets.selectHint')}</p>
+          <div className="flex min-h-96 flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-sky-200 bg-gradient-to-br from-white to-sky-50/60 p-8 text-center"><span className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-sky-100 text-3xl">💬</span><p className="font-black text-slate-700">{t('tickets.selectHint')}</p><p className="mt-2 max-w-sm text-sm leading-7 text-slate-500">یک گفتگو را از فهرست انتخاب کنید تا تاریخچه پیام‌ها و ابزارهای رسیدگی نمایش داده شود.</p></div>
         )}
 
         <FieldError message={error ?? undefined} />

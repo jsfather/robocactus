@@ -40,6 +40,12 @@ export async function fetchKavenegarOverview(): Promise<{ configured: boolean; s
   return parseResponse(response) as Promise<{ configured: boolean; sender: string | null; logs: KavenegarLog[] }>
 }
 
+export async function fetchKavenegarBalance(): Promise<number> {
+  const response = await fetch('/api/kavenegar/balance', { credentials: 'include' })
+  const body = await parseResponse(response) as { balance?: number }
+  return Number(body.balance ?? 0)
+}
+
 export async function runKavenegarOperation(operation: KavenegarOperation, params: Record<string, unknown> = {}): Promise<KavenegarResult> {
   const response = await fetch('/api/kavenegar/action', {
     method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },

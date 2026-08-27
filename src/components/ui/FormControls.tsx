@@ -104,7 +104,7 @@ export function Select({ label, error, id, className = '', children, ...props }:
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null
-  return <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</p>
+  return <div role="alert" className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-gradient-to-l from-rose-50 to-white px-4 py-3.5 text-sm text-rose-800 shadow-sm"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 font-black text-rose-700">!</span><p className="pt-1 font-bold leading-6">{message}</p></div>
 }
 
 export function PanelCard({

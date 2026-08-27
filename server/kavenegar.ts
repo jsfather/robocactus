@@ -179,6 +179,15 @@ async function rawRequest(path: string, method: 'GET' | 'POST' | 'DELETE', param
   return result
 }
 
+let balanceCache: { value: number; fetchedAt: number } | null = null
+
+function extractBalance(result: KavenegarResponse): number {
+  const entry = Array.isArray(result.entries) ? result.entries[0] : result.entries
+  if (!entry || typeof entry !== 'object') return 0
+  const record = entry as Record<string, unknown>
+  return Number(record.remaincredit ?? record.credit ?? record.balance ?? 0) || 0
+}
+
 async function invoke(actorId: string | null, operation: string, params: Record<string, string>, file?: Express.Multer.File) {
   const spec = actions[operation]
   if (!spec && operation !== 'mediaUpload') throw new Error('unsupported_kavenegar_operation')
@@ -250,6 +259,20 @@ function safeSecretEqual(expected: string, received: string): boolean {
 }
 
 export function registerKavenegarRoutes(router: Router): void {
+  router.get('/kavenegar/balance', async (request, response) => {
+    const user = await requireSuperAdminRequest(request)
+    if (!user) return void response.status(403).json({ error: 'forbidden' })
+    try {
+      if (!balanceCache || Date.now() - balanceCache.fetchedAt > 60_000) {
+        const result = await rawRequest(actions.accountInfo!.path, 'GET', {})
+        balanceCache = { value: extractBalance(result), fetchedAt: Date.now() }
+      }
+      response.json({ balance: balanceCache.value, fetched_at: new Date(balanceCache.fetchedAt).toISOString() })
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
   router.get('/kavenegar/overview', async (request, response) => {
     const user = await requireSuperAdminRequest(request)
     if (!user) return void response.status(403).json({ error: 'forbidden' })

@@ -29,6 +29,10 @@ let seq = 0
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
 
+  const dismiss = useCallback((id: number) => {
+    setItems((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
   const push = useCallback((message: string, kind: ToastKind = 'info') => {
     const id = ++seq
     setItems((prev) => [...prev, { id, kind, message }])
@@ -50,23 +54,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 start-4 z-[100] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
+      <div className="pointer-events-none fixed end-4 top-4 z-[200] flex w-[min(25rem,calc(100vw-2rem))] flex-col gap-3 sm:end-6 sm:top-6">
         {items.map((item) => (
           <div
             key={item.id}
             className={[
-              'pointer-events-auto border px-3 py-2.5 text-sm shadow-lg backdrop-blur-md',
+              'app-toast pointer-events-auto relative overflow-hidden rounded-2xl border bg-white/95 p-4 text-sm shadow-[0_18px_55px_rgb(15_51_69/0.18)] backdrop-blur-xl',
               item.kind === 'success'
-                ? 'border-emerald-500/40 bg-emerald-950/90 text-emerald-100'
+                ? 'border-emerald-200 text-emerald-950'
                 : item.kind === 'error'
-                  ? 'border-red-500/40 bg-red-950/90 text-red-100'
-                  : 'border-rc-blue/40 bg-rc-navy/95 text-rc-text',
+                  ? 'border-rose-200 text-rose-950'
+                  : 'border-sky-200 text-sky-950',
             ].join(' ')}
+            role={item.kind === 'error' ? 'alert' : 'status'}
           >
-            <p className="font-mono text-[9px] tracking-[0.2em] text-rc-muted uppercase">
-              {item.kind === 'success' ? 'OK' : item.kind === 'error' ? 'ERR' : 'SYS'}
-            </p>
-            <p className="mt-0.5">{item.message}</p>
+            <div className="flex items-start gap-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-lg font-black ${item.kind === 'success' ? 'bg-emerald-100 text-emerald-700' : item.kind === 'error' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'}`}>
+                {item.kind === 'success' ? '✓' : item.kind === 'error' ? '!' : 'i'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black">{item.kind === 'success' ? 'عملیات موفق' : item.kind === 'error' ? 'خطا' : 'اطلاع‌رسانی'}</p>
+                <p className="mt-1 leading-6 text-slate-600">{item.message}</p>
+              </div>
+              <button type="button" onClick={() => dismiss(item.id)} className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="بستن اعلان">×</button>
+            </div>
+            <span className={`toast-progress absolute inset-x-0 bottom-0 h-1 origin-right ${item.kind === 'success' ? 'bg-emerald-500' : item.kind === 'error' ? 'bg-rose-500' : 'bg-sky-500'}`} />
           </div>
         ))}
       </div>

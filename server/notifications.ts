@@ -15,6 +15,24 @@ type Notification = {
   meta: Record<string, unknown> | null
 }
 
+const eventTokenOrder: Record<string, string[]> = {
+  auth_otp: ['code'],
+  account_approved: ['full_name', 'user_id'],
+  registration_submitted: ['team_name', 'league_name', 'tracking_code'],
+  league_joined: ['team_name', 'league_name', 'invoice_id'],
+  payment_confirmed: ['amount', 'invoice_number', 'team_name'],
+  incomplete_profile: ['full_name', 'user_id'],
+  account_issue: ['title', 'user_id'],
+  result_announced: ['league_name', 'team_name', 'rank'],
+  newsletter_confirmed: ['full_name', 'channel_name'],
+}
+
+function templateValues(row: Notification): string[] {
+  const meta = row.meta ?? {}
+  const ordered = (eventTokenOrder[row.template_key] ?? []).map((key) => meta[key]).filter((value) => value != null).map(String)
+  return ordered.length ? ordered : Object.values(meta).map(String)
+}
+
 async function sendSms(row: Notification): Promise<string> {
   if (!row.phone) throw new Error('missing_phone')
   const settings = await getAuthSettings(true)
@@ -26,7 +44,7 @@ async function sendSms(row: Notification): Promise<string> {
     return `MOCK-sms-${Date.now()}`
   }
   if (provider === 'kavenegar') {
-    const values = Object.values(row.meta ?? {}).map(String)
+    const values = templateValues(row)
     const template = patterns[row.template_key]
     const plainMessage = `جام تبرستان\n${row.template_key}\n${Object.entries(row.meta ?? {}).map(([key, value]) => `${key}: ${String(value)}`).join('\n')}`
     let result

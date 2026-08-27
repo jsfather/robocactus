@@ -12,6 +12,15 @@ const OTP_TTL_MS = 5 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_ATTEMPTS = 5
 const requestWindows = new Map<string, { count: number; resetAt: number }>()
+const captchaGrants = new Map<string, number>()
+
+function captchaGrantKey(request: Request, phone: string, purpose: string) {
+  if (captchaGrants.size > 5000) {
+    const now = Date.now()
+    for (const [key, expiresAt] of captchaGrants) if (expiresAt <= now) captchaGrants.delete(key)
+  }
+  return `${request.ip ?? 'unknown'}:${phone}:${purpose}`
+}
 
 function ipRateLimited(ip: string | undefined): boolean {
   const key = ip ?? 'unknown'
@@ -96,10 +105,15 @@ export function registerOtpRoutes(router: Router): void {
 
       if (action === 'request') {
         if (purpose !== 'profile') {
-          const captcha = await verifyCaptcha(request, purpose === 'signup' ? 'signup' : 'login')
-          if (!captcha.ok) {
-            response.status(400).json({ error: captcha.error })
-            return
+          const grantKey = captchaGrantKey(request, phone, purpose)
+          const grantedUntil = captchaGrants.get(grantKey) ?? 0
+          if (grantedUntil <= Date.now()) {
+            const captcha = await verifyCaptcha(request, purpose === 'signup' ? 'signup' : 'login')
+            if (!captcha.ok) {
+              response.status(400).json({ error: captcha.error })
+              return
+            }
+            captchaGrants.set(grantKey, Date.now() + 10 * 60 * 1000)
           }
         }
         const settings = await getAuthSettings()

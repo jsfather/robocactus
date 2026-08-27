@@ -484,6 +484,12 @@ export type SiteSettings = {
   contact_address_en?: string | null
   trust_seal_url?: string | null
   trust_seal_href?: string | null
+  login_logo_url?: string | null
+  login_cover_url?: string | null
+  login_welcome_title_fa?: string | null
+  login_welcome_title_en?: string | null
+  login_welcome_text_fa?: string | null
+  login_welcome_text_en?: string | null
 }
 
 export type TicketMessage = {

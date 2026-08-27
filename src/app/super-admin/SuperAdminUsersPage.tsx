@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/Toast'
 import type { League, Profile, UserRole } from '@/types/database'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
+import { backend } from '@/lib/backend'
 
 const ALL_ROLES: UserRole[] = [
   'super_admin',
@@ -48,6 +49,8 @@ export function SuperAdminUsersPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [createForm, setCreateForm] = useState({ full_name: '', phone: '', email: '', username: '', password: '', account_type: 'individual' as 'individual' | 'legal', account_status: 'pending' as 'pending' | 'active' })
 
   const reload = async () => {
     setLoading(true)
@@ -168,8 +171,25 @@ export function SuperAdminUsersPage() {
     }
   }
 
+  const onCreateUser = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!createForm.full_name.trim() || !/^09\d{9}$/.test(createForm.phone.trim())) {
+      const message = 'نام و شماره موبایل معتبر الزامی است.'; setError(message); toast.error(message); return
+    }
+    setBusy(true); setError(null)
+    const { error: createError } = await backend.auth.adminCreateUser(createForm)
+    setBusy(false)
+    if (createError) {
+      const message = createError.message === 'user_already_exists' ? 'کاربری با این شماره، ایمیل یا نام کاربری وجود دارد.' : createError.message
+      setError(message); toast.error(message); return
+    }
+    toast.success('حساب کاربر با موفقیت ساخته شد.')
+    setCreateForm({ full_name: '', phone: '', email: '', username: '', password: '', account_type: 'individual', account_status: 'pending' })
+    setCreating(false); await reload()
+  }
+
   return (
-    <PanelPage index="USR.01" title={t('admin.users.title')} description={t('admin.users.subtitle')}>
+    <PanelPage index="USR.01" title={t('admin.users.title')} description="مدیریت حساب شرکت‌کنندگان حقیقی و حقوقی؛ اعضای مدیریتی از بخش نقش‌ها مدیریت می‌شوند." actions={<Button type="button" onClick={() => setCreating((value) => !value)}>{creating ? 'بستن فرم' : '+ افزودن کاربر'}</Button>}>
 
       <FieldError message={error ?? undefined} />
 
@@ -179,6 +199,20 @@ export function SuperAdminUsersPage() {
         <StatCard index="03" label="مدیران شرکت" value={profiles.filter((profile) => profile.role === 'company_admin').length} hint="حساب‌های حقوقی و سازمانی" accent="green" />
         <StatCard index="04" label="مدیر لیگ و همکار" value={profiles.filter((profile) => profile.role === 'league_admin' || profile.role === 'staff').length} hint="اعضای اجرایی پنل" />
       </div>
+
+      {creating ? <PanelCard title="افزودن کاربر حقیقی یا حقوقی" description="این فرم حساب شرکت‌کننده می‌سازد؛ برای کاربر حقیقی نقش پایه کاربری و برای شخص حقوقی دسترسی پنل شرکت ثبت می‌شود.">
+        <form noValidate className="grid gap-4 md:grid-cols-2" onSubmit={(event) => void onCreateUser(event)}>
+          <Select label="نوع حساب" value={createForm.account_type} onChange={(event) => setCreateForm((form) => ({ ...form, account_type: event.target.value as 'individual' | 'legal' }))}><option value="individual">شخص حقیقی</option><option value="legal">شخص حقوقی / شرکت</option></Select>
+          <Select label="وضعیت اولیه حساب" value={createForm.account_status} onChange={(event) => setCreateForm((form) => ({ ...form, account_status: event.target.value as 'pending' | 'active' }))}><option value="pending">در انتظار تکمیل و بررسی</option><option value="active">فعال</option></Select>
+          <Input label="نام و نام خانوادگی / نام نماینده" value={createForm.full_name} onChange={(event) => setCreateForm((form) => ({ ...form, full_name: event.target.value }))} />
+          <Input label="شماره موبایل" value={createForm.phone} onChange={(event) => setCreateForm((form) => ({ ...form, phone: event.target.value }))} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" />
+          <Input label="ایمیل (اختیاری)" value={createForm.email} onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} dir="ltr" type="email" />
+          <Input label="نام کاربری (اختیاری)" value={createForm.username} onChange={(event) => setCreateForm((form) => ({ ...form, username: event.target.value }))} dir="ltr" />
+          <Input label="رمز عبور اولیه (اختیاری، حداقل ۸ کاراکتر)" value={createForm.password} onChange={(event) => setCreateForm((form) => ({ ...form, password: event.target.value }))} dir="ltr" type="password" autoComplete="new-password" />
+          <div className="flex items-end"><Button type="submit" className="w-full" disabled={busy}>{busy ? t('app.loading') : 'ساخت حساب کاربر'}</Button></div>
+          <p className="rounded-2xl bg-sky-50 p-4 text-xs leading-6 text-sky-800 md:col-span-2">اگر رمز وارد نشود، کاربر با کد یک‌بارمصرف شماره موبایل وارد می‌شود. اطلاعات تکمیلی هویتی و مدارک بعداً توسط کاربر یا مدیریت تکمیل می‌شوند.</p>
+        </form>
+      </PanelCard> : null}
 
       {editing ? (
         <PanelCard title={t('admin.users.editTitle')} description={editing.full_name}>

@@ -328,7 +328,7 @@ export function SignupPage() {
     <div className="mx-auto max-w-lg px-4 py-12">
       <p className="font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">JOIN · SIGNUP</p>
       <h1 className="mt-1 text-3xl font-semibold">{t('auth.signupTitle')}</h1>
-      <p className="mt-2 text-sm text-rc-muted">{t('auth.signupMultiHint')}</p>
+      {authOptions?.email_signup_enabled !== false ? <p className="mt-2 text-sm text-rc-muted">{t('auth.signupMultiHint')}</p> : null}
 
       {!configured ? (
         <p className="mt-6 text-sm text-red-400">{t('auth.backendMissing')}</p>

@@ -88,11 +88,11 @@ export function NotificationBell({ role }: { role: UserRole }) {
           {isSa ? (
             <div className="mt-3">
               <Link
-                to="/super-admin/notifications"
+                to="/super-admin/kavenegar"
                 onClick={() => setOpen(false)}
                 className="block rounded-md border border-rc-line px-2.5 py-2 text-sm hover:bg-rc-hover"
               >
-                {t('notifications.title')}
+                مرکز پیامک کاوه‌نگار
               </Link>
             </div>
           ) : null}

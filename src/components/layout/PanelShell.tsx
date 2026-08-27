@@ -13,6 +13,7 @@ import {
 import { PanelErrorBoundary } from '@/components/layout/PanelErrorBoundary'
 import { NotificationBell } from '@/components/panel/NotificationBell'
 import { UserMenu } from '@/components/panel/UserMenu'
+import { SmsBalancePill } from '@/components/panel/SmsBalancePill'
 import { AccountPendingBanner } from '@/components/layout/AccountPendingBanner'
 import { AccountIssuesPanel } from '@/features/account-issues/AccountIssuesPanel'
 import { enqueueIncompleteProfileSms } from '@/features/notifications/api'
@@ -282,6 +283,7 @@ export function PanelShell() {
               </span>
             </div>
 
+            {role === 'super_admin' ? <SmsBalancePill /> : null}
             <NotificationBell role={role} />
             <UserMenu role={role} />
           </div>
