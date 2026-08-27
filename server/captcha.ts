@@ -15,6 +15,18 @@ type CaptchaSettings = {
   captcha_on_live_chat?: boolean
 }
 
+const formAttempts = new Map<string, { count: number; resetAt: number }>()
+function formRateLimited(key: string, maximum: number, windowMs: number): boolean {
+  const now = Date.now()
+  const current = formAttempts.get(key)
+  if (!current || current.resetAt <= now) {
+    formAttempts.set(key, { count: 1, resetAt: now + windowMs })
+    return false
+  }
+  current.count += 1
+  return current.count > maximum
+}
+
 async function getCaptchaSettings(): Promise<CaptchaSettings> {
   const result = await db.execute(sql`select captcha_enabled, arcaptcha_site_key, arcaptcha_secret_key,
     captcha_on_login, captcha_on_signup, captcha_on_password_reset, captcha_on_contact, captcha_on_live_chat
@@ -91,6 +103,9 @@ export function registerCaptchaRoutes(router: Router): void {
   })
 
   router.post('/forms/contact', async (request, response) => {
+    if (formRateLimited(`contact:${request.ip}`, 10, 60 * 60 * 1000)) {
+      return void response.status(429).json({ error: 'rate_limited' })
+    }
     const captcha = await verifyCaptcha(request, 'contact')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const fullName = String(request.body?.full_name ?? '').trim()
@@ -109,6 +124,9 @@ export function registerCaptchaRoutes(router: Router): void {
   })
 
   router.post('/forms/live-chat/start', async (request, response) => {
+    if (formRateLimited(`live-chat:${request.ip}`, 10, 15 * 60 * 1000)) {
+      return void response.status(429).json({ error: 'rate_limited' })
+    }
     const captcha = await verifyCaptcha(request, 'live_chat')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const name = String(request.body?.name ?? '').trim()

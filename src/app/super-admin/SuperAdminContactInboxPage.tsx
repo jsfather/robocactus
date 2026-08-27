@@ -84,7 +84,7 @@ export function SuperAdminContactInboxPage() {
           <aside className="border-b border-rc-line bg-slate-50/70 lg:border-b-0 lg:border-e">
             <div className="space-y-3 border-b border-rc-line p-4">
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={fa ? 'جست‌وجوی نام، شماره، ایمیل یا موضوع…' : 'Search name, phone, email, subject…'} className="w-full rounded-xl border border-rc-line bg-white px-4 py-3 text-sm outline-none transition focus:border-rc-blue focus:ring-4 focus:ring-rc-blue/10" />
-              <Select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">{fa ? 'همه پیام‌ها' : 'All messages'} ({messages.length})</option>{(Object.keys(statusMeta) as MessageStatus[]).map((status) => <option key={status} value={status}>{fa ? statusMeta[status].fa : statusMeta[status].en}</option>)}</Select>
+              <Select label={fa ? 'فیلتر وضعیت' : 'Status filter'} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">{fa ? 'همه پیام‌ها' : 'All messages'} ({messages.length})</option>{(Object.keys(statusMeta) as MessageStatus[]).map((status) => <option key={status} value={status}>{fa ? statusMeta[status].fa : statusMeta[status].en}</option>)}</Select>
             </div>
             <div className="max-h-[530px] overflow-y-auto p-2">
               {loading ? <p className="p-5 text-sm text-rc-muted">{fa ? 'در حال دریافت…' : 'Loading…'}</p> : null}

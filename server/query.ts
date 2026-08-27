@@ -43,7 +43,7 @@ const RPCS = new Set([
   'league_registered_count', 'list_unread_ticket_ids', 'mark_ticket_read', 'profile_exists_by_phone',
   'refer_ticket', 'reply_live_chat_agent', 'reply_ticket', 'resolve_account_issue',
   'resolve_team_captain', 'respond_account_issue', 'review_team', 'review_team_member',
-  'send_live_chat_guest_message', 'set_league_results_status', 'start_live_chat',
+  'send_live_chat_guest_message', 'set_league_results_status',
   'submit_card_receipt', 'review_card_receipt', 'ticket_status_counts', 'upsert_team_result',
 ])
 

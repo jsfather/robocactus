@@ -48,6 +48,7 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     items: [
       { to: '/super-admin/content', labelKey: 'content.cmsTitle', helpKey: 'panel.help.sa.content' },
       { to: '/super-admin/home', labelKey: 'home.adminTitle', helpKey: 'panel.help.sa.home' },
+      { to: '/super-admin/contact-inbox', labelKey: 'home.inboxTab', helpKey: 'panel.help.sa.contactInbox' },
       { to: '/super-admin/pages', labelKey: 'admin.pages.title', helpKey: 'panel.help.sa.pages' },
     ],
   },

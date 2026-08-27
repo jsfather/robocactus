@@ -158,8 +158,8 @@
         ]
       }
     ],
-    "adminTitle": "Home banners & inbox",
-    "adminSubtitle": "Hero slider and contact messages",
+    "adminTitle": "Banners & homepage",
+    "adminSubtitle": "Manage homepage banners, sections, and layout",
     "bannersTab": "Banners",
     "inboxTab": "Contact inbox",
     "inboxEmpty": "No messages yet.",
@@ -266,7 +266,8 @@
         "companies": "List and edit registered companies.",
         "users": "Roles, account activation, assign league admins.",
         "content": "Blog, announcements, gallery categories, and media uploads.",
-        "home": "Homepage sections and layout.",
+        "home": "Homepage banners, sections, and layout.",
+        "contactInbox": "Review sender details, follow up, and manage contact-message status.",
         "pages": "Static pages: about, contact, FAQ, privacy.",
         "notifications": "System alerts and SMS/email queue.",
         "registration": "Registration form settings and required fields.",

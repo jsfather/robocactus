@@ -13,7 +13,6 @@ import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import {
   deleteBanner,
   fetchAllBanners,
-  fetchContactMessages,
   upsertBanner,
 } from '@/features/home/api'
 import {
@@ -44,7 +43,7 @@ import {
 } from '@/features/home/homeSectionsApi'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
-import type { ContactMessage, HomeBanner } from '@/types/database'
+import type { HomeBanner } from '@/types/database'
 
 type Tab =
   | 'banners'
@@ -54,7 +53,6 @@ type Tab =
   | 'events'
   | 'partners'
   | 'faqs'
-  | 'inbox'
 
 export function SuperAdminHomeContentPage() {
   const { t } = useTranslation()
@@ -66,7 +64,6 @@ export function SuperAdminHomeContentPage() {
   const [loading, setLoading] = useState(true)
 
   const [banners, setBanners] = useState<HomeBanner[]>([])
-  const [messages, setMessages] = useState<ContactMessage[]>([])
   const [sponsors, setSponsors] = useState<HomeSponsor[]>([])
   const [stats, setStats] = useState<HomeStatCard[]>([])
   const [why, setWhy] = useState<HomeWhyCard[]>([])
@@ -78,9 +75,8 @@ export function SuperAdminHomeContentPage() {
     setLoading(true)
     setError(null)
     try {
-      const [b, m, sp, st, w, ev, pa, f] = await Promise.all([
+      const [b, sp, st, w, ev, pa, f] = await Promise.all([
         fetchAllBanners(),
-        fetchContactMessages(),
         fetchAllSponsors(),
         fetchAllStatCards(),
         fetchAllWhyCards(),
@@ -89,7 +85,6 @@ export function SuperAdminHomeContentPage() {
         fetchAllFaqs(),
       ])
       setBanners(b)
-      setMessages(m as ContactMessage[])
       setSponsors(sp)
       setStats(st)
       setWhy(w)
@@ -115,7 +110,6 @@ export function SuperAdminHomeContentPage() {
     { id: 'events', label: t('home.eventsTab') },
     { id: 'partners', label: t('home.partnersTab') },
     { id: 'faqs', label: t('home.faqsTab') },
-    { id: 'inbox', label: t('home.inboxTab') },
   ]
 
   return (
@@ -271,6 +265,7 @@ export function SuperAdminHomeContentPage() {
         </SimpleCrud>
       ) : null}
 
+      {/* Contact inbox moved to /super-admin/contact-inbox for a focused workflow.
       {tab === 'inbox' ? (
         <PanelCard title={t('home.inboxTab')}>
           {messages.length === 0 ? (
@@ -288,7 +283,7 @@ export function SuperAdminHomeContentPage() {
             </ul>
           )}
         </PanelCard>
-      ) : null}
+      ) : null} */}
     </PanelPage>
   )
 }
@@ -346,16 +341,37 @@ function BannersTab({
   const [subtitle, setSubtitle] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
+  const [editingId, setEditingId] = useState<string | undefined>()
+  const [sortOrder, setSortOrder] = useState(0)
+  const [isActive, setIsActive] = useState(true)
+
+  const reset = () => {
+    setEditingId(undefined)
+    setTitle('')
+    setSubtitle('')
+    setImageUrl('')
+    setLinkUrl('')
+    setSortOrder(0)
+    setIsActive(true)
+  }
+
+  const edit = (banner: HomeBanner) => {
+    setEditingId(banner.id)
+    setTitle(banner.title)
+    setSubtitle(banner.subtitle ?? '')
+    setImageUrl(banner.image_url)
+    setLinkUrl(banner.link_url ?? '')
+    setSortOrder(banner.sort_order)
+    setIsActive(banner.is_active)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     try {
-      await upsertBanner({ title, subtitle, image_url: imageUrl, link_url: linkUrl })
-      setTitle('')
-      setSubtitle('')
-      setImageUrl('')
-      setLinkUrl('')
+      await upsertBanner({ id: editingId, title, subtitle, image_url: imageUrl, link_url: linkUrl, sort_order: sortOrder, is_active: isActive })
+      reset()
       await onReload()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -365,29 +381,45 @@ function BannersTab({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <PanelCard title={t('home.newBanner')}>
-        <form className="space-y-3" onSubmit={(e) => void save(e)}>
-          <Input label={t('content.title')} value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <Input label={t('home.bannerSubtitle')} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
-          <ImageUploadField label={t('home.bannerImageUrl')} value={imageUrl || null} onChange={(url) => setImageUrl(url ?? '')} />
-          <Input label={t('home.bannerLink')} value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} dir="ltr" />
-          <Button type="submit" disabled={busy || !imageUrl || !userId}>
-            {t('common.save')}
-          </Button>
-        </form>
-      </PanelCard>
-      <PanelCard title={t('home.bannersList')}>
-        <ul className="divide-y divide-rc-line">
-          {banners.map((b) => (
-            <li key={b.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-              <span>{b.title}</span>
-              <Button type="button" variant="danger" onClick={() => void deleteBanner(b.id).then(onReload)}>
-                {t('common.delete')}
-              </Button>
-            </li>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(340px,0.8fr)_minmax(0,1.35fr)]">
+      <div className="space-y-4 xl:sticky xl:top-24">
+        <PanelCard title={editingId ? t('home.editBanner') : t('home.newBanner')}>
+          <form className="space-y-4" onSubmit={(e) => void save(e)}>
+            <div className="overflow-hidden rounded-2xl border border-rc-line bg-slate-900">
+              <div className="relative aspect-[16/7]">
+                {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover opacity-80" /> : <div className="grid h-full place-items-center text-xs text-white/60">{t('home.bannerImageUrl')}</div>}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-4 text-white"><strong className="block text-base">{title || t('content.title')}</strong><span className="mt-1 block line-clamp-1 text-xs text-white/70">{subtitle || t('home.bannerSubtitle')}</span></div>
+              </div>
+            </div>
+            <Input label={t('content.title')} value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <Input label={t('home.bannerSubtitle')} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+            <ImageUploadField label={t('home.bannerImageUrl')} value={imageUrl || null} onChange={(url) => setImageUrl(url ?? '')} />
+            <Input label={t('home.bannerLink')} value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} dir="ltr" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label={t('home.bannerOrder')} type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-rc-line bg-slate-50 px-4 py-3 text-sm font-bold text-rc-text"><span>{isActive ? t('home.bannerActive') : t('home.bannerInactive')}</span><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-5 w-5 accent-rc-blue" /></label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={busy || !imageUrl || !userId}>{t('common.save')}</Button>
+              {editingId ? <Button type="button" variant="secondary" onClick={reset}>{t('common.cancel')}</Button> : null}
+            </div>
+          </form>
+        </PanelCard>
+      </div>
+      <PanelCard title={`${t('home.bannersList')} (${banners.length})`}>
+        {banners.length === 0 ? <div className="rounded-2xl border border-dashed border-rc-line p-10 text-center text-sm text-rc-muted">{t('home.emptyList')}</div> : null}
+        <div className="grid gap-4 md:grid-cols-2">
+          {banners.map((banner) => (
+            <article key={banner.id} className={`group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-0.5 hover:shadow-lg ${editingId === banner.id ? 'border-rc-blue ring-4 ring-rc-blue/10' : 'border-rc-line'}`}>
+              <button type="button" onClick={() => edit(banner)} className="block w-full text-start">
+                <div className="relative aspect-[16/7] overflow-hidden bg-slate-100"><img src={banner.image_url} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /><span className={`absolute end-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-black ${banner.is_active ? 'bg-emerald-500 text-white' : 'bg-slate-800/80 text-white'}`}>{banner.is_active ? t('home.bannerActive') : t('home.bannerInactive')}</span></div>
+                <div className="p-4"><div className="flex items-start justify-between gap-3"><strong className="line-clamp-1 text-sm text-rc-text">{banner.title}</strong><span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-rc-muted">#{banner.sort_order}</span></div><p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-rc-muted">{banner.subtitle || '—'}</p></div>
+              </button>
+              <div className="flex items-center justify-between border-t border-rc-line px-4 py-3"><Button type="button" variant="secondary" onClick={() => edit(banner)}>{t('common.edit')}</Button><Button type="button" variant="danger" onClick={() => void deleteBanner(banner.id).then(onReload)}>{t('common.delete')}</Button></div>
+            </article>
           ))}
-        </ul>
+        </div>
       </PanelCard>
     </div>
   )

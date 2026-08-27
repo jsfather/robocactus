@@ -52,6 +52,9 @@ create policy "captcha_verification_sa" on public.captcha_verification_log for s
 revoke all on public.captcha_verification_log from anon, authenticated;
 grant select on public.captcha_verification_log to authenticated;
 
+-- Guests must use the captcha-protected application endpoint to open a chat.
+revoke execute on function public.start_live_chat(text, text, text) from anon, authenticated;
+
 create table if not exists public.kavenegar_inbox (
   id uuid primary key default gen_random_uuid(),
   provider_message_id text not null unique,

@@ -38,6 +38,7 @@ import { SuperAdminUsersPage } from '@/app/super-admin/SuperAdminUsersPage'
 import { SuperAdminPagesPage } from '@/app/super-admin/SuperAdminPagesPage'
 import { SuperAdminContentPage } from '@/app/super-admin/SuperAdminContentPage'
 import { SuperAdminHomeContentPage } from '@/app/super-admin/SuperAdminHomeContentPage'
+import { SuperAdminContactInboxPage } from '@/app/super-admin/SuperAdminContactInboxPage'
 import { SuperAdminNotificationsPage } from '@/app/super-admin/SuperAdminNotificationsPage'
 import { SuperAdminKavenegarPage } from '@/app/super-admin/SuperAdminKavenegarPage'
 import { SuperAdminAnalyticsPage } from '@/app/super-admin/SuperAdminAnalyticsPage'
@@ -120,6 +121,7 @@ export default function App() {
                   <Route path="super-admin/pages" element={<SuperAdminPagesPage />} />
                   <Route path="super-admin/content" element={<SuperAdminContentPage />} />
                   <Route path="super-admin/home" element={<SuperAdminHomeContentPage />} />
+                  <Route path="super-admin/contact-inbox" element={<SuperAdminContactInboxPage />} />
                   <Route path="super-admin/notifications" element={<SuperAdminNotificationsPage />} />
                   <Route path="super-admin/kavenegar" element={<SuperAdminKavenegarPage />} />
                   <Route path="super-admin/finance" element={<SuperAdminFinancePage />} />
