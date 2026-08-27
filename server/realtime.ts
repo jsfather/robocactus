@@ -10,6 +10,7 @@ let poller: NodeJS.Timeout | null = null
 const REALTIME_TABLES = new Set([
   'teams', 'invoices', 'tickets', 'ticket_messages', 'ticket_reads', 'results', 'leagues',
   'live_chat_sessions', 'live_chat_messages', 'system_notifications', 'account_issues',
+  'judge_scores',
 ])
 
 function safeIdentifier(name: string) {

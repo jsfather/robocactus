@@ -200,6 +200,14 @@ const auth = {
     const response = await authCall('password-reset/confirm', { code, password })
     return { data: response, error: response.error ?? null }
   },
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await authCall('password/change', { currentPassword, newPassword })
+    return { data: response, error: response.error ?? null }
+  },
+  async adminRequestPasswordReset(userId: string) {
+    const response = await authCall(`admin/users/${encodeURIComponent(userId)}/password-reset`, {})
+    return { data: response, error: response.error ?? null }
+  },
   async adminCreateUser(input: { full_name: string; phone: string; email?: string; username?: string; password?: string; account_type: 'individual' | 'legal'; account_status: 'pending' | 'active' }) {
     const response = await authCall('admin/users', input)
     return { data: response, error: response.error ?? null }

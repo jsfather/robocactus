@@ -29,7 +29,7 @@ export function formatAppDate(
   }).format(date)
 }
 
-export function formatAppDateTime(iso: string | null | undefined, language: string): string {
+export function formatAppDateTime(iso: string | null | undefined, language = 'fa'): string {
   return formatAppDate(iso, language, { withTime: true })
 }
 

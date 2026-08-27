@@ -101,6 +101,16 @@ export type Profile = {
   identity_completed_at?: string | null
   activated_at?: string | null
   rejection_reason?: string | null
+  gender?: 'male' | 'female' | 'other' | null
+  province?: string | null
+  city?: string | null
+  landline?: string | null
+  country_code?: string | null
+  nationality?: string | null
+  residence?: string | null
+  is_foreign?: boolean
+  passport_number?: string | null
+  avatar_url?: string | null
 }
 
 export type Company = {
@@ -283,6 +293,9 @@ export type League = {
   results_status?: 'auto' | 'hidden' | 'live' | 'final' | string | null
   captain_fee?: number
   member_fee?: number
+  coach_fee?: number
+  result_formula?: 'average' | 'sum'
+  required_judge_count?: number | null
   team_edit_deadline?: string | null
   min_age?: number | null
   max_age?: number | null
@@ -309,6 +322,14 @@ export type Team = {
   reviewed_at: string | null
   reviewed_by: string | null
   created_at: string
+  lifecycle_status?: 'draft' | 'incomplete' | 'awaiting_documents' | 'awaiting_review' | 'awaiting_payment' | 'completed' | 'cancelled'
+  registration_stage?: 'team_info' | 'members' | 'documents' | 'review' | 'invoice' | 'payment' | 'completed'
+  registration_progress?: number
+  registration_draft?: Record<string, unknown>
+  last_completed_step?: number
+  last_activity_at?: string
+  registration_started_at?: string
+  registration_completed_at?: string | null
 }
 
 export type TeamMember = {
@@ -328,6 +349,19 @@ export type TeamMember = {
   national_id_doc_path?: string | null
   review_status?: 'pending' | 'approved' | 'rejected' | string
   rejection_reason?: string | null
+  father_name_fa?: string | null
+  father_name_en?: string | null
+  photo_url?: string | null
+  phone?: string | null
+  residence?: string | null
+  province?: string | null
+  city?: string | null
+  country_code?: string | null
+  nationality?: string | null
+  is_foreign?: boolean
+  passport_number?: string | null
+  education_level?: 'primary' | 'middle_school' | 'high_school' | 'associate' | 'bachelor' | 'master' | 'doctorate' | null
+  field_of_study?: string | null
 }
 
 export type DocumentRow = {
@@ -385,6 +419,41 @@ export type ContactMessage = {
 export type LeagueAdmin = {
   league_id: string
   user_id: string
+  assignment_role?: 'judge' | 'head_judge' | 'operator'
+}
+
+export type ParticipantFieldRule = {
+  field_key: string
+  label_fa: string
+  label_en: string
+  is_required: boolean
+  is_locked: boolean
+  applies_to: 'individual' | 'legal' | 'both'
+  updated_at: string
+}
+
+export type JudgeScore = {
+  id: string
+  league_id: string
+  team_id: string
+  judge_id: string
+  season_year: number
+  score_payload: Record<string, number | string>
+  total_score: number
+  notes: string | null
+  status: 'draft' | 'submitted'
+  submitted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type JudgeSubmissionProgress = {
+  team_id: string
+  league_id: string
+  season_year: number
+  required_count: number
+  submitted_count: number
+  missing_judges: string[] | null
 }
 
 export type Invoice = {
@@ -409,6 +478,7 @@ export type Invoice = {
   archived_at?: string | null
   archived_by?: string | null
   updated_at?: string
+  registration_id?: string | null
 }
 
 export type Ticket = {

@@ -255,9 +255,20 @@ export function SuperAdminHomePage() {
 export function LeagueAdminHomePage() {
   const { t } = useTranslation()
   const { profile } = useAuth()
+  const [judgeStats, setJudgeStats] = useState({ assigned: 0, pending: 0, submitted: 0, incomplete: 0 })
+  useEffect(() => { if (!profile?.id) return; void (async () => {
+    const assignments = await backend.from('league_admins').select('league_id').eq('user_id', profile.id)
+    const ids = (assignments.data ?? []).map((row: { league_id: string }) => row.league_id)
+    if (!ids.length) return
+    const [teamsResponse, scoresResponse] = await Promise.all([backend.from('teams').select('id').in('league_id', ids).in('status', ['submitted', 'under_review', 'approved']), backend.from('judge_scores').select('team_id,status').eq('judge_id', profile.id)])
+    const teamIds = new Set((teamsResponse.data ?? []).map((row: { id: string }) => row.id)); const scores = (scoresResponse.data ?? []).filter((row: { team_id: string }) => teamIds.has(row.team_id)) as Array<{ team_id: string; status: string }>
+    const submitted = scores.filter((row) => row.status === 'submitted').length
+    setJudgeStats({ assigned: teamIds.size, pending: Math.max(0, teamIds.size - submitted), submitted, incomplete: scores.filter((row) => row.status === 'draft').length })
+  })().catch(() => undefined) }, [profile?.id])
   return (
     <PanelPage index="LA.00" title={t('judging.title')} description={t('judging.subtitle')}>
       <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#123d55] to-[#087eb8] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-sky-200">داشبورد مسئول لیگ</p><h2 className="mt-2 text-2xl font-black text-white">{profile?.full_name ?? 'مدیر لیگ'}، جریان بررسی آماده است</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">پرونده تیم‌ها را بررسی کنید، مدارک ناقص را پیگیری کنید و پاسخ شرکت‌کنندگان را از یک فضای متمرکز مدیریت کنید.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard index="J01" label="تیم‌های تخصیص‌یافته" value={judgeStats.assigned} accent="blue" /><StatCard index="J02" label="در انتظار امتیاز من" value={judgeStats.pending} accent="orange" /><StatCard index="J03" label="داوری نهایی‌شده" value={judgeStats.submitted} accent="green" /><StatCard index="J04" label="پیش‌نویس‌های ناقص" value={judgeStats.incomplete} accent="red" /></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <QuickAction
           to="/league-admin/review"

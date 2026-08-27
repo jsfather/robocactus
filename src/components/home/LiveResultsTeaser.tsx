@@ -7,8 +7,10 @@ import { PodiumCup } from '@/components/live-results/PodiumCup'
 
 export function LiveResultsTeaser({ boards }: { boards: LiveLeagueBoard[] }) {
   const { t } = useTranslation()
-  const primary = boards[0]
-  const extras = boards.slice(1, 4)
+  const offset = boards.length ? Math.floor(Date.now() / 86_400_000) % boards.length : 0
+  const rotated = boards.length ? [...boards.slice(offset), ...boards.slice(0, offset)] : []
+  const primary = rotated[0]
+  const extras = rotated.slice(1, 4)
 
   return (
     <HomeSection
@@ -42,7 +44,7 @@ export function LiveResultsTeaser({ boards }: { boards: LiveLeagueBoard[] }) {
               extras.map((b) => (
                 <Link
                   key={b.league.id}
-                  to="/live"
+                  to={`/live/${b.league.slug}`}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white bg-white px-5 py-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
                   <div>

@@ -34,6 +34,8 @@ const emptyForm = (): LeagueInput & { id?: string } => ({
   registration_fee: 0,
   captain_fee: 0,
   member_fee: 0,
+  coach_fee: 0,
+  result_formula: 'average',
   min_age: null,
   max_age: null,
   team_size_min: null,
@@ -86,6 +88,8 @@ export function SuperAdminLeaguesPage() {
       registration_fee: Number(league.registration_fee),
       captain_fee: Number(league.captain_fee ?? 0),
       member_fee: Number(league.member_fee ?? 0),
+      coach_fee: Number(league.coach_fee ?? 0),
+      result_formula: league.result_formula ?? 'average',
       min_age: league.min_age ?? null,
       max_age: league.max_age ?? null,
       team_size_min: league.team_size_min ?? null,
@@ -118,6 +122,8 @@ export function SuperAdminLeaguesPage() {
         registration_fee: Number(form.registration_fee ?? 0),
         captain_fee: Number(form.captain_fee ?? 0),
         member_fee: Number(form.member_fee ?? 0),
+        coach_fee: Number(form.coach_fee ?? 0),
+        result_formula: form.result_formula ?? 'average',
       }
       if (editingId) {
         await updateLeague(editingId, payload)
@@ -220,6 +226,7 @@ export function SuperAdminLeaguesPage() {
           />
           <Input label="هزینه سرپرست (ریال)" type="number" min={0} value={form.captain_fee ?? 0} onChange={(e) => setForm((prev) => ({ ...prev, captain_fee: Number(e.target.value) }))} dir="ltr" />
           <Input label="هزینه هر عضو (ریال)" type="number" min={0} value={form.member_fee ?? 0} onChange={(e) => setForm((prev) => ({ ...prev, member_fee: Number(e.target.value) }))} dir="ltr" />
+          <Input label="هزینه مربی (ریال)" type="number" min={0} value={form.coach_fee ?? 0} onChange={(e) => setForm((prev) => ({ ...prev, coach_fee: Number(e.target.value) }))} dir="ltr" />
           <Input label="حداقل سن" type="number" min={0} value={form.min_age ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, min_age: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="حداکثر سن" type="number" min={0} value={form.max_age ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, max_age: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="حداقل نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_min ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_min: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />

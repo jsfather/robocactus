@@ -7,11 +7,37 @@ import type {
   Team,
   Ticket,
   TicketMessage,
+  JudgeScore,
+  JudgeSubmissionProgress,
 } from '@/types/database'
 
 export type TeamWithMeta = Team & {
   league_name?: string
   company_name?: string
+}
+
+export async function fetchMyJudgeScore(teamId: string, seasonYear: number, judgeId: string): Promise<JudgeScore | null> {
+  const { data, error } = await backend.from('judge_scores').select('*').eq('team_id', teamId).eq('season_year', seasonYear).eq('judge_id', judgeId).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as JudgeScore | null
+}
+
+export async function fetchJudgeProgress(teamId: string, seasonYear: number): Promise<JudgeSubmissionProgress | null> {
+  const { data, error } = await backend.from('judge_submission_progress').select('*').eq('team_id', teamId).eq('season_year', seasonYear).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as JudgeSubmissionProgress | null
+}
+
+export async function saveJudgeScore(input: { teamId: string; seasonYear: number; scores: Record<string, number>; notes?: string; submit: boolean }): Promise<JudgeScore> {
+  const { data, error } = await backend.rpc('save_judge_score', { p_team_id: input.teamId, p_season_year: input.seasonYear, p_scores: input.scores, p_notes: input.notes ?? null, p_submit: input.submit })
+  if (error) throw new Error(error.message)
+  return data as JudgeScore
+}
+
+export async function publishOfficialTeamResult(teamId: string, seasonYear: number): Promise<ResultRow> {
+  const { data, error } = await backend.rpc('publish_official_team_result', { p_team_id: teamId, p_season_year: seasonYear })
+  if (error) throw new Error(error.message)
+  return data as ResultRow
 }
 
 export async function fetchMyLeagueIds(userId: string): Promise<string[]> {

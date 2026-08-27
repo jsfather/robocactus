@@ -37,8 +37,10 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     items: [
       { to: '/super-admin/leagues', labelKey: 'competitions.nav', helpKey: 'panel.help.sa.leagues' },
       { to: '/super-admin/participants', labelKey: 'participants.title', helpKey: 'participants.help' },
+      { to: '/super-admin/incomplete-registrations', labelKey: 'registrationLifecycle.title', helpKey: 'registrationLifecycle.help' },
       { to: '/super-admin/companies', labelKey: 'admin.companies.title', helpKey: 'panel.help.sa.companies' },
       { to: '/super-admin/users', labelKey: 'admin.users.title', helpKey: 'panel.help.sa.users' },
+      { to: '/super-admin/collaborators', labelKey: 'admin.collaborators.title', helpKey: 'admin.collaborators.help' },
     ],
   },
   {
@@ -110,7 +112,10 @@ export const TEAM_NAV: PanelNavGroup = {
 
 export const ACCOUNT_NAV: PanelNavGroup = {
   id: 'account', titleKey: 'panel.nav.account', matchPrefix: '/account',
-  items: [{ to: '/account/profile', labelKey: 'accountProfile.title', helpKey: 'accountProfile.help' }],
+  items: [
+    { to: '/account/profile', labelKey: 'accountProfile.title', helpKey: 'accountProfile.help' },
+    { to: '/account/invoices', labelKey: 'accountInvoices.title', helpKey: 'accountInvoices.help' },
+  ],
 }
 
 const roleHome: Record<UserRole, string> = {

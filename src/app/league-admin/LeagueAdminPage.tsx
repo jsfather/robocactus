@@ -18,22 +18,27 @@ import {
   fetchMyLeagueIds,
   fetchTeamDocuments,
   fetchTeamResult,
+  fetchMyJudgeScore,
+  fetchJudgeProgress,
+  saveJudgeScore,
+  publishOfficialTeamResult,
   fetchTeamsForReview,
   getDocumentSignedUrl,
   reviewTeam,
-  upsertTeamResult,
 } from '@/features/judging/api'
 import {
   fetchTeamMembers,
   reviewTeamMember,
 } from '@/features/registration/api'
 import { setLeagueResultsStatus } from '@/features/live-results/api'
-import { ageFromBirthDate, formatAppDate } from '@/lib/dates'
+import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
+import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
-import type { DocumentRow, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
+import type { DocumentRow, JudgeSubmissionProgress, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
 
 export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | 'tickets' }) {
   const { t, i18n } = useTranslation()
+  const toast = useToast()
   const { user, profile } = useAuth()
   const [leagueIds, setLeagueIds] = useState<string[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
@@ -45,8 +50,14 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [memberRejectReason, setMemberRejectReason] = useState('')
   const [rank, setRank] = useState('')
   const [score, setScore] = useState('')
+  const [criterionScores, setCriterionScores] = useState<Record<string, number>>({})
+  const [judgeStatus, setJudgeStatus] = useState<'draft' | 'submitted' | null>(null)
+  const [judgeProgress, setJudgeProgress] = useState<JudgeSubmissionProgress | null>(null)
   const [notes, setNotes] = useState('')
   const [seasonYear, setSeasonYear] = useState(String(new Date().getFullYear()))
+  const [resultPublishedAt, setResultPublishedAt] = useState<string | null>(null)
+  const [showResultPreview, setShowResultPreview] = useState(false)
+  const [resultUpdatedAt, setResultUpdatedAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -56,6 +67,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     () => teams.find((x) => x.id === selectedId) ?? null,
     [teams, selectedId],
   )
+  const selectedLeague = useMemo(() => leagues.find((league) => league.id === selected?.league_id) ?? null, [leagues, selected?.league_id])
+  const scoringCriteria = selectedLeague?.scoring_rows?.length ? selectedLeague.scoring_rows : [{ label: 'امتیاز کل', points: '100' }]
 
   const reload = async () => {
     if (!user) return
@@ -93,6 +106,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     if (!selectedId) {
       setDocs([])
       setMembers([])
+      setResultPublishedAt(null)
+      setShowResultPreview(false)
+      setResultUpdatedAt(null)
       return
     }
     void fetchTeamDocuments(selectedId)
@@ -103,14 +119,20 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       .catch(() => setMembers([]))
 
     const year = Number(seasonYear) || new Date().getFullYear()
-    void fetchTeamResult(selectedId, year)
-      .then((row) => {
+    void Promise.all([fetchTeamResult(selectedId, year), user ? fetchMyJudgeScore(selectedId, year, user.id) : Promise.resolve(null), fetchJudgeProgress(selectedId, year)])
+      .then(([row, ownScore, progress]) => {
         setRank(row?.rank != null ? String(row.rank) : '')
         setScore(row?.score != null ? String(row.score) : '')
-        setNotes(row?.notes ?? '')
+        setNotes(ownScore?.notes ?? '')
+        setCriterionScores(Object.fromEntries(Object.entries(ownScore?.score_payload ?? {}).map(([key, value]) => [key, Number(value) || 0])))
+        setJudgeStatus(ownScore?.status ?? null)
+        setJudgeProgress(progress)
+        setResultPublishedAt(row?.published_at ?? null)
+        setResultUpdatedAt(row?.published_at ?? null)
+        setShowResultPreview(false)
       })
       .catch(() => undefined)
-  }, [selectedId, seasonYear])
+  }, [selectedId, seasonYear, user])
 
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
 
@@ -157,20 +179,32 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     setBusy(true)
     setError(null)
     try {
-      await upsertTeamResult({
-        teamId: selected.id,
-        seasonYear: Number(seasonYear),
-        rank: rank ? Number(rank) : null,
-        score: score ? Number(score) : null,
-        notes: notes || null,
-        publish,
-      })
+      const updated = publish
+        ? await publishOfficialTeamResult(selected.id, Number(seasonYear))
+        : await saveJudgeScore({ teamId: selected.id, seasonYear: Number(seasonYear), scores: criterionScores, notes, submit: false }).then(() => fetchTeamResult(selected.id, Number(seasonYear)))
+      if (!updated) throw new Error('نتیجه رسمی هنوز آماده نیست.')
+      setResultPublishedAt(updated.published_at ?? null)
+      setResultUpdatedAt(new Date().toISOString())
+      setShowResultPreview(false)
+      toast.success(t(publish ? 'judging.resultPublishedSuccess' : 'judging.resultDraftSuccess'))
       if (publish) void dispatchPendingSms()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setBusy(false)
     }
+  }
+
+  const onSubmitJudging = async () => {
+    if (!selected) return
+    setBusy(true); setError(null)
+    try {
+      await saveJudgeScore({ teamId: selected.id, seasonYear: Number(seasonYear), scores: criterionScores, notes, submit: true })
+      setJudgeStatus('submitted')
+      setJudgeProgress(await fetchJudgeProgress(selected.id, Number(seasonYear)))
+      const official = await fetchTeamResult(selected.id, Number(seasonYear)); setRank(official?.rank != null ? String(official.rank) : ''); setScore(official?.score != null ? String(official.score) : '')
+      toast.success('امتیاز مستقل شما نهایی شد.')
+    } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) } finally { setBusy(false) }
   }
 
   const onBoardMode = async (leagueId: string, status: string) => {
@@ -333,7 +367,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                                   : m.full_name}
                               </p>
                               <p className="mt-1 text-xs text-rc-muted">
-                                {t(`team.roles.${m.role === 'captain' ? 'captain' : 'member'}`)}
+                                {m.role === 'coach' ? 'مربی' : t(`team.roles.${m.role === 'captain' ? 'captain' : 'member'}`)}
                                 {m.education ? ` · ${m.education}` : ''}
                                 {age != null ? ` · ${t('team.memberAge')}: ${age}` : ''}
                               </p>
@@ -424,7 +458,15 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
               </PanelCard>
 
               <PanelCard title={t('judging.resultsTitle')} description={t('judging.resultsHint')}>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="mb-5 grid gap-2 sm:grid-cols-3">
+                  <ResultStep index="۱" title={t('judging.workflowScore')} active={!rank && !score} done={Boolean(rank || score)} />
+                  <ResultStep index="۲" title={t('judging.workflowPreview')} active={showResultPreview} done={Boolean(resultPublishedAt)} />
+                  <ResultStep index="۳" title={t('judging.workflowPublish')} active={Boolean(resultPublishedAt)} done={Boolean(resultPublishedAt)} />
+                </div>
+                <div className="mb-5 rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-white p-4 text-sm leading-7 text-sky-900">
+                  امتیاز شما مستقل از سایر داوران ذخیره می‌شود. پس از نهایی‌کردن، نتیجه رسمی فقط وقتی محاسبه می‌شود که همه داوران الزامی امتیاز خود را ثبت کرده باشند.
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
                   <Input
                     label={t('judging.season')}
                     type="number"
@@ -432,21 +474,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     onChange={(e) => setSeasonYear(e.target.value)}
                     dir="ltr"
                   />
-                  <Input
-                    label={t('judging.rank')}
-                    type="number"
-                    value={rank}
-                    onChange={(e) => setRank(e.target.value)}
-                    dir="ltr"
-                  />
-                  <Input
-                    label={t('judging.score')}
-                    type="number"
-                    value={score}
-                    onChange={(e) => setScore(e.target.value)}
-                    dir="ltr"
-                  />
+                  {scoringCriteria.map((criterion, index) => <Input key={`${criterion.label}-${index}`} label={`${criterion.label} (حداکثر ${criterion.points || '—'})`} type="number" min={0} max={Number(criterion.points) || undefined} value={criterionScores[String(index)] ?? ''} disabled={judgeStatus === 'submitted'} onChange={(e) => setCriterionScores((current) => ({ ...current, [String(index)]: Number(e.target.value) }))} dir="ltr" />)}
                 </div>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><p className="font-black text-slate-800">پیشرفت داوری</p><span className="rounded-full bg-white px-3 py-1 text-sm font-black text-sky-700">{judgeProgress?.submitted_count ?? 0} از {judgeProgress?.required_count ?? 0}</span></div>{judgeProgress?.missing_judges?.length ? <p className="mt-2 text-xs leading-6 text-amber-700">در انتظار: {judgeProgress.missing_judges.join('، ')}</p> : <p className="mt-2 text-xs text-emerald-700">همه داوری‌های الزامی تکمیل شده‌اند.</p>}</div>
                 <div className="mt-3">
                   <Textarea
                     label={t('judging.notes')}
@@ -454,13 +484,19 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     onChange={(e) => setNotes(e.target.value)}
                   />
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <Button type="button" variant="secondary" disabled={busy} onClick={() => void onSaveResult(false)}>
-                    {t('common.save')}
+                {showResultPreview ? <div className="mt-5 overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-[#083f58] to-[#087052] p-6 text-white shadow-xl">
+                  <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold tracking-[.18em] text-emerald-200">{t('judging.publicPreview')}</p><h3 className="mt-2 text-2xl font-black">{selected.name}</h3><p className="mt-1 text-sm text-white/70">{leagueName(selected.league_id)} · {t('judging.season')} {seasonYear}</p></div><div className="rounded-2xl bg-white/10 px-5 py-3 text-center"><p className="text-xs text-white/60">{t('judging.rank')}</p><p className="text-3xl font-black">{rank || '—'}</p></div></div>
+                  <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-black/10 p-4"><p className="text-xs text-white/60">{t('judging.score')}</p><p className="mt-1 text-xl font-black">{score || '—'}</p></div><div className="rounded-2xl bg-black/10 p-4"><p className="text-xs text-white/60">{t('team.status')}</p><p className="mt-1 font-black">{t('judging.readyToPublish')}</p></div></div>
+                  {notes ? <p className="mt-4 rounded-2xl bg-white/10 p-4 text-sm leading-7">{notes}</p> : null}<div className="mt-5 flex flex-wrap gap-2"><Button type="button" disabled={busy} onClick={() => void onSaveResult(true)}>{t('judging.confirmPublish')}</Button><Button type="button" variant="secondary" disabled={busy} onClick={() => setShowResultPreview(false)}>{t('judging.backToEdit')}</Button></div>
+                </div> : null}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" disabled={busy || judgeStatus === 'submitted'} onClick={() => void onSaveResult(false)}>
+                    {t('judging.saveDraft')}
                   </Button>
-                  <Button type="button" disabled={busy} onClick={() => void onSaveResult(true)}>
-                    {t('judging.publish')}
-                  </Button>
+                  <Button type="button" disabled={busy || judgeStatus === 'submitted' || !Object.keys(criterionScores).length} onClick={() => void onSubmitJudging()}>نهایی‌کردن امتیاز من</Button>
+                  <Button type="button" disabled={busy || !judgeProgress || judgeProgress.submitted_count < judgeProgress.required_count} onClick={() => setShowResultPreview(true)}>{t('judging.previewAndPublish')}</Button>
+                  {resultPublishedAt ? <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">{t('judging.publishedState')}</span> : <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-500">{t('judging.draftState')}</span>}
+                  {resultUpdatedAt ? <span className="inline-flex items-center px-2 text-xs font-bold text-slate-400">{t('judging.lastUpdated')}: {formatAppDateTime(resultUpdatedAt, i18n.language)}</span> : null}
                 </div>
               </PanelCard>
             </div>
@@ -471,4 +507,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       )}
     </PanelPage>
   )
+}
+
+function ResultStep({ index, title, active, done }: { index: string; title: string; active: boolean; done: boolean }) {
+  return <div className={`flex items-center gap-3 rounded-2xl border p-3 transition ${active ? 'border-sky-300 bg-sky-50' : done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}><span className={`grid size-9 place-items-center rounded-xl font-black ${done ? 'bg-emerald-600 text-white' : active ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{done ? '✓' : index}</span><span className="text-xs font-black text-slate-700">{title}</span></div>
 }

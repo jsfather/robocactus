@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
@@ -13,7 +13,8 @@ import {
 import { fetchCompanyPublishedResults } from '@/features/live-results/api'
 import { PodiumCup } from '@/components/live-results/PodiumCup'
 import { TeamRegistrationWizard } from '@/features/registration/TeamRegistrationWizard'
-import type { Company, League, Team } from '@/types/database'
+import type { Company, Invoice, League, Team } from '@/types/database'
+import { backend } from '@/lib/backend'
 import type { RankingsRow } from '@/features/rankings/api'
 
 export function CompanyPanelPage({
@@ -22,13 +23,16 @@ export function CompanyPanelPage({
   section?: 'overview' | 'teams'
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { user, profile, loading: authLoading } = useAuth()
   const [companies, setCompanies] = useState<Company[]>([])
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
   const [companyResults, setCompanyResults] = useState<RankingsRow[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [showWizard, setShowWizard] = useState(section === 'teams')
+  const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
   const [editingProfile, setEditingProfile] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -66,6 +70,7 @@ export function CompanyPanelPage({
     if (!activeCompanyId) {
       setTeams([])
       setCompanyResults([])
+      setInvoices([])
       return
     }
     void fetchCompanyTeams(activeCompanyId)
@@ -74,6 +79,9 @@ export function CompanyPanelPage({
     void fetchCompanyPublishedResults(activeCompanyId)
       .then(setCompanyResults)
       .catch(() => setCompanyResults([]))
+    void backend.from('invoices').select('*').eq('company_id', activeCompanyId).is('archived_at', null).order('created_at', { ascending: false })
+      .then((result) => setInvoices((result.data ?? []) as Invoice[]))
+      .catch(() => setInvoices([]))
   }, [activeCompanyId])
 
   const leagueName = (leagueId: string) =>
@@ -124,7 +132,7 @@ export function CompanyPanelPage({
               {editingProfile ? t('company.hideEdit') : t('company.editTitle')}
             </Button>
           ) : (
-            <Button type="button" onClick={() => setShowWizard(true)} disabled={!activeCompany}>
+            <Button type="button" onClick={() => { setResumeTeamId(null); setShowWizard(true) }} disabled={!activeCompany}>
               {t('team.addTeam')}
             </Button>
           )}
@@ -137,6 +145,13 @@ export function CompanyPanelPage({
 
       {section === 'overview' ? (
         <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardMetric label="ثبت‌نام‌های ناقص" value={teams.filter((team) => !['completed', 'cancelled'].includes(team.lifecycle_status ?? '')).length} tone="amber" />
+            <DashboardMetric label="در انتظار پرداخت" value={invoices.filter((invoice) => invoice.status === 'pending').length} tone="sky" />
+            <DashboardMetric label="پرداخت موفق" value={invoices.filter((invoice) => invoice.status === 'paid').length} tone="emerald" />
+            <DashboardMetric label="نتیجه منتشرشده" value={companyResults.length} tone="violet" />
+          </div>
+          {(teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) || invoices.some((invoice) => invoice.status === 'pending')) ? <div className="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-5"><h3 className="font-black text-amber-900">اقدام‌های باز شما</h3><div className="mt-3 flex flex-wrap gap-3">{teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) ? <Link to="/company/teams" className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white">ادامه ثبت‌نام تیم</Link> : null}{invoices.some((invoice) => invoice.status === 'pending') ? <Link to="/account/invoices" className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-800">مشاهده صورتحساب‌های باز</Link> : null}</div></div> : null}
           {editingProfile && activeCompany ? (
             <CompanyForm
               company={activeCompany}
@@ -213,11 +228,15 @@ export function CompanyPanelPage({
         <>
           {showWizard && activeCompanyId ? (
             <TeamRegistrationWizard
+              key={resumeTeamId ?? 'new-registration'}
               companyId={activeCompanyId}
+              initialTeamId={resumeTeamId ?? undefined}
+              initialLeagueId={teams.find((team) => team.id === resumeTeamId)?.league_id}
               onCancel={() => setShowWizard(false)}
               onCompleted={(team) => {
                 setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
                 setShowWizard(false)
+                void navigate(`/payments/teams/${team.id}`)
               }}
             />
           ) : null}
@@ -230,18 +249,19 @@ export function CompanyPanelPage({
                 {teams.map((team) => (
                   <li key={team.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div>
-                      <p className="font-medium">{team.name}</p>
+                      <div className="flex flex-wrap items-center gap-2"><p className="font-black text-slate-800">{team.name}</p>{!['completed', 'cancelled'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-700">ثبت‌نام ناقص · {Number(team.registration_progress ?? 25).toLocaleString('fa-IR')}٪</span> : null}</div>
                       <p className="text-sm text-rc-muted">
                         {leagueName(team.league_id)}
                         {team.city ? ` · ${team.city}` : ''}
                       </p>
+                      {!['completed', 'cancelled'].includes(team.lifecycle_status ?? '') ? <div className="mt-3 w-full max-w-xs"><div className="mb-1 flex justify-between text-[10px] font-bold text-slate-400"><span>پیشرفت ثبت‌نام</span><span>{Number(team.registration_progress ?? 10).toLocaleString('fa-IR')}٪</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-l from-sky-500 to-emerald-500 transition-all" style={{ width: `${team.registration_progress ?? 10}%` }} /></div></div> : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge
                         status={team.status}
                         label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
                       />
-                      {team.status === 'draft' ? (
+                      {(team.lifecycle_status ?? '') === 'awaiting_payment' ? (
                         <Link
                           to={`/payments/teams/${team.id}`}
                           className="bg-rc-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
@@ -249,6 +269,7 @@ export function CompanyPanelPage({
                           {t('payment.payCta')}
                         </Link>
                       ) : null}
+                      {!['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ادامه ثبت‌نام</Button> : null}
                       <Link
                         to={`/team/${team.id}`}
                         className="px-3 py-1.5 text-sm text-rc-blue hover:bg-rc-blue/10"
@@ -265,4 +286,9 @@ export function CompanyPanelPage({
       )}
     </PanelPage>
   )
+}
+
+function DashboardMetric({ label, value, tone }: { label: string; value: number; tone: 'amber' | 'sky' | 'emerald' | 'violet' }) {
+  const colors = { amber: 'from-amber-50 text-amber-700', sky: 'from-sky-50 text-sky-700', emerald: 'from-emerald-50 text-emerald-700', violet: 'from-violet-50 text-violet-700' }
+  return <div className={`rounded-2xl border border-white bg-gradient-to-l ${colors[tone]} to-white p-5 shadow-sm`}><p className="text-xs font-bold opacity-70">{label}</p><p className="mt-2 text-3xl font-black">{value.toLocaleString('fa-IR')}</p></div>
 }

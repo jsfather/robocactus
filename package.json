@@ -12,6 +12,7 @@
     "db:rebuild-all-in-one": "node scripts/rebuild-all-in-one.mjs",
     "build": "tsc -b && vite build && tsc -p tsconfig.server.json",
     "lint": "oxlint",
+    "test": "tsx tests/registration-lifecycle.test.ts",
     "preview": "NODE_ENV=production node dist-server/server/index.js",
     "start": "npm run db:migrate && NODE_ENV=production node dist-server/server/index.js"
   },

@@ -7,6 +7,10 @@
     "backendUnreachable": "Cannot reach the backend server (Failed to fetch).",
     "backendFixHint": "Check that the application server can reach PostgreSQL through DATABASE_URL, then restart it."
   },
+  "accountInvoices": {
+    "title": "My invoices",
+    "help": "Review proformas, payments and receipt verification status"
+  },
   "nav": {
     "home": "Home",
     "leagues": "Leagues",
@@ -319,6 +323,23 @@
     "empty": "No teams yet.",
     "view": "View",
     "name": "Team name",
+    "nameFa": "Team name (Persian)",
+    "nameEn": "Team name (English)",
+    "mottoFa": "Team motto (Persian)",
+    "mottoEn": "Team motto (English)",
+    "memberFirstNameFa": "First name (Persian)",
+    "memberLastNameFa": "Last name (Persian)",
+    "memberFirstNameEn": "First name (English)",
+    "memberLastNameEn": "Last name (English)",
+    "currentStep": "Step {{current}} of {{total}}",
+    "costEstimate": "Registration cost estimate",
+    "allowedAge": "Allowed age: {{min}} to {{max}} years",
+    "entryFee": "League entry fee",
+    "captainFee": "Captain fee",
+    "memberFees": "Members",
+    "finalAmount": "Final amount",
+    "invoiceAfterConfirm": "Confirming this step creates one unique invoice and takes you directly to payment.",
+    "issueInvoice": "Confirm and issue invoice",
     "league": "League",
     "selectLeague": "Select a league…",
     "province": "Province",
@@ -363,7 +384,9 @@
       "info": "Team info",
       "members": "Members",
       "documents": "Documents",
-      "review": "Review"
+      "review": "Review",
+      "invoice": "Invoice",
+      "payment": "Payment & completion"
     },
     "docTypes": {
       "id_card": "ID card",
@@ -402,6 +425,7 @@
     "needCompany": "Create a company first"
   },
   "payment": {
+    "rial": "IRR",
     "title": "Registration payment",
     "subtitle": "Amount comes from the league fee. Team status changes only after gateway confirmation.",
     "payCta": "Pay now",
@@ -455,6 +479,7 @@
     "retry": "Retry"
   },
   "admin": {
+    "collaborators": { "title": "Collaborators and internal roles", "help": "Managers, staff, judges and operators" },
     "home": {
       "subtitle": "Manage leagues, users, content, and event finances",
       "open": "Open"
@@ -601,7 +626,22 @@
     "rank": "Rank",
     "score": "Score",
     "notes": "Notes",
-    "publish": "Save & publish"
+    "publish": "Save & publish",
+    "workflowScore": "Enter score",
+    "workflowPreview": "Review preview",
+    "workflowPublish": "Public publish",
+    "resultWorkflowGuide": "Save rank and score first. Review the final preview before publishing; publishing immediately updates the public results and queues its notification.",
+    "saveDraft": "Save draft",
+    "previewAndPublish": "Preview & publish",
+    "publishedState": "Published",
+    "draftState": "Draft",
+    "lastUpdated": "Last updated",
+    "resultPublishedSuccess": "Result published successfully.",
+    "resultDraftSuccess": "Result draft saved."
+    ,"publicPreview": "Public result preview"
+    ,"readyToPublish": "Ready to publish"
+    ,"confirmPublish": "Confirm public publish"
+    ,"backToEdit": "Back to edit"
   },
   "staff": {
     "title": "Support staff panel",
@@ -1083,6 +1123,7 @@
   },
   "accountProfile": { "title": "Identity profile", "help": "Complete identity details and verification documents." },
   "participants": { "title": "League participants", "help": "Teams, members, and registration cycle statistics." },
+  "registrationLifecycle": { "title": "Incomplete registrations", "help": "Follow drafts, activity, and completion reminders." },
   "accessSettings": {
     "title": "Access, email & payments",
     "help": "Manage login, signup, email delivery, and card-transfer payments."

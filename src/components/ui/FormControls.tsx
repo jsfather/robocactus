@@ -48,10 +48,11 @@ export function Input({ label, error, id, className = '', ...props }: InputProps
   const inputId = id ?? props.name
   return (
     <label className="group block space-y-2" htmlFor={inputId}>
-      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}{props.required ? <span className="ms-1 text-rose-500" aria-hidden>*</span> : null}</span>
       <input
         id={inputId}
-        className={`min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
+        aria-invalid={Boolean(error)}
+        className={`min-h-12 w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-300 focus:ring-4 ${error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : 'border-slate-200 focus:border-sky-400 focus:ring-sky-100'} ${className}`}
         {...props}
       />
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
@@ -68,10 +69,11 @@ export function Textarea({ label, error, id, className = '', ...props }: Textare
   const inputId = id ?? props.name
   return (
     <label className="group block space-y-2" htmlFor={inputId}>
-      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}{props.required ? <span className="ms-1 text-rose-500" aria-hidden>*</span> : null}</span>
       <textarea
         id={inputId}
-        className={`min-h-28 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
+        aria-invalid={Boolean(error)}
+        className={`min-h-28 w-full resize-y rounded-xl border bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:ring-4 ${error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : 'border-slate-200 focus:border-sky-400 focus:ring-sky-100'} ${className}`}
         {...props}
       />
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
@@ -89,10 +91,11 @@ export function Select({ label, error, id, className = '', children, ...props }:
   const inputId = id ?? props.name
   return (
     <label className="group block space-y-2" htmlFor={inputId}>
-      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}</span>
+      <span className="text-[13px] font-bold text-slate-600 transition group-focus-within:text-rc-blue">{label}{props.required ? <span className="ms-1 text-rose-500" aria-hidden>*</span> : null}</span>
       <select
         id={inputId}
-        className={`min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${className}`}
+        aria-invalid={Boolean(error)}
+        className={`min-h-12 w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:ring-4 ${error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : 'border-slate-200 focus:border-sky-400 focus:ring-sky-100'} ${className}`}
         {...props}
       >
         {children}

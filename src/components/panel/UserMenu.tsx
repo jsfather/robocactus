@@ -34,8 +34,8 @@ export function UserMenu({ role }: { role: UserRole }) {
         onClick={() => setOpen((v) => !v)}
         className="panel-header-action flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pe-3 ps-1.5 font-semibold text-slate-800 hover:bg-slate-50"
       >
-        <span className="flex size-8 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 font-mono text-[11px] font-black text-sky-800">
-          {initials(profile?.full_name, user?.email)}
+        <span className="flex size-8 items-center justify-center overflow-hidden rounded-lg border border-sky-200 bg-sky-50 font-mono text-[11px] font-black text-sky-800">
+          {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="size-full object-cover" /> : initials(profile?.full_name, user?.email)}
         </span>
         <span className="hidden max-w-28 truncate text-xs sm:inline">{name}</span>
       </button>

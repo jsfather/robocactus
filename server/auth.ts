@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import type { CookieOptions, Request, Response, Router } from 'express'
-import { and, eq, gt, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm'
 import { oneTimeTokens, sessions, users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, hashToken, type AuthUser, userFromRequest } from './db.js'
@@ -405,6 +405,38 @@ export function registerAuthRoutes(router: Router): void {
       response.status(400).json({ error: 'invalid_or_expired_token' })
       return
     }
+    response.json({ ok: true })
+  })
+
+  router.post('/auth/password/change', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const currentPassword = String(request.body?.currentPassword ?? '')
+    const newPassword = String(request.body?.newPassword ?? '')
+    if (newPassword.length < 8) return void response.status(400).json({ error: 'password_too_short' })
+    if (rateLimited(`password-change:${actor.id}:${request.ip}`, 8, 15 * 60 * 1000)) return void response.status(429).json({ error: 'too_many_attempts' })
+    const rows = await db.select().from(users).where(eq(users.id, actor.id)).limit(1)
+    const user = rows[0]
+    if (!user || !(await verifyPassword(currentPassword, user.encryptedPassword))) return void response.status(400).json({ error: 'current_password_invalid' })
+    await db.transaction(async (transaction) => {
+      await transaction.update(users).set({ encryptedPassword: await hashPassword(newPassword), updatedAt: new Date() }).where(eq(users.id, actor.id))
+      await transaction.delete(sessions).where(and(eq(sessions.userId, actor.id), ne(sessions.tokenHash, hashToken(String(request.cookies?.rc_session ?? '')))))
+    })
+    response.json({ ok: true })
+  })
+
+  router.post('/auth/admin/users/:userId/password-reset', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id = ${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const rows = await db.select().from(users).where(eq(users.id, String(request.params.userId))).limit(1)
+    const target = rows[0]
+    if (!target?.email) return void response.status(400).json({ error: 'user_email_required' })
+    const token = await createOneTimeToken(target.id, 'password_reset', '/reset-password')
+    const link = new URL('/reset-password', config.appUrl)
+    link.searchParams.set('code', token)
+    await sendPasswordResetLink(target.email, link.toString())
     response.json({ ok: true })
   })
 

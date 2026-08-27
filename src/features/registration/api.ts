@@ -13,6 +13,19 @@ export type TeamMemberDraft = {
   national_id: string
   birth_date: string
   education: string
+  father_name_fa: string
+  father_name_en: string
+  phone: string
+  residence: string
+  province: string
+  city: string
+  country_code: string
+  nationality: string
+  is_foreign: boolean
+  passport_number: string
+  education_level: string
+  field_of_study: string
+  photo_url?: string
   national_id_doc_path?: string
 }
 
@@ -58,6 +71,9 @@ export function loadTeamDraft(companyId: string): TeamWizardDraft | null {
       national_id: m.national_id ?? '',
       birth_date: m.birth_date ?? '',
       education: m.education ?? '',
+      father_name_fa: m.father_name_fa ?? '', father_name_en: m.father_name_en ?? '', phone: m.phone ?? '', residence: m.residence ?? '',
+      province: m.province ?? '', city: m.city ?? '', country_code: m.country_code ?? 'IR', nationality: m.nationality ?? '', is_foreign: m.is_foreign ?? false,
+      passport_number: m.passport_number ?? '', education_level: m.education_level ?? '', field_of_study: m.field_of_study ?? '', photo_url: m.photo_url,
       national_id_doc_path: m.national_id_doc_path,
     }))
     return parsed
@@ -74,7 +90,7 @@ export function clearTeamDraft(companyId: string) {
   localStorage.removeItem(DRAFT_KEY(companyId))
 }
 
-export function emptyMemberDraft(role: 'captain' | 'member' = 'member'): TeamMemberDraft {
+export function emptyMemberDraft(role: 'captain' | 'coach' | 'member' = 'member'): TeamMemberDraft {
   return {
     first_name: '',
     last_name: '',
@@ -85,6 +101,8 @@ export function emptyMemberDraft(role: 'captain' | 'member' = 'member'): TeamMem
     national_id: '',
     birth_date: '',
     education: '',
+    father_name_fa: '', father_name_en: '', phone: '', residence: '', province: '', city: '', country_code: 'IR', nationality: '', is_foreign: false,
+    passport_number: '', education_level: '', field_of_study: '',
   }
 }
 
@@ -140,6 +158,29 @@ export async function createDraftTeam(input: {
   memberCount: number
   seasonYear: number
 }): Promise<Team> {
+  const existing = await backend
+    .from('teams')
+    .select('*')
+    .eq('captain_id', input.captainId)
+    .eq('league_id', input.leagueId)
+    .eq('season_year', input.seasonYear)
+    .in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_payment'])
+    .order('last_activity_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existing.error) throw new Error(existing.error.message)
+  if (existing.data) {
+    return updateDraftTeam((existing.data as Team).id, {
+      company_id: input.companyId,
+      name: input.name,
+      name_en: input.nameEn || null,
+      motto_fa: input.mottoFa || null,
+      motto_en: input.mottoEn || null,
+      province: input.province,
+      city: input.city,
+      member_count: input.memberCount,
+    } as Partial<Team>)
+  }
   const { data, error } = await backend
     .from('teams')
     .insert({
@@ -180,6 +221,51 @@ export async function updateDraftTeam(
   return data as Team
 }
 
+export async function persistRegistrationDraft(teamId: string, draft: TeamWizardDraft, input?: { stage?: Team['registration_stage']; progress?: number; lastCompletedStep?: number; lifecycleStatus?: Team['lifecycle_status'] }): Promise<void> {
+  const { error } = await backend.from('teams').update({
+    registration_draft: draft,
+    registration_stage: input?.stage ?? 'team_info',
+    registration_progress: Math.max(0, Math.min(100, input?.progress ?? 10)),
+    last_completed_step: input?.lastCompletedStep ?? Math.max(-1, draft.step - 1),
+    lifecycle_status: input?.lifecycleStatus ?? 'incomplete',
+    last_activity_at: new Date().toISOString(),
+  }).eq('id', teamId)
+  if (error) throw new Error(error.message)
+}
+
+export async function loadRegistrationDraft(teamId: string): Promise<TeamWizardDraft | null> {
+  const { data, error } = await backend.from('teams').select('*').eq('id', teamId).single()
+  if (error) throw new Error(error.message)
+  const team = data as Team
+  const persistedMembers = await fetchTeamMembers(teamId)
+  const members = persistedMembers.length ? persistedMembers.map((member) => ({
+    full_name: member.full_name ?? '',
+    first_name: member.first_name ?? member.first_name_fa ?? '',
+    last_name: member.last_name ?? member.last_name_fa ?? '',
+    first_name_en: member.first_name_en ?? '',
+    last_name_en: member.last_name_en ?? '',
+    role: member.role ?? 'member',
+    national_id: member.national_id ?? '',
+    birth_date: member.birth_date ?? '',
+    education: member.education ?? '',
+    father_name_fa: member.father_name_fa ?? '', father_name_en: member.father_name_en ?? '', phone: member.phone ?? '', residence: member.residence ?? '',
+    province: member.province ?? '', city: member.city ?? '', country_code: member.country_code ?? 'IR', nationality: member.nationality ?? '', is_foreign: member.is_foreign ?? false,
+    passport_number: member.passport_number ?? '', education_level: member.education_level ?? '', field_of_study: member.field_of_study ?? '', photo_url: member.photo_url ?? undefined,
+    national_id_doc_path: member.national_id_doc_path ?? undefined,
+  })) : undefined
+  const saved = team.registration_draft as TeamWizardDraft | undefined
+  if (saved && Object.keys(saved).length) return { ...saved, ...(members ? { members } : {}), teamId: team.id, companyId: team.company_id, leagueId: team.league_id, step: Math.max(0, Number(team.last_completed_step ?? -1) + 1) }
+  return { ...emptyTeamDraft(team.company_id, team.league_id), ...(members ? { members } : {}), teamId: team.id, name: team.name, nameEn: team.name_en ?? '', mottoFa: team.motto_fa ?? '', mottoEn: team.motto_en ?? '', province: team.province ?? '', city: team.city ?? '', step: Math.max(0, Number(team.last_completed_step ?? -1) + 1) }
+}
+
+export async function findResumableRegistration(companyId: string, leagueId?: string): Promise<Team | null> {
+  let query = backend.from('teams').select('*').eq('company_id', companyId).in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_payment']).order('last_activity_at', { ascending: false }).limit(1)
+  if (leagueId) query = query.eq('league_id', leagueId)
+  const { data, error } = await query.maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as Team | null
+}
+
 export async function replaceTeamMembers(
   teamId: string,
   members: TeamMemberDraft[],
@@ -204,10 +290,15 @@ export async function replaceTeamMembers(
         last_name_fa: last || null,
         first_name_en: m.first_name_en.trim() || null,
         last_name_en: m.last_name_en.trim() || null,
-        role: m.role === 'captain' ? 'captain' : m.role === 'member' ? 'member' : m.role?.trim() || 'member',
+        role: ['captain', 'coach', 'member'].includes(m.role) ? m.role : 'member',
         national_id: m.national_id?.trim() || null,
         birth_date: toDateOnly(m.birth_date),
         education: m.education?.trim() || null,
+        father_name_fa: m.father_name_fa.trim() || null, father_name_en: m.father_name_en.trim() || null,
+        phone: m.phone.trim() || null, residence: m.residence.trim() || null, province: m.province.trim() || null, city: m.city.trim() || null,
+        country_code: m.country_code || 'IR', nationality: m.nationality.trim() || null, is_foreign: m.is_foreign,
+        passport_number: m.passport_number.trim() || null, education_level: m.education_level || null, field_of_study: m.field_of_study.trim() || null,
+        photo_url: m.photo_url || null,
         national_id_doc_path: m.national_id_doc_path || null,
         review_status: 'pending',
       }
@@ -218,6 +309,17 @@ export async function replaceTeamMembers(
   const { data, error } = await backend.from('team_members').insert(rows).select('*')
   if (error) throw new Error(error.message)
   return (data ?? []) as TeamMember[]
+}
+
+export async function uploadMemberPhoto(teamId: string, memberId: string, file: File): Promise<TeamMember> {
+  if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) throw new Error('تصویر باید JPG، PNG یا WebP و حداکثر ۵ مگابایت باشد.')
+  const path = `${teamId}/${memberId}-${Date.now()}.${file.name.split('.').pop() ?? 'jpg'}`
+  const { error: uploadError } = await backend.storage.from('team-member-photos').upload(path, file, { contentType: file.type, upsert: false })
+  if (uploadError) throw new Error(uploadError.message)
+  const url = backend.storage.from('team-member-photos').getPublicUrl(path).data.publicUrl
+  const { data, error } = await backend.from('team_members').update({ photo_url: url }).eq('id', memberId).select('*').single()
+  if (error) throw new Error(error.message)
+  return data as TeamMember
 }
 
 export async function uploadMemberNationalId(input: {

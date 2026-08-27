@@ -149,6 +149,9 @@ export function SuperAdminLeagueEditPage() {
       registration_fee: Number(l.registration_fee),
       captain_fee: Number(l.captain_fee ?? 0),
       member_fee: Number(l.member_fee ?? 0),
+      coach_fee: Number(l.coach_fee ?? 0),
+      result_formula: l.result_formula ?? 'average',
+      required_judge_count: l.required_judge_count ?? null,
       team_edit_deadline: l.team_edit_deadline ?? null,
       min_age: l.min_age ?? null,
       max_age: l.max_age ?? null,
@@ -244,6 +247,9 @@ export function SuperAdminLeagueEditPage() {
         registration_fee: Number(form.registration_fee ?? 0),
         captain_fee: Number(form.captain_fee ?? 0),
         member_fee: Number(form.member_fee ?? 0),
+        coach_fee: Number(form.coach_fee ?? 0),
+        result_formula: form.result_formula ?? 'average',
+        required_judge_count: form.required_judge_count ?? null,
         current_season_year: Number(form.current_season_year ?? new Date().getFullYear()),
         team_size_min: form.team_size_min ? Number(form.team_size_min) : null,
         team_size_max: form.team_size_max ? Number(form.team_size_max) : null,
@@ -398,6 +404,9 @@ export function SuperAdminLeagueEditPage() {
               <Input label={t('admin.leagues.fee')} type="number" value={form.registration_fee ?? 0} onChange={(e) => patch({ registration_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه سرپرست (ریال)" type="number" value={form.captain_fee ?? 0} onChange={(e) => patch({ captain_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه هر عضو (ریال)" type="number" value={form.member_fee ?? 0} onChange={(e) => patch({ member_fee: Number(e.target.value) })} dir="ltr" />
+              <Input label="هزینه مربی (ریال)" type="number" value={form.coach_fee ?? 0} onChange={(e) => patch({ coach_fee: Number(e.target.value) })} dir="ltr" />
+              <Input label="تعداد داور الزامی" type="number" min={1} value={form.required_judge_count ?? ''} onChange={(e) => patch({ required_judge_count: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
+              <Select label="فرمول نتیجه رسمی" value={form.result_formula ?? 'average'} onChange={(e) => patch({ result_formula: e.target.value as 'average' | 'sum' })}><option value="average">میانگین امتیاز داوران</option><option value="sum">مجموع امتیاز داوران</option></Select>
               <Input label="حداقل سن" type="number" value={form.min_age ?? ''} onChange={(e) => patch({ min_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="حداکثر سن" type="number" value={form.max_age ?? ''} onChange={(e) => patch({ max_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="سال دوره فعال" type="number" value={form.current_season_year ?? ''} onChange={(e) => patch({ current_season_year: Number(e.target.value) })} dir="ltr" />

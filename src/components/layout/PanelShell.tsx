@@ -226,7 +226,7 @@ export function PanelShell() {
         </div>
         <SidebarNav role={role} />
         <div className="panel-sidebar-profile m-3 rounded-2xl border border-slate-200 p-3.5">
-          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700">{(profile?.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] font-medium text-slate-500">{t(`dashboard.roles.${role}`)}</p></span></div>
+          <div className="flex items-center gap-3"><span className="grid size-9 overflow-hidden place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700">{profile.avatar_url ? <img src={profile.avatar_url} alt="" className="size-full object-cover" /> : (profile.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 text-[10px] font-medium text-slate-500">{t(`dashboard.roles.${role}`)}</p></span></div>
         </div>
       </aside>
 

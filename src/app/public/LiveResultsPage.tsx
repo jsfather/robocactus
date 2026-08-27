@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { backend } from '@/lib/backend'
 import {
@@ -14,6 +14,9 @@ export function LiveResultsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [liveHint, setLiveHint] = useState(false)
+  const { leagueSlug } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedSlug = leagueSlug ?? searchParams.get('league') ?? ''
 
   const reload = async () => {
     try {
@@ -61,6 +64,7 @@ export function LiveResultsPage() {
 
   const liveCount = boards.filter((b) => b.mode === 'live').length
   const finalCount = boards.filter((b) => b.mode === 'final').length
+  const visibleBoards = selectedSlug ? boards.filter((board) => board.league.slug === selectedSlug) : boards
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-12">
@@ -88,6 +92,7 @@ export function LiveResultsPage() {
       </div>
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      <label className="block max-w-md space-y-2"><span className="text-sm font-bold text-slate-600">فیلتر لیگ</span><select className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm" value={selectedSlug} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('league', e.target.value); else next.delete('league'); setSearchParams(next) }}><option value="">همه لیگ‌ها</option>{boards.map((board) => <option key={board.league.id} value={board.league.slug}>{board.league.name}</option>)}</select><p className="text-xs text-slate-400">انتخاب شما در نشانی صفحه ذخیره می‌شود و قابل اشتراک‌گذاری است.</p></label>
       {loading ? <p className="text-rc-muted">{t('app.loading')}</p> : null}
 
       {!loading && boards.length === 0 ? (
@@ -100,7 +105,7 @@ export function LiveResultsPage() {
       ) : null}
 
       <div className="space-y-6">
-        {boards.map((board) => (
+        {visibleBoards.map((board) => (
           <LiveStandingsTable key={board.league.id} board={board} />
         ))}
       </div>

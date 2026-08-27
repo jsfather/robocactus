@@ -19,13 +19,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
 
-const ALL_ROLES: UserRole[] = [
-  'super_admin',
-  'league_admin',
-  'staff',
-  'company_admin',
-  'team_captain',
-]
+const ALL_ROLES: UserRole[] = ['company_admin', 'team_captain']
 
 export function SuperAdminUsersPage() {
   const { t } = useTranslation()
@@ -51,6 +45,19 @@ export function SuperAdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState({ full_name: '', phone: '', email: '', username: '', password: '', account_type: 'individual' as 'individual' | 'legal', account_status: 'pending' as 'pending' | 'active' })
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [genderFilter, setGenderFilter] = useState('all')
+  const [completionFilter, setCompletionFilter] = useState('all')
+
+  const participants = useMemo(() => profiles.filter((profile) => ['company_admin', 'team_captain'].includes(profile.role)), [profiles])
+  const filteredParticipants = useMemo(() => participants.filter((profile) => {
+    const haystack = `${profile.full_name} ${profile.phone} ${profile.email ?? ''} ${profile.province ?? ''} ${profile.city ?? ''}`.toLowerCase()
+    return (!search.trim() || haystack.includes(search.trim().toLowerCase()))
+      && (typeFilter === 'all' || profile.account_type === typeFilter)
+      && (genderFilter === 'all' || profile.gender === genderFilter)
+      && (completionFilter === 'all' || (completionFilter === 'complete' ? Boolean(profile.identity_completed_at) : !profile.identity_completed_at))
+  }), [participants, search, typeFilter, genderFilter, completionFilter])
 
   const reload = async () => {
     setLoading(true)
@@ -279,6 +286,7 @@ export function SuperAdminUsersPage() {
       ) : null}
 
       <PanelCard title={t('admin.users.listTitle')}>
+        <div className="mb-5 grid gap-3 md:grid-cols-5"><Input label="جست‌وجوی نام، موبایل یا شهر" value={search} onChange={(e) => setSearch(e.target.value)} /><Select label="نوع" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">همه</option><option value="individual">حقیقی</option><option value="legal">حقوقی</option></Select><Select label="جنسیت" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}><option value="all">همه</option><option value="male">مرد</option><option value="female">زن</option><option value="other">سایر</option></Select><Select label="تکمیل پرونده" value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value)}><option value="all">همه</option><option value="complete">تکمیل</option><option value="incomplete">ناقص</option></Select><div className="flex items-end"><Button className="w-full" type="button" variant="ghost" onClick={() => { setSearch(''); setTypeFilter('all'); setGenderFilter('all'); setCompletionFilter('all') }}>پاک‌کردن فیلتر</Button></div></div>
         {loading ? (
           <p className="text-sm text-rc-muted">{t('app.loading')}</p>
         ) : (
@@ -294,7 +302,7 @@ export function SuperAdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {profiles.map((profile) => (
+                {filteredParticipants.map((profile) => (
                   <tr key={profile.id} className="border-b border-white/5">
                     <td className="px-2 py-2">{profile.full_name}</td>
                     <td className="px-2 py-2 font-mono text-xs" dir="ltr">
@@ -329,6 +337,7 @@ export function SuperAdminUsersPage() {
                         >
                           {t('common.edit')}
                         </Button>
+                        <Button type="button" variant="ghost" disabled={busy || !profile.email} onClick={() => void backend.auth.adminRequestPasswordReset(profile.id).then(({ error }) => error ? toast.error(error.message) : toast.success('پیوند بازنشانی رمز به ایمیل کاربر ارسال شد.'))}>بازنشانی رمز</Button>
                         {profile.account_status === 'pending' ? (
                           <Button
                             type="button"

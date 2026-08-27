@@ -1,5 +1,5 @@
 import { backend } from '@/lib/backend'
-import type { Company, CompanyAchievement, League, ResultRow, Team } from '@/types/database'
+import type { Company, CompanyAchievement, League, ResultRow, Team, TeamMember } from '@/types/database'
 
 export type RankingsRow = ResultRow & {
   team_name: string
@@ -14,7 +14,7 @@ export type CompanyProfileBundle = {
   company: Company
   achievements: CompanyAchievement[]
   results: RankingsRow[]
-  activeTeams: Array<Team & { league_name: string }>
+  activeTeams: Array<Team & { league_name: string; public_members: TeamMember[] }>
 }
 
 export async function fetchPublishedRankings(filters?: {
@@ -170,9 +170,12 @@ export async function fetchCompanyProfile(slug: string): Promise<CompanyProfileB
 
   const companyResults = results.filter((r) => r.company_id === company.id)
   const teamRows = teamsRes.error ? [] : ((teamsRes.data ?? []) as Team[])
+  const peopleResponse = teamRows.length ? await backend.from('public_team_people').select('*').in('team_id', teamRows.map((team) => team.id)) : { data: [], error: null }
+  const publicPeople = (peopleResponse.data ?? []) as TeamMember[]
   const activeTeams = teamRows.map((team) => ({
     ...team,
     league_name: leagueMap.get(team.league_id) ?? team.league_id.slice(0, 8),
+    public_members: publicPeople.filter((person) => person.team_id === team.id),
   }))
 
   return {

@@ -18,6 +18,7 @@ import type {
 export type LeagueAdminRow = {
   league_id: string
   user_id: string
+  assignment_role?: 'judge' | 'head_judge' | 'operator'
 }
 
 export type LeagueInput = {
@@ -32,6 +33,9 @@ export type LeagueInput = {
   registration_fee?: number
   captain_fee?: number
   member_fee?: number
+  coach_fee?: number
+  result_formula?: 'average' | 'sum'
+  required_judge_count?: number | null
   team_edit_deadline?: string | null
   min_age?: number | null
   max_age?: number | null
@@ -110,6 +114,9 @@ function leaguePayloadBasic(input: LeagueInput) {
     registration_fee: input.registration_fee ?? 0,
     captain_fee: input.captain_fee ?? 0,
     member_fee: input.member_fee ?? 0,
+    coach_fee: input.coach_fee ?? 0,
+    result_formula: input.result_formula ?? 'average',
+    required_judge_count: input.required_judge_count ?? null,
     team_edit_deadline: input.team_edit_deadline || null,
     min_age: input.min_age ?? null,
     max_age: input.max_age ?? null,
@@ -584,10 +591,10 @@ export async function fetchLeagueAdmins(leagueId?: string): Promise<LeagueAdminR
   return (data ?? []) as LeagueAdminRow[]
 }
 
-export async function assignLeagueAdmin(leagueId: string, userId: string): Promise<void> {
+export async function assignLeagueAdmin(leagueId: string, userId: string, assignmentRole: 'judge' | 'head_judge' | 'operator' = 'judge'): Promise<void> {
   const { error } = await backend
     .from('league_admins')
-    .upsert({ league_id: leagueId, user_id: userId })
+    .upsert({ league_id: leagueId, user_id: userId, assignment_role: assignmentRole })
   if (error) throw new Error(error.message)
 }
 

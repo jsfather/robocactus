@@ -25,12 +25,17 @@ const eventTokenOrder: Record<string, string[]> = {
   account_issue: ['title', 'user_id'],
   result_announced: ['league_name', 'team_name', 'rank'],
   newsletter_confirmed: ['full_name', 'channel_name'],
+  incomplete_registration_reminder: ['name', 'league_name'],
+  team_approval_reminder: ['team_name', 'league_name'],
+  account_verification_reminder: ['name', 'league_name'],
+  payment_reminder: ['team_name', 'league_name', 'invoice_number'],
 }
 
 function templateValues(row: Notification): string[] {
   const meta = row.meta ?? {}
-  const ordered = (eventTokenOrder[row.template_key] ?? []).map((key) => meta[key]).filter((value) => value != null).map(String)
-  return ordered.length ? ordered : Object.values(meta).map(String)
+  const configuredOrder = Array.isArray(meta.token_order) ? meta.token_order.map(String) : null
+  const ordered = (configuredOrder ?? eventTokenOrder[row.template_key] ?? []).map((key) => meta[key]).filter((value) => value != null).map(String)
+  return ordered.length ? ordered : Object.entries(meta).filter(([key]) => !['provider_template', 'token_order'].includes(key)).map(([, value]) => String(value))
 }
 
 async function sendSms(row: Notification): Promise<string> {
@@ -45,8 +50,9 @@ async function sendSms(row: Notification): Promise<string> {
   }
   if (provider === 'kavenegar') {
     const values = templateValues(row)
-    const template = patterns[row.template_key]
-    const plainMessage = `جام تبرستان\n${row.template_key}\n${Object.entries(row.meta ?? {}).map(([key, value]) => `${key}: ${String(value)}`).join('\n')}`
+    const template = String(row.meta?.provider_template ?? patterns[row.template_key] ?? '')
+    const publicMeta = Object.entries(row.meta ?? {}).filter(([key]) => !['provider_template', 'token_order'].includes(key))
+    const plainMessage = `جام تبرستان\n${row.template_key}\n${publicMeta.map(([key, value]) => `${key}: ${String(value)}`).join('\n')}`
     let result
     if (!template) {
       result = await sendKavenegarText({ receptor: row.phone, message: plainMessage })
@@ -125,11 +131,18 @@ async function dispatch(channel: 'sms' | 'email', limit: number) {
         update public.notification_log set status = 'sent', provider_message_id = ${providerId},
           error_message = null, sent_at = now() where id = ${row.id}::uuid
       `)
+      await db.execute(sql`update public.registration_reminder_log set status = 'sent', sent_at = now(),
+        provider_response = jsonb_build_object('provider_message_id', ${providerId})
+        where notification_id = ${row.id}::uuid`).catch(() => undefined)
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       await db.execute(sql`
-        update public.notification_log set status = 'failed', error_message = ${error instanceof Error ? error.message : String(error)},
+        update public.notification_log set status = 'failed', error_message = ${errorMessage},
           sent_at = now() where id = ${row.id}::uuid
       `)
+      await db.execute(sql`update public.registration_reminder_log set status = 'failed', sent_at = now(),
+        provider_response = jsonb_build_object('error', ${errorMessage})
+        where notification_id = ${row.id}::uuid`).catch(() => undefined)
     }
     processed += 1
   }
@@ -137,6 +150,14 @@ async function dispatch(channel: 'sms' | 'email', limit: number) {
 }
 
 export async function dispatchNotifications(limit = 50): Promise<void> {
+  const abandoned = await db.execute(sql`select t.id, t.lifecycle_status, p.account_status
+    from public.teams t join public.profiles p on p.id = t.captain_id
+    where t.lifecycle_status not in ('completed','cancelled') and t.last_activity_at < now() - interval '1 hour'
+    order by t.last_activity_at asc limit 100`)
+  for (const row of abandoned.rows) {
+    const type = row.account_status === 'pending' ? 'account_verification' : row.lifecycle_status === 'awaiting_payment' ? 'payment' : row.lifecycle_status === 'awaiting_review' ? 'team_approval' : 'incomplete_registration'
+    await db.execute(sql`select public.enqueue_registration_reminder(${row.id}::uuid, ${type})`).catch(() => undefined)
+  }
   await dispatch('sms', limit)
   await dispatch('email', limit)
 }

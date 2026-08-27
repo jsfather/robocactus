@@ -35,6 +35,7 @@ import { SuperAdminFinancePage } from '@/app/super-admin/SuperAdminFinancePage'
 import { SuperAdminLeagueEditPage } from '@/app/super-admin/SuperAdminLeagueEditPage'
 import { SuperAdminLeaguesPage } from '@/app/super-admin/SuperAdminLeaguesPage'
 import { SuperAdminUsersPage } from '@/app/super-admin/SuperAdminUsersPage'
+import { SuperAdminCollaboratorsPage } from '@/app/super-admin/SuperAdminCollaboratorsPage'
 import { SuperAdminPagesPage } from '@/app/super-admin/SuperAdminPagesPage'
 import { SuperAdminContentPage } from '@/app/super-admin/SuperAdminContentPage'
 import { SuperAdminHomeContentPage } from '@/app/super-admin/SuperAdminHomeContentPage'
@@ -52,8 +53,10 @@ import { SuperAdminSettingsPage } from '@/app/super-admin/SuperAdminSettingsPage
 import { SuperAdminRegistrationSettingsPage } from '@/app/super-admin/SuperAdminRegistrationSettingsPage'
 import { SuperAdminAccessSettingsPage } from '@/app/super-admin/SuperAdminAccessSettingsPage'
 import { SuperAdminParticipantsPage } from '@/app/super-admin/SuperAdminParticipantsPage'
+import { SuperAdminIncompleteRegistrationsPage } from '@/app/super-admin/SuperAdminIncompleteRegistrationsPage'
 import { LiveChatInboxPage } from '@/app/staff/LiveChatInboxPage'
 import { AccountProfilePage } from '@/app/panel/AccountProfilePage'
+import { AccountInvoicesPage } from '@/app/panel/AccountInvoicesPage'
 import { PersonProfilePage } from '@/app/public/PersonProfilePage'
 import { SuperAdminPersonEditPage } from '@/app/super-admin/SuperAdminPersonEditPage'
 import { ForgotPasswordPage } from '@/app/public/ForgotPasswordPage'
@@ -75,6 +78,7 @@ export default function App() {
                 <Route path="people/:slug" element={<PersonProfilePage />} />
                 <Route path="rankings" element={<RankingsPage />} />
                 <Route path="live" element={<LiveResultsPage />} />
+                <Route path="live/:leagueSlug" element={<LiveResultsPage />} />
                 <Route path="companies" element={<CompaniesPage />} />
                 <Route path="companies/:slug" element={<CompanyPublicProfilePage />} />
                 <Route path="blog" element={<BlogListPage />} />
@@ -104,6 +108,8 @@ export default function App() {
               >
                 <Route path="dashboard" element={<DashboardRedirectPage />} />
                 <Route path="account/profile" element={<AccountProfilePage />} />
+                <Route path="account/invoices" element={<AccountInvoicesPage />} />
+                <Route path="account/invoices/:invoiceId" element={<AccountInvoicesPage />} />
 
                 <Route element={<ProtectedRoute roles={['super_admin']} />}>
                   <Route path="super-admin" element={<SuperAdminHomePage />} />
@@ -111,12 +117,14 @@ export default function App() {
                   <Route path="super-admin/leagues/:leagueId" element={<SuperAdminLeagueEditPage />} />
                   <Route path="super-admin/people/:personId" element={<SuperAdminPersonEditPage />} />
                   <Route path="super-admin/participants" element={<SuperAdminParticipantsPage />} />
+                  <Route path="super-admin/incomplete-registrations" element={<SuperAdminIncompleteRegistrationsPage />} />
                   <Route path="super-admin/companies" element={<SuperAdminCompaniesPage />} />
                   <Route path="super-admin/review" element={<LeagueAdminPage section="review" />} />
                   <Route path="super-admin/tickets" element={<StaffPage section="tickets" />} />
                   <Route path="super-admin/chat" element={<LiveChatInboxPage />} />
                   <Route path="super-admin/triage" element={<StaffPage section="triage" />} />
                   <Route path="super-admin/users" element={<SuperAdminUsersPage />} />
+                  <Route path="super-admin/collaborators" element={<SuperAdminCollaboratorsPage />} />
                   <Route path="super-admin/pages" element={<SuperAdminPagesPage />} />
                   <Route path="super-admin/content" element={<SuperAdminContentPage />} />
                   <Route path="super-admin/home" element={<SuperAdminHomeContentPage />} />

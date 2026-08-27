@@ -172,12 +172,9 @@ export function CompanyPublicProfilePage() {
               <li className="px-4 py-3 text-sm text-rc-muted">{t('companies.noTeams')}</li>
             ) : (
               activeTeams.map((team) => (
-                <li key={team.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                  <span className="font-medium">{team.name}</span>
-                  <StatusBadge
-                    status={team.status}
-                    label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
-                  />
+                <li key={team.id} className="px-5 py-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-lg font-black">{team.name}{team.name_en ? <span className="ms-2 text-sm font-medium text-slate-400" dir="ltr">{team.name_en}</span> : null}</p><p className="mt-1 text-xs font-bold text-sky-700">{team.league_name}</p>{team.motto_fa || team.motto_en ? <p className="mt-2 text-sm italic text-slate-500">{team.motto_fa || team.motto_en}</p> : null}</div><StatusBadge status={team.status} label={t(`team.statuses.${team.status}`, { defaultValue: team.status })} /></div>
+                  <div className="mt-4 flex flex-wrap gap-3">{team.public_members.map((person) => <div key={person.id} className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2"><span className="grid size-10 overflow-hidden place-items-center rounded-xl bg-slate-200 text-sm font-black text-slate-500">{person.photo_url ? <img src={person.photo_url} alt="" className="size-full object-cover" /> : person.full_name.slice(0, 1)}</span><span><b className="block text-sm">{person.full_name}</b><small className="text-slate-500">{person.role === 'captain' ? 'سرپرست' : person.role === 'coach' ? 'مربی' : 'عضو'}</small></span></div>)}</div>
                 </li>
               ))
             )}
