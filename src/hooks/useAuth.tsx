@@ -40,13 +40,17 @@ interface AuthContextValue {
     error: string | null
     devCode?: string
     retryAfterSec?: number
+    challengeId?: string
+    expiresInSec?: number
+    resendAfterSec?: number
   }>
   verifyPhoneOtp: (input: {
     phone: string
     code: string
     fullName?: string
     purpose?: 'login' | 'signup' | 'profile'
-  }) => Promise<{ error: string | null }>
+    challengeId: string
+  }) => Promise<{ error: string | null; registrationRequired?: boolean; nextPath?: string }>
   requestEmailMagicLink: (email: string, captchaToken?: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -249,11 +253,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         retryAfterSec: result.retry_after_sec,
       }
     }
-    return { error: null, devCode: result.dev_code }
+    return { error: null, devCode: result.dev_code, challengeId: result.challenge_id, expiresInSec: result.expires_in_sec, resendAfterSec: result.resend_after_sec }
   }, [configured, session?.user])
 
   const verifyPhoneOtp = useCallback(
-    async (input: { phone: string; code: string; fullName?: string; purpose?: 'login' | 'signup' | 'profile' }) => {
+    async (input: { phone: string; code: string; fullName?: string; purpose?: 'login' | 'signup' | 'profile'; challengeId: string }) => {
       if (!configured) return { error: 'backend_missing' }
       const verified = await verifySmsOtp({ ...input, purpose: input.purpose ?? (session?.user ? 'profile' : 'login') })
       if (!verified.ok) return { error: verified.error }
@@ -262,9 +266,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: null }
       }
       const sessionResult = await completeSmsOtpSession(verified.token_hash)
-      if (sessionResult.error) return { error: sessionResult.error }
+      if (sessionResult.error) return { error: sessionResult.error === 'invalid_or_expired_token' ? 'invalid_session' : 'server_error' }
       await refreshProfile()
-      return { error: null }
+      return {
+        error: null,
+        registrationRequired: verified.registration_required,
+        nextPath: verified.next_path,
+      }
     },
     [configured, refreshProfile, session?.user],
   )

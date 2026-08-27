@@ -4,6 +4,7 @@ import { PublicFooter } from './PublicFooter'
 import { BackToTopButton } from './BackToTopButton'
 import { BackendStatusBanner } from './BackendStatusBanner'
 import { LiveChatWidget } from '@/components/live-chat/LiveChatWidget'
+import { MobileBottomNavigation } from './MobileBottomNavigation'
 
 export function PublicLayout() {
   const { pathname } = useLocation()
@@ -18,7 +19,7 @@ export function PublicLayout() {
           background: `radial-gradient(ellipse at top, var(--rc-glow-blue), transparent 55%), radial-gradient(ellipse at bottom, var(--rc-glow-orange), transparent 50%)`,
         }}
       />
-      <div className="relative">
+      <div className="relative pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
         <PublicHeader />
         <div className="pointer-events-none fixed inset-x-0 top-[4.75rem] z-50 px-3 sm:top-[5.25rem] sm:px-5">
           <div className="pointer-events-auto mx-auto max-w-6xl overflow-hidden rounded-xl">
@@ -31,6 +32,7 @@ export function PublicLayout() {
         <PublicFooter />
         <LiveChatWidget />
         <BackToTopButton />
+        <MobileBottomNavigation />
       </div>
     </div>
   )

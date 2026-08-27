@@ -126,7 +126,7 @@ export function LiveChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 start-4 z-[60] flex flex-col items-start gap-3 sm:bottom-7 sm:start-7">
+    <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] start-4 z-[60] flex flex-col items-start gap-3 sm:start-7 md:bottom-7">
       {open ? (
         <div
           className={[

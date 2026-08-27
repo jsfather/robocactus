@@ -17,9 +17,9 @@ export function LiveStandingsTable({
   const rows = board.rows.slice(0, limit)
   const showCups = board.mode === 'final'
   const revealKey = `tabarestan-final-revealed:${board.league.id}:${board.rows.map((row) => `${row.id}:${row.rank}`).join('|')}`
-  const [countdown, setCountdown] = useState(() => board.mode === 'final' && board.rows.length && !sessionStorage.getItem(revealKey) ? 10 : 0)
+  const [countdown, setCountdown] = useState(() => board.mode === 'final' && board.rows.length && !localStorage.getItem(revealKey) ? 10 : 0)
   useEffect(() => {
-    if (countdown <= 0) { if (board.mode === 'final' && board.rows.length) sessionStorage.setItem(revealKey, '1'); return }
+    if (countdown <= 0) { if (board.mode === 'final' && board.rows.length) localStorage.setItem(revealKey, '1'); return }
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000)
     return () => window.clearTimeout(timer)
   }, [countdown, board.mode, board.rows.length, revealKey])
@@ -88,7 +88,7 @@ export function LiveStandingsTable({
                 {!compact ? (
                   <td className="px-4 py-2.5 text-rc-muted">
                     {row.company_slug ? (
-                      <Link to={`/companies/${row.company_slug}`} className="hover:text-rc-blue">
+                      <Link to={`/participants/${row.company_slug}`} className="hover:text-rc-blue">
                         {row.company_name}
                       </Link>
                     ) : (

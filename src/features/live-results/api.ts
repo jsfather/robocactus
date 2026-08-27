@@ -87,6 +87,7 @@ export async function fetchLiveResultsBoards(): Promise<LiveLeagueBoard[]> {
     `,
     )
     .in('league_id', leagueIds)
+    .eq('notes', 'official_multi_judge_engine')
     .order('rank', { ascending: true })
     .order('score', { ascending: false })
 

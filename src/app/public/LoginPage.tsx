@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
@@ -37,6 +37,9 @@ export function LoginPage() {
   const [captchaReset, setCaptchaReset] = useState(0)
   const [resendSeconds, setResendSeconds] = useState(0)
   const [otpState, setOtpState] = useState<OtpState>('idle')
+  const [challengeId, setChallengeId] = useState('')
+  const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0)
+  const verifyInFlight = useRef(false)
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => {
@@ -53,16 +56,26 @@ export function LoginPage() {
     return () => window.clearTimeout(timer)
   }, [resendSeconds])
 
+  useEffect(() => {
+    if (!otpSent || otpRemainingSeconds <= 0) return
+    const timer = window.setTimeout(() => setOtpRemainingSeconds((value) => Math.max(0, value - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [otpSent, otpRemainingSeconds])
+
   if (user) return <Navigate to={from.startsWith('/') ? from : '/dashboard'} replace />
 
   const mapOtpError = (value: string | null) => {
     if (!value) return t('common.error')
     if (value === 'backend_missing') return t('auth.backendMissing')
     if (value === 'invalid_phone') return t('auth.invalidPhone')
-    if (value === 'invalid_code' || value === 'no_challenge') return t('auth.invalidOtp')
+    if (value === 'invalid_code') return t('auth.invalidOtp')
     if (value === 'expired') return t('auth.otpExpired')
+    if (value === 'already_used') return t('auth.otpUsed')
+    if (value === 'invalid_session' || value === 'no_challenge') return t('auth.otpInvalidSession')
     if (value === 'cooldown') return t('auth.otpCooldown')
     if (value === 'too_many_attempts') return t('auth.otpTooMany')
+    if (value === 'phone_signup_disabled') return t('auth.phoneSignupDisabled')
+    if (value === 'server_error' || value.startsWith('http_')) return t('auth.otpServerError')
     if (value.startsWith('captcha_')) return captchaErrorMessage(value)
     return value
   }
@@ -89,7 +102,7 @@ export function LoginPage() {
     const result = await requestPhoneOtp(phone.trim(), 'login', captcha)
     setSubmitting(false)
     if (result.error) { showError(mapOtpError(result.error)); return false }
-    setOtpSent(true); setResendSeconds(60); setDevCode(result.devCode ?? null)
+    setOtpSent(true); setChallengeId(result.challengeId ?? ''); setOtpRemainingSeconds(result.expiresInSec ?? 300); setResendSeconds(result.resendAfterSec ?? 60); setDevCode(result.devCode ?? null)
     toast.success('کد شش‌رقمی برای شما ارسال شد.'); return true
   }
   const onRequestOtp = async (event: FormEvent) => {
@@ -99,22 +112,29 @@ export function LoginPage() {
     setCaptchaToken(''); setCaptchaReset((value) => value + 1)
   }
   const verifyOtp = async (completeCode = code) => {
-    if (completeCode.length !== 6 || submitting || otpState === 'success') return
+    if (completeCode.length !== 6 || submitting || verifyInFlight.current || otpState === 'success') return
+    if (!challengeId) return showError(t('auth.otpInvalidSession'))
+    verifyInFlight.current = true
     setError(null); setSubmitting(true); setOtpState('verifying')
-    const result = await verifyPhoneOtp({ phone: phone.trim(), code: completeCode })
+    const result = await verifyPhoneOtp({ phone: phone.trim(), code: completeCode, challengeId })
     setSubmitting(false)
+    verifyInFlight.current = false
     if (result.error) {
       setOtpState('error'); showError(mapOtpError(result.error))
+      if (['expired', 'already_used', 'invalid_session', 'too_many_attempts'].includes(result.error)) setResendSeconds(0)
+      if (result.error === 'expired') setOtpRemainingSeconds(0)
       window.setTimeout(() => setOtpState('idle'), 700); return
     }
-    setOtpState('success'); toast.success('هویت شما تأیید شد؛ خوش آمدید.')
-    window.setTimeout(() => void navigate(from, { replace: true }), 850)
+    setOtpState('success')
+    toast.success(result.registrationRequired ? t('auth.otpNewUser') : t('auth.otpExistingUser'))
+    const destination = result.registrationRequired ? (result.nextPath || '/signup?onboarding=phone') : from
+    window.setTimeout(() => void navigate(destination, { replace: true }), 850)
   }
   const onResend = async () => {
     if (resendSeconds || submitting) return
     setCode(''); setOtpState('idle'); await requestOtp('')
   }
-  const resetPhone = () => { setOtpSent(false); setCode(''); setDevCode(null); setResendSeconds(0); setOtpState('idle'); setError(null) }
+  const resetPhone = () => { setOtpSent(false); setCode(''); setChallengeId(''); setDevCode(null); setResendSeconds(0); setOtpRemainingSeconds(0); setOtpState('idle'); setError(null) }
   const isEn = i18n.language.startsWith('en')
   const welcomeTitle = (isEn ? settings?.login_welcome_title_en : settings?.login_welcome_title_fa) || (isEn ? 'Welcome to Tabarestan Cup' : 'به جام تبرستان خوش آمدید')
   const welcomeText = (isEn ? settings?.login_welcome_text_en : settings?.login_welcome_text_fa) || (isEn ? 'Sign in to continue to your account.' : 'برای ادامه وارد حساب کاربری خود شوید.')
@@ -152,15 +172,15 @@ export function LoginPage() {
           ) : (
             <form noValidate className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (otpSent) void verifyOtp(); else void onRequestOtp(event) }}>
               <Input label={t('auth.phone')} value={phone} onChange={(event) => setPhone(event.target.value)} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" disabled={otpSent} />
-              {otpSent ? <div className="space-y-3"><div className="flex items-center justify-between"><p className="text-sm font-black text-slate-700">{t('auth.otpCode')}</p><span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700" dir="ltr">{phone}</span></div><OtpCodeInput value={code} onChange={(value) => { setCode(value); setError(null) }} onComplete={(value) => void verifyOtp(value)} state={otpState} disabled={submitting || otpState === 'success'} /></div> : null}
+              {otpSent ? <div className="space-y-3"><div className="flex items-center justify-between"><p className="text-sm font-black text-slate-700">{t('auth.otpCode')}</p><span className={`rounded-full px-3 py-1 text-xs font-bold ${otpRemainingSeconds > 0 ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'}`}>{otpRemainingSeconds > 0 ? `${t('auth.otpValidity')} ${String(Math.floor(otpRemainingSeconds / 60)).padStart(2, '0')}:${String(otpRemainingSeconds % 60).padStart(2, '0')}` : t('auth.otpExpired')}</span></div><OtpCodeInput value={code} onChange={(value) => { setCode(value); setError(null) }} onComplete={(value) => void verifyOtp(value)} state={otpState} disabled={submitting || otpState === 'success'} /></div> : null}
               {devCode ? <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 font-mono text-xs text-sky-700">{t('auth.devOtp', { code: devCode })}</p> : null}
               {!otpSent ? <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
               <FieldError message={error ?? undefined} />
               <Button type="submit" className="w-full" disabled={submitting || (otpSent && code.length !== 6)}>{submitting ? t('app.loading') : otpSent ? t('auth.verifyOtp') : t('auth.sendOtp')}</Button>
-              {otpSent ? <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold text-slate-500 hover:text-rc-blue" onClick={resetPhone}>{t('auth.changePhone')}</button><button type="button" disabled={resendSeconds > 0 || submitting} className="font-black text-rc-blue disabled:cursor-not-allowed disabled:text-slate-400" onClick={() => void onResend()}>{resendSeconds > 0 ? `ارسال مجدد تا ${String(Math.floor(resendSeconds / 60)).padStart(2, '0')}:${String(resendSeconds % 60).padStart(2, '0')}` : 'ارسال دوباره کد'}</button></div> : null}
+              {otpSent ? <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold text-slate-500 hover:text-rc-blue" onClick={resetPhone}>{t('auth.changePhone')}</button><button type="button" disabled={resendSeconds > 0 || submitting} className="font-black text-rc-blue disabled:cursor-not-allowed disabled:text-slate-400" onClick={() => void onResend()}>{resendSeconds > 0 ? t('auth.otpResendCountdown', { time: `${String(Math.floor(resendSeconds / 60)).padStart(2, '0')}:${String(resendSeconds % 60).padStart(2, '0')}` }) : t('auth.otpResend')}</button></div> : null}
             </form>
           )}
-          {options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false ? <p className="mt-6 text-center text-sm text-slate-500">{t('auth.noAccount')} <Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></p> : null}
+          {options?.show_registration_link !== false && (options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <p className="mt-6 text-center text-sm text-slate-500">{t('auth.noAccount')} <Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></p> : null}
         </main>
       </div>
     </div>

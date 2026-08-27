@@ -3,31 +3,27 @@ import { getPublicEnv } from '@/lib/env'
 import { normalizeIranPhone } from '@/lib/ippanel'
 
 type OtpRequestResult =
-  | { ok: true; expires_in_sec: number; dev_code?: string }
+  | { ok: true; challenge_id: string; expires_in_sec: number; resend_after_sec: number; dev_code?: string }
   | { ok: false; error: string; retry_after_sec?: number }
 
 type OtpVerifyResult =
-  | { ok: true; token_hash: string; email: string }
+  | { ok: true; token_hash: string; email: string; registration_required: boolean; next_path: string }
   | { ok: true; profile_verified: true }
   | { ok: false; error: string }
 
 async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const url = getPublicEnv('VITE_API_URL')?.replace(/\/$/, '') ?? ''
 
-  const res = await fetch(`${url}/api/auth/sms-otp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  })
-
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  if (!res.ok) {
-    return { error: String(json.error ?? `http_${res.status}`), ...json }
+  try {
+    const res = await fetch(`${url}/api/auth/sms-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
+    })
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (!res.ok) return { ...json, error: String(json.error ?? (res.status >= 500 ? 'server_error' : `http_${res.status}`)) }
+    return json
+  } catch {
+    return { error: 'server_error' }
   }
-  return json
 }
 
 export type OtpPurpose = 'login' | 'signup' | 'profile'
@@ -45,9 +41,12 @@ export async function requestSmsOtp(phoneRaw: string, purpose: OtpPurpose = 'log
       retry_after_sec: json.retry_after_sec != null ? Number(json.retry_after_sec) : undefined,
     }
   }
+  if (!json.challenge_id) return { ok: false, error: 'server_error' }
   return {
     ok: true,
+    challenge_id: String(json.challenge_id),
     expires_in_sec: Number(json.expires_in_sec ?? 300),
+    resend_after_sec: Number(json.resend_after_sec ?? 60),
     dev_code: json.dev_code != null ? String(json.dev_code) : undefined,
   }
 }
@@ -57,6 +56,7 @@ export async function verifySmsOtp(input: {
   code: string
   fullName?: string
   purpose?: OtpPurpose
+  challengeId: string
 }): Promise<OtpVerifyResult> {
   if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
   const phone = normalizeIranPhone(input.phone)
@@ -68,17 +68,20 @@ export async function verifySmsOtp(input: {
     code: input.code,
     full_name: input.fullName ?? '',
     purpose: input.purpose ?? 'login',
+    challenge_id: input.challengeId,
   })
 
   if (json.profile_verified === true) return { ok: true, profile_verified: true }
   if (json.error || !json.token_hash) {
-    return { ok: false, error: String(json.error ?? 'verify_failed') }
+    return { ok: false, error: String(json.error ?? 'server_error') }
   }
 
   return {
     ok: true,
     token_hash: String(json.token_hash),
     email: String(json.email ?? ''),
+    registration_required: json.registration_required === true,
+    next_path: String(json.next_path ?? '/dashboard'),
   }
 }
 

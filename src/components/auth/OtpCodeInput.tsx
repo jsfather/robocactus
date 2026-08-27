@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 type OtpState = 'idle' | 'verifying' | 'success' | 'error'
 
@@ -14,6 +15,7 @@ export function OtpCodeInput({ value, onChange, onComplete, state = 'idle', disa
   state?: OtpState
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const refs = useRef<Array<HTMLInputElement | null>>([])
   const digits = Array.from({ length: 6 }, (_, index) => value[index] ?? '')
 
@@ -32,13 +34,13 @@ export function OtpCodeInput({ value, onChange, onComplete, state = 'idle', disa
 
   return (
     <fieldset disabled={disabled} className={`rounded-2xl p-1 transition ${state === 'verifying' ? 'bg-[conic-gradient(from_90deg,#0ea5e9,#10b981,#0ea5e9)]' : ''}`}>
-      <legend className="sr-only">کد تأیید شش رقمی</legend>
+      <legend className="sr-only">{t('auth.otpCode')}</legend>
       <div dir="ltr" className={`grid grid-cols-6 gap-2 rounded-[.85rem] bg-white p-1.5 sm:gap-3 ${state === 'success' ? 'otp-success' : state === 'error' ? 'otp-error' : ''}`}>
         {digits.map((digit, index) => (
           <input
             key={index}
             ref={(node) => { refs.current[index] = node }}
-            aria-label={`رقم ${index + 1} کد تأیید`}
+            aria-label={`${t('auth.otpCode')} ${index + 1}`}
             inputMode="numeric"
             autoComplete={index === 0 ? 'one-time-code' : 'off'}
             value={digit}
@@ -63,8 +65,8 @@ export function OtpCodeInput({ value, onChange, onComplete, state = 'idle', disa
           />
         ))}
       </div>
-      {state === 'verifying' ? <p className="mt-2 text-center text-xs font-bold text-sky-700">در حال بررسی کد…</p> : null}
-      {state === 'success' ? <p className="mt-2 text-center text-sm font-black text-emerald-700">✓ کد تأیید شد؛ در حال ورود…</p> : null}
+      {state === 'verifying' ? <p className="mt-2 text-center text-xs font-bold text-sky-700">{t('auth.otpVerifying')}</p> : null}
+      {state === 'success' ? <p className="mt-2 text-center text-sm font-black text-emerald-700">✓ {t('auth.otpVerified')}</p> : null}
     </fieldset>
   )
 }

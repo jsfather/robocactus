@@ -6,6 +6,8 @@ export function normalizeIranMobile(value: string): string | null {
   if (/^989\d{9}$/.test(digits)) return `0${digits.slice(2)}`
   if (/^9\d{9}$/.test(digits)) return `0${digits}`
   if (/^09\d{9}$/.test(digits)) return digits
+  if (value.trim().startsWith('+') && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`
+  if (/^00[1-9]\d{7,14}$/.test(digits)) return `+${digits.slice(2)}`
   return null
 }
 
@@ -22,13 +24,13 @@ export function participantErrors(profile: Profile, rules: ParticipantFieldRule[
   for (const rule of required) {
     if (!String((profile as unknown as Record<string, unknown>)[rule.field_key] ?? '').trim()) errors[rule.field_key] = `${rule.label_fa} الزامی است.`
   }
-  if (!normalizeIranMobile(profile.phone ?? '')) errors.phone = 'شماره موبایل معتبر ایران وارد کنید؛ مانند 09123456789.'
+  if (!normalizeIranMobile(profile.phone ?? '')) errors.phone = profile.is_foreign ? 'شماره موبایل بین‌المللی معتبر با کد کشور وارد کنید.' : 'شماره موبایل معتبر ایران وارد کنید؛ مانند 09123456789.'
   if (profile.is_foreign) {
     if (!profile.passport_number?.trim()) errors.passport_number = 'شماره گذرنامه برای اتباع خارجی الزامی است.'
   } else if (profile.account_type === 'individual' && !/^\d{10}$/.test(profile.national_id ?? '')) {
     errors.national_id = 'کد ملی باید ۱۰ رقم باشد.'
   }
-  if (!profile.phone_verified_at) errors.phone_verified_at = 'تأیید پیامکی شماره موبایل الزامی است.'
+  if (!profile.is_foreign && !profile.phone_verified_at) errors.phone_verified_at = 'تأیید پیامکی شماره موبایل الزامی است.'
   if (profile.account_type === 'legal') {
     if (!profile.company_name?.trim()) errors.company_name = 'نام شرکت الزامی است.'
     if (!profile.company_national_id?.trim()) errors.company_national_id = 'شناسه ملی شرکت الزامی است.'

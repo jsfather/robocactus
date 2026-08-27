@@ -138,6 +138,7 @@ export function SuperAdminAccessSettingsPage() {
           <HudFrame className="space-y-4 p-5">
             <SectionLabel index="REG.02" title="کانال‌های ثبت‌نام" />
             <div className="grid gap-3 md:grid-cols-2">
+              <Toggle checked={form.show_registration_link !== false} label="نمایش لینک ثبت‌نام در صفحه ورود" hint="فقط نمایش لینک عمومی را کنترل می‌کند؛ تشخیص کاربر جدید همچنان در سرور انجام می‌شود" onChange={(value) => patch({ show_registration_link: value })} />
               <Toggle checked={form.phone_signup_enabled} label="ثبت‌نام با موبایل" hint="ساخت حساب جدید پس از تأیید پیامکی" onChange={(value) => patch({ phone_signup_enabled: value })} />
               <Toggle checked={form.email_signup_enabled} label="ثبت‌نام با ایمیل" hint="ساخت حساب با ایمیل و تأیید لینک" onChange={(value) => patch({ email_signup_enabled: value })} />
             </div>

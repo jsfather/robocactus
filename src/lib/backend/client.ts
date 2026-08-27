@@ -20,6 +20,7 @@ export type BackendAuthOptions = {
   email_magic_login_enabled: boolean
   email_signup_enabled: boolean
   phone_signup_enabled: boolean
+  show_registration_link: boolean
   online_payment_enabled: boolean
   card_to_card_enabled: boolean
   bank_card_number: string | null

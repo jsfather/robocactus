@@ -16,6 +16,7 @@ import { backend } from '@/lib/backend'
 import type { AccountType } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
+import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
 type AuthChannel = 'phone' | 'email'
@@ -26,6 +27,7 @@ export function SignupPage() {
   const { requestPhoneOtp, verifyPhoneOtp, signUp, user, configured, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
+  const phoneOnboardingRequested = params.get('onboarding') === 'phone'
 
   const [step, setStep] = useState<Step>(() =>
     params.get('resume') === 'docs' ? 'docs' : 'type',
@@ -62,6 +64,9 @@ export function SignupPage() {
   const [authOptions, setAuthOptions] = useState<BackendAuthOptions | null>(null)
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaReset, setCaptchaReset] = useState(0)
+  const [challengeId, setChallengeId] = useState('')
+  const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0)
+  const [resendSeconds, setResendSeconds] = useState(0)
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => setAuthOptions(data))
@@ -74,13 +79,29 @@ export function SignupPage() {
   }, [accountType])
 
   useEffect(() => {
+    if (otpRemainingSeconds <= 0 && resendSeconds <= 0) return
+    const timer = window.setTimeout(() => { setOtpRemainingSeconds((v) => Math.max(0, v - 1)); setResendSeconds((v) => Math.max(0, v - 1)) }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [otpRemainingSeconds, resendSeconds])
+
+  useEffect(() => {
     if (params.get('resume') === 'docs' && user) {
       setUserId(user.id)
       setStep('docs')
     }
   }, [params, user])
 
-  if (user && step === 'type') {
+  useEffect(() => {
+    if (phoneOnboardingRequested && user?.phone) {
+      setPhone(user.phone)
+      setAuthChannel('phone')
+      setUserId(user.id)
+    }
+  }, [phoneOnboardingRequested, user])
+
+  const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
+
+  if (user && step === 'type' && !isPhoneOnboarding) {
     return <Navigate to="/dashboard" replace />
   }
 
@@ -88,10 +109,14 @@ export function SignupPage() {
     if (!err) return null
     if (err === 'backend_missing') return t('auth.backendMissing')
     if (err === 'invalid_phone') return t('auth.invalidPhone')
-    if (err === 'invalid_code' || err === 'no_challenge') return t('auth.invalidOtp')
+    if (err === 'invalid_code') return t('auth.invalidOtp')
     if (err === 'expired') return t('auth.otpExpired')
+    if (err === 'already_used') return t('auth.otpUsed')
+    if (err === 'invalid_session' || err === 'no_challenge') return t('auth.otpInvalidSession')
     if (err === 'cooldown') return t('auth.otpCooldown')
     if (err === 'too_many_attempts') return t('auth.otpTooMany')
+    if (err === 'phone_signup_disabled') return t('auth.phoneSignupDisabled')
+    if (err === 'server_error' || err.startsWith('http_')) return t('auth.otpServerError')
     if (err.startsWith('captcha_')) return captchaErrorMessage(err)
     return err
   }
@@ -185,12 +210,16 @@ export function SignupPage() {
       return
     }
     setOtpSent(true)
+    setChallengeId(result.challengeId ?? '')
+    setOtpRemainingSeconds(result.expiresInSec ?? 300)
+    setResendSeconds(result.resendAfterSec ?? 60)
     setDevCode(result.devCode ?? null)
     toast.info(t('auth.otpSent'))
   }
 
   const onVerifyOtp = async (event: FormEvent) => {
     event.preventDefault()
+    if (!challengeId) { setError(t('auth.otpInvalidSession')); return }
     setError(null)
     setSubmitting(true)
     const result = await verifyPhoneOtp({
@@ -198,10 +227,12 @@ export function SignupPage() {
       code: code.trim(),
       fullName: fullName.trim(),
       purpose: 'signup',
+      challengeId,
     })
     if (result.error) {
       setSubmitting(false)
       setError(mapOtpError(result.error))
+      if (['expired', 'already_used', 'invalid_session', 'too_many_attempts'].includes(result.error)) setResendSeconds(0)
       return
     }
     try {
@@ -219,6 +250,34 @@ export function SignupPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const completeVerifiedPhoneIdentity = async () => {
+    if (!user || !validateIdentity()) return
+    setError(null)
+    setSubmitting(true)
+    try {
+      await persistProfileFields(user.id)
+      setUserId(user.id)
+      await refreshProfile()
+      clearSignupDraft()
+      setStep('docs')
+      toast.success(t('auth.identitySaved'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const onResendOtp = async () => {
+    if (submitting || resendSeconds > 0) return
+    setSubmitting(true); setError(null); setCode('')
+    const result = await requestPhoneOtp(phone.trim(), 'signup', '')
+    setSubmitting(false)
+    if (result.error) { setError(mapOtpError(result.error)); return }
+    setChallengeId(result.challengeId ?? ''); setOtpRemainingSeconds(result.expiresInSec ?? 300); setResendSeconds(result.resendAfterSec ?? 60); setDevCode(result.devCode ?? null)
+    toast.info(t('auth.otpSent'))
   }
 
   const onEmailRegister = async (event: FormEvent) => {
@@ -319,13 +378,19 @@ export function SignupPage() {
     void navigate('/dashboard')
   }
 
-  const steps: Step[] =
-    authChannel === 'email'
-      ? ['type', 'channel', 'identity', 'verify', 'docs']
-      : ['type', 'channel', 'identity', 'verify', 'docs']
+  const steps: Step[] = isPhoneOnboarding
+    ? ['type', 'identity', 'docs']
+    : ['type', 'channel', 'identity', 'verify', 'docs']
+  const stepLabels: Record<Step, string> = {
+    type: t('auth.registrationSteps.type'),
+    channel: t('auth.registrationSteps.channel'),
+    identity: t('auth.registrationSteps.identity'),
+    verify: t('auth.registrationSteps.verify'),
+    docs: t('auth.registrationSteps.docs'),
+  }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-12">
+    <div className="mx-auto max-w-3xl px-4 py-12">
       <p className="font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">JOIN · SIGNUP</p>
       <h1 className="mt-1 text-3xl font-semibold">{t('auth.signupTitle')}</h1>
       {authOptions?.email_signup_enabled !== false ? <p className="mt-2 text-sm text-rc-muted">{t('auth.signupMultiHint')}</p> : null}
@@ -334,13 +399,7 @@ export function SignupPage() {
         <p className="mt-6 text-sm text-red-400">{t('auth.backendMissing')}</p>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap gap-3 font-mono text-[10px] tracking-wide text-rc-muted">
-        {steps.map((s, i) => (
-          <span key={s} className={step === s ? 'text-rc-blue' : ''}>
-            0{i + 1} {s}
-          </span>
-        ))}
-      </div>
+      <RegistrationStepper steps={steps.map((id) => ({ id, label: stepLabels[id] }))} currentId={step} ariaLabel={t('auth.registrationProgress')} />
 
       {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
 
@@ -350,7 +409,7 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAccountType('individual')
-              setStep('channel')
+              setStep(isPhoneOnboarding ? 'identity' : 'channel')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
@@ -361,7 +420,7 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAccountType('legal')
-              setStep('channel')
+              setStep(isPhoneOnboarding ? 'identity' : 'channel')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
@@ -414,6 +473,10 @@ export function SignupPage() {
           onSubmit={(e) => {
             e.preventDefault()
             if (!validateIdentity()) return
+            if (isPhoneOnboarding) {
+              void completeVerifiedPhoneIdentity()
+              return
+            }
             if (authChannel === 'email') {
               void onEmailRegister(e)
               return
@@ -501,7 +564,7 @@ export function SignupPage() {
 
           {authChannel === 'email' ? <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => setStep('channel')}>
+            <Button type="button" variant="ghost" onClick={() => setStep(isPhoneOnboarding ? 'type' : 'channel')}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -537,9 +600,11 @@ export function SignupPage() {
                 <p className="font-mono text-xs text-rc-accent">DEV OTP: {devCode}</p>
               ) : null}
               <Input label={t('auth.otpCode')} required value={code} onChange={(e) => setCode(e.target.value)} dir="ltr" />
+              <p className={`text-xs font-bold ${otpRemainingSeconds > 0 ? 'text-sky-700' : 'text-rose-700'}`}>{otpRemainingSeconds > 0 ? `${t('auth.otpValidity')} ${String(Math.floor(otpRemainingSeconds / 60)).padStart(2, '0')}:${String(otpRemainingSeconds % 60).padStart(2, '0')}` : t('auth.otpExpired')}</p>
               <Button type="submit" disabled={submitting}>
                 {submitting ? t('app.loading') : t('auth.verifyAndContinue')}
               </Button>
+              <Button type="button" variant="ghost" disabled={submitting || resendSeconds > 0} onClick={() => void onResendOtp()}>{resendSeconds > 0 ? t('auth.otpResendCountdown', { time: `${String(Math.floor(resendSeconds / 60)).padStart(2, '0')}:${String(resendSeconds % 60).padStart(2, '0')}` }) : t('auth.otpResend')}</Button>
             </form>
           )}
         </div>

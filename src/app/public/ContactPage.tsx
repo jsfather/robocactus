@@ -4,9 +4,11 @@ import { Button, FieldError, Input, PanelCard, Textarea } from '@/components/ui/
 import { fetchStaticPage } from '@/features/leagues/adminApi'
 import { submitContactMessage } from '@/features/home/api'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 
 export function ContactPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { settings } = useSiteSettings()
   const [introHtml, setIntroHtml] = useState<string | null>(null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -18,6 +20,9 @@ export function ContactPage() {
   const [error, setError] = useState<string | null>(null)
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaReset, setCaptchaReset] = useState(0)
+  const supportPhone = settings?.support_phone?.trim()
+  const telephoneHref = supportPhone ? `tel:${supportPhone.replace(/[^\d+]/g, '')}` : null
+  const contactAddress = i18n.language.startsWith('en') ? settings?.contact_address_en : settings?.contact_address_fa
 
   useEffect(() => {
     void fetchStaticPage('contact')
@@ -69,6 +74,14 @@ export function ContactPage() {
           className="max-w-3xl leading-relaxed text-rc-muted [&_a]:text-rc-blue"
           dangerouslySetInnerHTML={{ __html: introHtml }}
         />
+      ) : null}
+
+      {(supportPhone || settings?.contact_email || contactAddress) ? (
+        <section className="grid gap-3 rounded-[1.75rem] border border-sky-100 bg-gradient-to-br from-white to-sky-50/70 p-4 shadow-[0_16px_45px_rgb(8_126_184/0.08)] sm:grid-cols-3 sm:p-6" aria-label={t('footer.contact')}>
+          {supportPhone && telephoneHref ? <a href={telephoneHref} className="group flex items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 transition duration-300 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-700 transition group-hover:bg-sky-600 group-hover:text-white"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" /></svg></span><span className="min-w-0"><span className="block text-xs font-bold text-slate-400">{t('auth.phone')}</span><span className="mt-1 block truncate font-black text-slate-800" dir="ltr">{supportPhone}</span></span></a> : null}
+          {settings?.contact_email ? <a href={`mailto:${settings.contact_email}`} className="group flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 transition duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 transition group-hover:bg-emerald-600 group-hover:text-white"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg></span><span className="min-w-0"><span className="block text-xs font-bold text-slate-400">{t('auth.email')}</span><span className="mt-1 block truncate font-black text-slate-800" dir="ltr">{settings.contact_email}</span></span></a> : null}
+          {contactAddress ? <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-600"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg></span><span className="min-w-0"><span className="block text-xs font-bold text-slate-400">{t('auth.address')}</span><span className="mt-1 block text-sm font-bold leading-6 text-slate-700">{contactAddress}</span></span></div> : null}
+        </section>
       ) : null}
 
       <div className="grid gap-8 lg:grid-cols-2">

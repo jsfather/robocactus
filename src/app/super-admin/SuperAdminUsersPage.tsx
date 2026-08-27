@@ -3,21 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { Button, FieldError, Input, PanelCard, Select, Textarea } from '@/components/ui/FormControls'
 import {
   adminUpdateProfile,
-  assignLeagueAdmin,
-  fetchAllLeagues,
   fetchAllProfiles,
-  fetchLeagueAdmins,
-  removeLeagueAdmin,
   setUserRole,
-  type LeagueAdminRow,
 } from '@/features/leagues/adminApi'
 import { activateUserAccount, createAccountIssue } from '@/features/notifications/api'
 import { AccountIssuesAdminList } from '@/features/account-issues/AccountIssuesPanel'
 import { useToast } from '@/components/ui/Toast'
-import type { League, Profile, UserRole } from '@/types/database'
+import type { Profile, UserRole } from '@/types/database'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
+import { normalizeIranMobile, participantDisplayName } from '@/features/participants/identity'
 
 const ALL_ROLES: UserRole[] = ['company_admin', 'team_captain']
 
@@ -25,10 +21,6 @@ export function SuperAdminUsersPage() {
   const { t } = useTranslation()
   const toast = useToast()
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [leagues, setLeagues] = useState<League[]>([])
-  const [admins, setAdmins] = useState<LeagueAdminRow[]>([])
-  const [selectedLeague, setSelectedLeague] = useState('')
-  const [assignUserId, setAssignUserId] = useState('')
   const [editing, setEditing] = useState<Profile | null>(null)
   const [editForm, setEditForm] = useState({
     full_name: '',
@@ -49,6 +41,8 @@ export function SuperAdminUsersPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [genderFilter, setGenderFilter] = useState('all')
   const [completionFilter, setCompletionFilter] = useState('all')
+  const [provinceFilter, setProvinceFilter] = useState('all')
+  const [cityFilter, setCityFilter] = useState('all')
 
   const participants = useMemo(() => profiles.filter((profile) => ['company_admin', 'team_captain'].includes(profile.role)), [profiles])
   const filteredParticipants = useMemo(() => participants.filter((profile) => {
@@ -57,21 +51,16 @@ export function SuperAdminUsersPage() {
       && (typeFilter === 'all' || profile.account_type === typeFilter)
       && (genderFilter === 'all' || profile.gender === genderFilter)
       && (completionFilter === 'all' || (completionFilter === 'complete' ? Boolean(profile.identity_completed_at) : !profile.identity_completed_at))
-  }), [participants, search, typeFilter, genderFilter, completionFilter])
+      && (provinceFilter === 'all' || profile.province === provinceFilter)
+      && (cityFilter === 'all' || profile.city === cityFilter)
+  }), [participants, search, typeFilter, genderFilter, completionFilter, provinceFilter, cityFilter])
 
   const reload = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [p, l, a] = await Promise.all([
-        fetchAllProfiles(),
-        fetchAllLeagues(),
-        fetchLeagueAdmins(),
-      ])
+      const p = await fetchAllProfiles()
       setProfiles(p)
-      setLeagues(l)
-      setAdmins(a)
-      if (!selectedLeague && l[0]) setSelectedLeague(l[0].id)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -83,16 +72,6 @@ export function SuperAdminUsersPage() {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const leagueAdmins = useMemo(
-    () => admins.filter((a) => a.league_id === selectedLeague),
-    [admins, selectedLeague],
-  )
-
-  const profileName = (id: string) => {
-    const p = profiles.find((x) => x.id === id)
-    return p ? `${p.full_name} (${p.phone})` : id.slice(0, 8)
-  }
 
   const openEdit = (profile: Profile) => {
     setEditing(profile)
@@ -150,37 +129,9 @@ export function SuperAdminUsersPage() {
     }
   }
 
-  const onAssign = async () => {
-    if (!selectedLeague || !assignUserId) return
-    setBusy(true)
-    setError(null)
-    try {
-      await assignLeagueAdmin(selectedLeague, assignUserId)
-      setAssignUserId('')
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const onRemove = async (userId: string) => {
-    if (!selectedLeague) return
-    setBusy(true)
-    try {
-      await removeLeagueAdmin(selectedLeague, userId)
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const onCreateUser = async (event: FormEvent) => {
     event.preventDefault()
-    if (!createForm.full_name.trim() || !/^09\d{9}$/.test(createForm.phone.trim())) {
+    if (!createForm.full_name.trim() || !normalizeIranMobile(createForm.phone.trim())) {
       const message = 'نام و شماره موبایل معتبر الزامی است.'; setError(message); toast.error(message); return
     }
     setBusy(true); setError(null)
@@ -286,7 +237,7 @@ export function SuperAdminUsersPage() {
       ) : null}
 
       <PanelCard title={t('admin.users.listTitle')}>
-        <div className="mb-5 grid gap-3 md:grid-cols-5"><Input label="جست‌وجوی نام، موبایل یا شهر" value={search} onChange={(e) => setSearch(e.target.value)} /><Select label="نوع" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">همه</option><option value="individual">حقیقی</option><option value="legal">حقوقی</option></Select><Select label="جنسیت" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}><option value="all">همه</option><option value="male">مرد</option><option value="female">زن</option><option value="other">سایر</option></Select><Select label="تکمیل پرونده" value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value)}><option value="all">همه</option><option value="complete">تکمیل</option><option value="incomplete">ناقص</option></Select><div className="flex items-end"><Button className="w-full" type="button" variant="ghost" onClick={() => { setSearch(''); setTypeFilter('all'); setGenderFilter('all'); setCompletionFilter('all') }}>پاک‌کردن فیلتر</Button></div></div>
+        <div className="mb-5 grid gap-3 md:grid-cols-4 xl:grid-cols-7"><Input label="جست‌وجوی نام یا موبایل" value={search} onChange={(e) => setSearch(e.target.value)} /><Select label="نوع" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="all">همه</option><option value="individual">حقیقی</option><option value="legal">حقوقی</option></Select><Select label="جنسیت" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}><option value="all">همه</option><option value="male">مرد</option><option value="female">زن</option><option value="other">سایر</option></Select><Select label="تکمیل پرونده" value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value)}><option value="all">همه</option><option value="complete">تکمیل</option><option value="incomplete">ناقص</option></Select><Select label="استان" value={provinceFilter} onChange={(e) => setProvinceFilter(e.target.value)}><option value="all">همه</option>{[...new Set(participants.map((p) => p.province).filter(Boolean))].map((value) => <option key={value} value={value!}>{value}</option>)}</Select><Select label="شهر" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}><option value="all">همه</option>{[...new Set(participants.filter((p) => provinceFilter === 'all' || p.province === provinceFilter).map((p) => p.city).filter(Boolean))].map((value) => <option key={value} value={value!}>{value}</option>)}</Select><div className="flex items-end"><Button className="w-full" type="button" variant="ghost" onClick={() => { setSearch(''); setTypeFilter('all'); setGenderFilter('all'); setCompletionFilter('all'); setProvinceFilter('all'); setCityFilter('all') }}>پاک‌کردن</Button></div></div>
         {loading ? (
           <p className="text-sm text-rc-muted">{t('app.loading')}</p>
         ) : (
@@ -304,7 +255,7 @@ export function SuperAdminUsersPage() {
               <tbody>
                 {filteredParticipants.map((profile) => (
                   <tr key={profile.id} className="border-b border-white/5">
-                    <td className="px-2 py-2">{profile.full_name}</td>
+                    <td className="px-2 py-2">{participantDisplayName(profile)}</td>
                     <td className="px-2 py-2 font-mono text-xs" dir="ltr">
                       {profile.phone}
                     </td>
@@ -378,58 +329,6 @@ export function SuperAdminUsersPage() {
             </table>
           </div>
         )}
-      </PanelCard>
-
-      <PanelCard title={t('admin.users.assignTitle')} description={t('admin.users.assignHint')}>
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-          <Select
-            label={t('team.league')}
-            value={selectedLeague}
-            onChange={(e) => setSelectedLeague(e.target.value)}
-          >
-            <option value="">{t('team.selectLeague')}</option>
-            {leagues.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label={t('admin.users.pickUser')}
-            value={assignUserId}
-            onChange={(e) => setAssignUserId(e.target.value)}
-          >
-            <option value="">{t('admin.users.pickUserPlaceholder')}</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name} — {p.phone}
-              </option>
-            ))}
-          </Select>
-          <Button type="button" onClick={() => void onAssign()} disabled={busy || !assignUserId}>
-            {t('admin.users.assignCta')}
-          </Button>
-        </div>
-
-        <ul className="mt-4 divide-y divide-white/5">
-          {leagueAdmins.length === 0 ? (
-            <li className="py-2 text-sm text-rc-muted">{t('admin.users.noAdmins')}</li>
-          ) : (
-            leagueAdmins.map((row) => (
-              <li key={`${row.league_id}-${row.user_id}`} className="flex items-center justify-between py-2">
-                <span className="text-sm">{profileName(row.user_id)}</span>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={() => void onRemove(row.user_id)}
-                  disabled={busy}
-                >
-                  {t('common.delete')}
-                </Button>
-              </li>
-            ))
-          )}
-        </ul>
       </PanelCard>
 
       <AccountIssuesAdminList />

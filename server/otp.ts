@@ -7,8 +7,8 @@ import { db, userFromRequest } from './db.js'
 import { createOneTimeToken, getAuthSettings } from './auth.js'
 import { sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 import { verifyCaptcha } from './captcha.js'
+import { classifyOtpChallenge } from './otp-state.js'
 
-const OTP_TTL_MS = 5 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_ATTEMPTS = 5
 const requestWindows = new Map<string, { count: number; resetAt: number }>()
@@ -143,46 +143,82 @@ export function registerOtpRoutes(router: Router): void {
           response.status(429).json({ error: 'too_many_attempts' })
           return
         }
-        const recent = await db.execute(sql`
-          select created_at from public.auth_otp_challenges
-          where phone = ${phone} order by created_at desc limit 1
-        `)
-        if (recent.rows[0]?.created_at) {
-          const age = Date.now() - new Date(String(recent.rows[0].created_at)).getTime()
-          if (age < RESEND_COOLDOWN_MS) {
-            response.status(429).json({
-              error: 'cooldown',
-              retry_after_sec: Math.ceil((RESEND_COOLDOWN_MS - age) / 1000),
-            })
-            return
-          }
-        }
         const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
-        await db.execute(sql`
-          insert into public.auth_otp_challenges(phone, code_hash, expires_at)
-          values (${phone}, ${otpHash(phone, code)}, ${new Date(Date.now() + OTP_TTL_MS)})
-        `)
-        const sent = await sendOtp(phone, code)
-        response.json({ ok: true, expires_in_sec: OTP_TTL_MS / 1000, ...(sent.mock ? { dev_code: code } : {}) })
+        const issued = await db.transaction(async (transaction) => {
+          // Serialize requests for the same phone/purpose so concurrent clicks
+          // cannot create two active challenges or bypass the cooldown.
+          await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${`${phone}:${purpose}`}))`)
+          const recent = await transaction.execute(sql`
+            select greatest(0,ceil(extract(epoch from (created_at + interval '60 seconds' - now()))))::integer retry_after_sec
+            from public.auth_otp_challenges where phone=${phone} and purpose=${purpose}
+            order by created_at desc limit 1
+          `)
+          const retryAfter = Number(recent.rows[0]?.retry_after_sec ?? 0)
+          if (retryAfter > 0) return { error: 'cooldown' as const, retryAfter }
+
+          await transaction.execute(sql`
+            update public.auth_otp_challenges set invalidated_at=now()
+            where phone=${phone} and purpose=${purpose} and consumed_at is null and invalidated_at is null
+          `)
+          const inserted = await transaction.execute(sql`
+            insert into public.auth_otp_challenges(phone,code_hash,expires_at,purpose)
+            values(${phone},${otpHash(phone, code)},now() + interval '5 minutes',${purpose})
+            returning id
+          `)
+          const sent = await sendOtp(phone, code)
+          // Calculate the remaining lifetime with the database clock after the
+          // provider call. The browser never compares its clock with PostgreSQL.
+          const timing = await transaction.execute(sql`
+            select id,expires_at,now() server_time,
+              greatest(0,ceil(extract(epoch from (expires_at - now()))))::integer expires_in_sec
+            from public.auth_otp_challenges where id=${inserted.rows[0]?.id}::uuid
+          `)
+          return { row: timing.rows[0], mock: sent.mock }
+        })
+        if ('error' in issued) {
+          response.status(429).json({ error: issued.error, retry_after_sec: issued.retryAfter })
+          return
+        }
+        response.json({
+          ok: true,
+          challenge_id: issued.row?.id,
+          expires_at: issued.row?.expires_at,
+          server_time: issued.row?.server_time,
+          expires_in_sec: Number(issued.row?.expires_in_sec ?? 0),
+          resend_after_sec: RESEND_COOLDOWN_MS / 1000,
+          ...(issued.mock ? { dev_code: code } : {}),
+        })
         return
       }
 
       if (action === 'verify') {
         const code = String(request.body?.code ?? '').replace(/\D/g, '')
-        const challengeResult = await db.execute(sql`
-          select * from public.auth_otp_challenges
-          where phone = ${phone} and consumed_at is null
-          order by created_at desc limit 1
-        `)
-        const challenge = challengeResult.rows[0]
-        if (!challenge) throw new Error('no_challenge')
-        if (new Date(String(challenge.expires_at)).getTime() < Date.now()) throw new Error('expired')
-        if (Number(challenge.attempts) >= MAX_ATTEMPTS) throw new Error('too_many_attempts')
-        if (code.length !== 6 || otpHash(phone, code) !== challenge.code_hash) {
-          await db.execute(sql`update public.auth_otp_challenges set attempts = attempts + 1 where id = ${challenge.id}`)
-          throw new Error('invalid_code')
+        const challengeId = String(request.body?.challenge_id ?? '')
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(challengeId)) {
+          response.status(400).json({ error: 'invalid_session' })
+          return
         }
-        await db.execute(sql`update public.auth_otp_challenges set consumed_at = now() where id = ${challenge.id}`)
+        const verification = await db.transaction(async (transaction) => {
+          const challengeResult = await transaction.execute(sql`
+            select *,expires_at <= now() is_expired from public.auth_otp_challenges
+            where id=${challengeId}::uuid and phone=${phone} and purpose=${purpose}
+            for update
+          `)
+          const challenge = challengeResult.rows[0]
+          const codeMatches = challenge != null && code.length === 6 && otpHash(phone, code) === challenge.code_hash
+          const stateError = classifyOtpChallenge(challenge ? { consumed: Boolean(challenge.consumed_at), invalidated: Boolean(challenge.invalidated_at), expired: Boolean(challenge.is_expired), attempts: Number(challenge.attempts) } : null, codeMatches, MAX_ATTEMPTS)
+          if (stateError === 'invalid_code') {
+            const updated = await transaction.execute(sql`update public.auth_otp_challenges set attempts=attempts+1 where id=${challengeId}::uuid returning attempts`)
+            return { error: Number(updated.rows[0]?.attempts) >= MAX_ATTEMPTS ? 'too_many_attempts' as const : 'invalid_code' as const }
+          }
+          if (stateError) return { error: stateError }
+          await transaction.execute(sql`update public.auth_otp_challenges set consumed_at=now() where id=${challengeId}::uuid`)
+          return { ok: true as const }
+        })
+        if ('error' in verification) {
+          response.status(verification.error === 'too_many_attempts' ? 429 : verification.error === 'already_used' ? 409 : 400).json({ error: verification.error })
+          return
+        }
 
         if (purpose === 'profile') {
           const currentUser = await userFromRequest(request)
@@ -198,9 +234,9 @@ export function registerOtpRoutes(router: Router): void {
         }
 
         let user = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
+        const isNewUser = !user
         const fullName = String(request.body?.full_name ?? '').trim()
         if (!user) {
-          if (purpose === 'login') throw new Error('account_not_found')
           const settings = await getAuthSettings()
           if (!settings.phone_signup_enabled) throw new Error('phone_signup_disabled')
           const inserted = await db.insert(users).values({
@@ -218,14 +254,26 @@ export function registerOtpRoutes(router: Router): void {
           await db.execute(sql`update public.profiles set full_name = ${fullName} where id = ${user.id} and full_name = 'کاربر جدید'`)
         }
         const token = await createOneTimeToken(user.id, 'sms_otp')
-        response.json({ ok: true, token_hash: token, email: user.email })
+        response.json({
+          ok: true,
+          token_hash: token,
+          email: user.email,
+          registration_required: isNewUser,
+          next_path: isNewUser ? '/signup?onboarding=phone' : '/dashboard',
+        })
         return
       }
 
       response.status(400).json({ error: 'invalid_action' })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      response.status(message === 'too_many_attempts' ? 429 : 400).json({ error: message })
+      const known = new Set(['authentication_required', 'phone_in_use', 'account_not_found', 'phone_signup_disabled', 'session_failed'])
+      if (known.has(message)) {
+        response.status(message === 'phone_in_use' ? 409 : message === 'authentication_required' ? 401 : 400).json({ error: message })
+        return
+      }
+      console.error('[otp] unexpected failure', error)
+      response.status(500).json({ error: 'server_error' })
     }
   })
 }

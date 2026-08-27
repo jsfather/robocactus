@@ -85,6 +85,7 @@ export type AuthSettings = {
   email_magic_login_enabled: boolean
   email_signup_enabled: boolean
   phone_signup_enabled: boolean
+  show_registration_link: boolean
   online_payment_enabled: boolean
   card_to_card_enabled: boolean
   bank_card_number: string | null
@@ -122,6 +123,7 @@ const defaultAuthSettings: AuthSettings = {
   email_magic_login_enabled: true,
   email_signup_enabled: true,
   phone_signup_enabled: true,
+  show_registration_link: true,
   online_payment_enabled: true,
   card_to_card_enabled: false,
   bank_card_number: null,
@@ -155,10 +157,19 @@ export async function getAuthSettings(includeSecrets = false): Promise<AuthSetti
   return settings
 }
 
+function normalizeIranPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (/^00989\d{9}$/.test(digits)) return `0${digits.slice(4)}`
+  if (/^989\d{9}$/.test(digits)) return `0${digits.slice(2)}`
+  if (/^9\d{9}$/.test(digits)) return `0${digits}`
+  if (value.trim().startsWith('+') && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`
+  if (/^00[1-9]\d{7,14}$/.test(digits)) return `+${digits.slice(2)}`
+  return digits
+}
+
 async function findUserByIdentifier(identifier: string) {
   const normalized = identifier.trim().toLowerCase()
-  const phone = normalized.replace(/\D/g, '')
-  const normalizedPhone = phone.length === 12 && phone.startsWith('98') ? `0${phone.slice(2)}` : phone
+  const normalizedPhone = normalizeIranPhoneInput(normalized)
   return (await db.select().from(users).where(or(
     eq(users.email, normalized),
     eq(users.username, normalized),
@@ -447,14 +458,13 @@ export function registerAuthRoutes(router: Router): void {
     if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
 
     const fullName = String(request.body?.full_name ?? '').trim()
-    const phoneDigits = String(request.body?.phone ?? '').replace(/\D/g, '')
-    const phone = phoneDigits.length === 12 && phoneDigits.startsWith('98') ? `0${phoneDigits.slice(2)}` : phoneDigits
+    const phone = normalizeIranPhoneInput(String(request.body?.phone ?? ''))
     const email = String(request.body?.email ?? '').trim().toLowerCase() || null
     const username = String(request.body?.username ?? '').trim().toLowerCase() || null
     const password = String(request.body?.password ?? '')
     const accountType = request.body?.account_type === 'legal' ? 'legal' : 'individual'
     const accountStatus = request.body?.account_status === 'active' ? 'active' : 'pending'
-    if (fullName.length < 2 || !/^09\d{9}$/.test(phone)) return void response.status(400).json({ error: 'invalid_user_data' })
+    if (fullName.length < 2 || (!/^09\d{9}$/.test(phone) && !/^\+[1-9]\d{7,14}$/.test(phone))) return void response.status(400).json({ error: 'invalid_user_data' })
     if (email && !/^\S+@\S+\.\S+$/.test(email)) return void response.status(400).json({ error: 'invalid_email' })
     if (username && username.length < 3) return void response.status(400).json({ error: 'invalid_username' })
     if (password && password.length < 8) return void response.status(400).json({ error: 'password_too_short' })

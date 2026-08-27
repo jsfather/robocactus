@@ -10,6 +10,7 @@ import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period
 import { formatAmountToman } from '@/features/payments/api'
 import { formatAppDateTime, leagueCoverUrl } from '@/lib/dates'
 import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
+import type { LeaguePerson, LeagueSponsor } from '@/types/database'
 
 function CountdownHud({ target }: { target: string }) {
   const { t } = useTranslation()
@@ -108,6 +109,56 @@ function SectionFrame({
 
 function Corners({ className = '' }: { className?: string }) {
   return <span className={className} aria-hidden />
+}
+
+function TimelineIcon({ index }: { index: number }) {
+  const icons = [
+    <><path d="M7 3h10v4H7zM5 7h14v14H5z" /><path d="M9 12h6M9 16h4" /></>,
+    <><path d="m5 12 4 4L19 6" /><circle cx="12" cy="12" r="9" /></>,
+    <><path d="M6 18c2-5 4-7 6-7s4 2 6 7" /><circle cx="12" cy="7" r="3" /></>,
+    <><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" /><path d="M12 12v4M8 20h8M9 16h6" /></>,
+    <><path d="m12 3 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 3Z" /></>,
+  ]
+  return <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[index % icons.length]}</svg>
+}
+
+function LeagueSponsorLogo({ sponsor }: { sponsor: LeagueSponsor }) {
+  const [failed, setFailed] = useState(!sponsor.logo_url)
+  return failed ? <span className="grid size-14 place-items-center rounded-2xl bg-sky-50 text-xl font-black text-rc-blue">{sponsor.name.trim().slice(0, 1)}</span> : <img src={sponsor.logo_url || ''} alt={sponsor.name} loading="lazy" className="aspect-[3/2] h-full max-h-16 w-full max-w-32 object-contain" onError={() => setFailed(true)} />
+}
+
+function PersonCards({ people, kind, locale }: { people: LeaguePerson[]; kind: 'judge' | 'committee'; locale: 'fa' | 'en' }) {
+  const { t } = useTranslation()
+  const accent = kind === 'judge' ? 'sky' : 'emerald'
+  return <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    {people.map((person) => {
+      const organization = locale === 'en' ? person.company_info_en : person.company_info_fa
+      return <motion.li key={person.id} whileHover={{ y: -5 }} className={`group relative overflow-hidden rounded-[1.75rem] border bg-white shadow-[0_16px_45px_rgb(18_76_98/0.07)] transition ${accent === 'sky' ? 'border-sky-100 hover:border-sky-300' : 'border-emerald-100 hover:border-emerald-300'}`}>
+        <div className={`h-1.5 bg-gradient-to-r ${accent === 'sky' ? 'from-sky-500 to-cyan-400' : 'from-emerald-500 to-teal-400'}`} />
+        <div className="p-5">
+          <div className="flex items-start gap-4">
+            <Link to={`/people/${person.slug}`} className="shrink-0">
+              {person.photo_url ? <img src={person.photo_url} alt={person.full_name} className="aspect-square size-20 rounded-2xl border border-white object-cover shadow-md" loading="lazy" /> : <span className={`grid size-20 place-items-center rounded-2xl text-2xl font-black ${accent === 'sky' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{person.full_name.trim().slice(0, 1)}</span>}
+            </Link>
+            <div className="min-w-0 flex-1">
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${accent === 'sky' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{t(`leaguePage.${kind === 'judge' ? 'judgeRole' : 'committeeRole'}`)}</span>
+              <Link to={`/people/${person.slug}`} className="mt-2 block truncate text-lg font-black text-slate-800 transition hover:text-rc-blue">{person.full_name}</Link>
+              {person.specialty ? <p className="mt-1 truncate text-xs font-bold text-slate-500">{person.specialty}</p> : null}
+            </div>
+          </div>
+          {organization ? <p className="mt-4 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-600"><svg viewBox="0 0 24 24" className="mt-0.5 size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01" /></svg><span className="line-clamp-2">{organization}</span></p> : null}
+          {person.bio ? <p className="mt-4 line-clamp-3 text-sm leading-7 text-rc-muted">{person.bio}</p> : null}
+          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+            <Link to={`/people/${person.slug}`} className="text-xs font-black text-rc-blue">{t('leaguePage.viewProfile')} ←</Link>
+            <div className="relative z-20 flex gap-2">
+              {person.website_url ? <a href={person.website_url} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-sky-100 hover:text-sky-700" aria-label={t('leaguePage.website')}><span aria-hidden>↗</span></a> : null}
+              {person.linkedin_url ? <a href={person.linkedin_url} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-sky-50 text-xs font-black text-sky-700 transition hover:bg-sky-600 hover:text-white" aria-label="LinkedIn">in</a> : null}
+            </div>
+          </div>
+        </div>
+      </motion.li>
+    })}
+  </ul>
 }
 
 export function LeagueDetailPage() {
@@ -420,23 +471,24 @@ export function LeagueDetailPage() {
 
         {timeline.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.timeline')}>
-            <ol className="relative grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <ol className="relative grid gap-4 before:absolute before:inset-y-7 before:start-6 before:w-0.5 before:bg-gradient-to-b before:from-sky-300 before:via-emerald-300 before:to-sky-100 md:flex md:overflow-x-auto md:pb-3 md:before:inset-x-8 md:before:top-6 md:before:h-0.5 md:before:w-auto md:[scrollbar-width:thin]">
               {timeline.map((step, i) => (
-                <motion.li key={i} whileHover={{ y: -6 }} className="group relative overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white p-6 shadow-[0_16px_45px_rgb(18_76_98/0.07)]">
-                  <span className="absolute -end-6 -top-8 text-8xl font-black text-sky-50">{String(i + 1).padStart(2, '0')}</span>
-                  <div className="relative mb-5 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-rc-blue to-rc-accent text-lg font-black text-white shadow-lg">{i + 1}</div>
-                  <p className="relative text-xl font-black text-slate-800">{step.title}</p>
+                <motion.li key={i} initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * .06 }} className="group relative grid grid-cols-[3rem_1fr] items-start gap-3 md:block md:min-w-64 md:flex-1">
+                  <div className="relative z-10 grid size-12 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-sky-500 to-emerald-500 text-white shadow-lg"><TimelineIcon index={i} /></div>
+                  <div className="relative min-h-28 rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_12px_32px_rgb(18_76_98/0.06)] transition duration-300 group-hover:border-emerald-200 group-hover:shadow-[0_16px_38px_rgb(18_76_98/0.1)] md:mt-4">
+                  <span className="absolute end-4 top-3 font-mono text-[10px] font-black text-sky-300">{String(i + 1).padStart(2, '0')}</span>
+                  <p className="pe-8 text-base font-black text-slate-800">{step.title}</p>
                   {step.date ? (
-                    <p className="relative mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                    <p className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                       {Number.isNaN(new Date(step.date).getTime())
                         ? step.date
                         : formatAppDateTime(step.date, i18n.language)}
                     </p>
                   ) : null}
                   {step.description ? (
-                    <p className="relative mt-4 text-sm leading-7 text-rc-muted">{step.description}</p>
+                    <p className="mt-3 text-xs leading-6 text-rc-muted">{step.description}</p>
                   ) : null}
-                  <div className="absolute inset-x-8 bottom-0 h-1 rounded-t-full bg-gradient-to-l from-rc-accent to-rc-blue opacity-0 transition group-hover:opacity-100" />
+                  </div>
                 </motion.li>
               ))}
             </ol>
@@ -629,88 +681,25 @@ export function LeagueDetailPage() {
 
         {judges.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.judges')}>
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {judges.map((p) => (
-                <li
-                  key={p.id}
-                  className="relative border border-rc-line bg-rc-surface/90 p-5 transition hover:border-rc-blue/40"
-                >
-                  <Link to={`/people/${p.slug}`} className="absolute inset-0 z-10" aria-label={p.full_name} /><Corners />
-                  <div className="flex items-start gap-4">
-                    {p.photo_url ? (
-                      <img
-                        src={p.photo_url}
-                        alt=""
-                        className="size-16 border border-rc-blue/30 object-cover"
-                      />
-                    ) : (
-                      <div className="flex size-16 items-center justify-center border border-rc-line bg-rc-navy font-mono text-rc-blue">
-                        ID
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-semibold">{p.full_name}</p>
-                      {p.specialty ? (
-                        <p className="mt-1 font-mono text-[11px] tracking-wide text-rc-blue">
-                          {p.specialty}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                  {p.bio ? <p className="mt-4 text-sm leading-relaxed text-rc-muted">{p.bio}</p> : null}
-                </li>
-              ))}
-            </ul>
+            <PersonCards people={judges} kind="judge" locale={locale} />
           </SectionFrame>
         )}
 
         {committee.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.committee')}>
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {committee.map((p) => (
-                <li
-                  key={p.id}
-                  className="relative border border-rc-line bg-rc-surface/90 p-5 transition hover:border-rc-accent/40"
-                >
-                  <Link to={`/people/${p.slug}`} className="absolute inset-0 z-10" aria-label={p.full_name} /><Corners className="!border-rc-accent/60" />
-                  <div className="flex items-start gap-4">
-                    {p.photo_url ? (
-                      <img
-                        src={p.photo_url}
-                        alt=""
-                        className="size-16 border border-rc-accent/30 object-cover"
-                      />
-                    ) : null}
-                    <div>
-                      <p className="font-semibold">{p.full_name}</p>
-                      {p.specialty ? (
-                        <p className="mt-1 font-mono text-[11px] text-rc-accent">{p.specialty}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                  {p.bio ? <p className="mt-4 text-sm text-rc-muted">{p.bio}</p> : null}
-                </li>
-              ))}
-            </ul>
+            <PersonCards people={committee} kind="committee" locale={locale} />
           </SectionFrame>
         )}
 
         {sponsors.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.sponsors')}>
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {sponsors.map((s) => {
-                const inner = s.logo_url ? (
-                  <img src={s.logo_url} alt={s.name} className="mx-auto h-10 object-contain opacity-90" />
-                ) : (
-                  <span className="font-mono text-sm">{s.name}</span>
-                )
+                const inner = <div className="flex h-36 flex-col rounded-2xl border border-sky-100 bg-white p-3 text-center shadow-[0_10px_28px_rgb(16_84_105/0.06)] transition hover:-translate-y-1 hover:border-sky-300"><div className="grid aspect-[3/2] min-h-0 flex-1 place-items-center overflow-hidden rounded-xl bg-slate-50 p-2"><LeagueSponsorLogo sponsor={s} /></div><p className="mt-2 truncate text-xs font-black text-slate-700">{s.name}</p></div>
                 return (
-                  <li
-                    key={s.id}
-                    className="flex min-h-24 items-center justify-center border border-rc-line bg-rc-surface/80 px-4 py-6"
-                  >
+                  <li key={s.id}>
                     {s.website_url ? (
-                      <a href={s.website_url} target="_blank" rel="noreferrer" className="block w-full text-center">
+                      <a href={s.website_url} target="_blank" rel="noreferrer" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
                         {inner}
                       </a>
                     ) : (
@@ -741,26 +730,24 @@ export function LeagueDetailPage() {
         )}
 
         <SectionFrame index={nextIndex()} title={t('leaguePage.fees')} tone="accent">
-          <div className="relative overflow-hidden border border-rc-accent/30 bg-gradient-to-br from-rc-accent/10 via-rc-surface to-transparent p-6 md:p-8">
-            <Corners className="!border-rc-accent/70" />
-            <p className="font-mono text-[11px] tracking-[0.3em] text-rc-accent uppercase">Entry fee</p>
-            <p className="mt-2 font-mono text-3xl text-rc-accent md:text-4xl">
+          <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-[#064e5f] via-[#087e8f] to-[#0b9b65] p-6 text-white shadow-[0_24px_65px_rgb(8_126_143/0.22)] md:p-8">
+            <span className="absolute -end-16 -top-20 size-64 rounded-full border-[42px] border-white/10" aria-hidden />
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 text-white backdrop-blur"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M16 12h5M7 10h4M7 14h6" /></svg></span><div>
+            <p className="text-xs font-black tracking-wide text-emerald-100">{t('leaguePage.entryFeeLabel')}</p>
+            <p className="mt-1 font-mono text-3xl font-black text-white md:text-4xl">
               {formatAmountToman(Number(league.registration_fee))}{' '}
-              <span className="text-base text-rc-muted">{t('payment.currency')}</span>
+              <span className="text-sm text-white/70">{t('payment.currency')}</span>
             </p>
+            </div></div>
+            <Link to={regPath} className="shrink-0"><Button type="button" className="border border-white/40 bg-white !px-6 text-rc-blue shadow-xl hover:bg-sky-50">{ctaLabel}</Button></Link>
+            </div>
             {league.discount_info ? (
-              <p className="mt-4 max-w-2xl text-sm text-rc-muted">{league.discount_info}</p>
+              <p className="relative mt-5 max-w-2xl border-t border-white/15 pt-4 text-sm leading-7 text-white/80">{league.discount_info}</p>
             ) : null}
             {league.refund_policy ? (
-              <p className="mt-2 max-w-2xl text-sm text-rc-muted">{league.refund_policy}</p>
+              <p className="relative mt-2 max-w-2xl text-xs leading-6 text-white/65">{league.refund_policy}</p>
             ) : null}
-            <div className="mt-6">
-              <Link to={regPath}>
-                <Button type="button" className="!rounded-none px-6">
-                  {ctaLabel}
-                </Button>
-              </Link>
-            </div>
           </div>
         </SectionFrame>
 

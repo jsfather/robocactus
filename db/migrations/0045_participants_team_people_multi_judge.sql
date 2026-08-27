@@ -7,6 +7,8 @@ returns text language sql immutable returns null on null input as $$
     when regexp_replace(p_value, '[^0-9]', '', 'g') ~ '^989[0-9]{9}$' then '0' || substr(regexp_replace(p_value, '[^0-9]', '', 'g'), 3)
     when regexp_replace(p_value, '[^0-9]', '', 'g') ~ '^9[0-9]{9}$' then '0' || regexp_replace(p_value, '[^0-9]', '', 'g')
     when regexp_replace(p_value, '[^0-9]', '', 'g') ~ '^09[0-9]{9}$' then regexp_replace(p_value, '[^0-9]', '', 'g')
+    when trim(p_value) like '+%' and regexp_replace(p_value, '[^0-9]', '', 'g') ~ '^[1-9][0-9]{7,14}$' then '+' || regexp_replace(p_value, '[^0-9]', '', 'g')
+    when regexp_replace(p_value, '[^0-9]', '', 'g') ~ '^00[1-9][0-9]{7,14}$' then '+' || substr(regexp_replace(p_value, '[^0-9]', '', 'g'), 3)
     else null
   end
 $$;
@@ -16,7 +18,7 @@ returns trigger language plpgsql security definer set search_path = public, auth
 declare v_phone text;
 begin
   v_phone := public.normalize_iran_mobile(new.phone);
-  if v_phone is null then raise exception 'invalid_iran_mobile'; end if;
+  if v_phone is null then raise exception 'invalid_mobile'; end if;
   if exists(select 1 from public.profiles p where p.id <> new.id and public.normalize_iran_mobile(p.phone) = v_phone)
     or exists(select 1 from auth.users u where u.id <> new.id and public.normalize_iran_mobile(u.phone) = v_phone)
   then raise exception 'duplicate_normalized_phone'; end if;
@@ -33,7 +35,7 @@ declare v_phone text;
 begin
   if nullif(trim(new.phone), '') is null then return new; end if;
   v_phone := public.normalize_iran_mobile(new.phone);
-  if v_phone is null then raise exception 'invalid_iran_mobile'; end if;
+  if v_phone is null then raise exception 'invalid_mobile'; end if;
   if exists(select 1 from auth.users u where u.id <> new.id and public.normalize_iran_mobile(u.phone) = v_phone)
     or exists(select 1 from public.profiles p where p.id <> new.id and public.normalize_iran_mobile(p.phone) = v_phone)
   then raise exception 'duplicate_normalized_phone'; end if;
@@ -238,6 +240,7 @@ declare v_team teams%rowtype; v_row judge_scores%rowtype; v_total numeric;
 begin
   select * into v_team from teams where id=p_team_id; if not found then raise exception 'team_not_found'; end if;
   if not exists(select 1 from league_admins where league_id=v_team.league_id and user_id=auth.uid() and assignment_role in ('judge','head_judge')) and not public.is_super_admin() then raise exception 'forbidden'; end if;
+  if exists(select 1 from judge_scores where team_id=p_team_id and judge_id=auth.uid() and season_year=p_season_year and status='submitted') then raise exception 'judge_score_already_submitted'; end if;
   select coalesce(sum(value::numeric),0) into v_total from jsonb_each_text(coalesce(p_scores,'{}'::jsonb)) where value ~ '^-?[0-9]+(\.[0-9]+)?$';
   insert into judge_scores(league_id,team_id,judge_id,season_year,score_payload,total_score,notes,status,submitted_at)
   values(v_team.league_id,p_team_id,auth.uid(),p_season_year,coalesce(p_scores,'{}'::jsonb),v_total,nullif(trim(p_notes),''),case when p_submit then 'submitted' else 'draft' end,case when p_submit then now() else null end)
@@ -276,7 +279,7 @@ select t.id team_id,t.league_id,t.season_year,
   coalesce(l.required_judge_count,count(distinct la.user_id) filter(where la.assignment_role in ('judge','head_judge'))) required_count,
   count(distinct js.judge_id) filter(where js.status='submitted') submitted_count,
   array_agg(distinct p.full_name) filter(where la.assignment_role in ('judge','head_judge') and not exists(select 1 from judge_scores missing where missing.team_id=t.id and missing.judge_id=la.user_id and missing.season_year=t.season_year and missing.status='submitted')) missing_judges
-from teams t join leagues l on l.id=t.league_id left join league_admins la on la.league_id=t.league_id left join profiles p on p.id=la.user_id left join judge_scores js on js.team_id=t.id and js.season_year=t.season_year and js.status='submitted'
+from teams t join leagues l on l.id=t.league_id left join league_admins la on la.league_id=t.league_id left join profiles p on p.id=la.user_id left join judge_scores js on js.team_id=t.id and js.season_year=t.season_year and js.status='submitted' and js.judge_id=la.user_id
 group by t.id,t.league_id,t.season_year,l.required_judge_count;
 grant select on public.judge_submission_progress to authenticated;
 
@@ -294,5 +297,5 @@ drop policy if exists profile_avatars_manage on storage.objects;
 drop policy if exists team_member_photos_manage on storage.objects;
 create policy profile_avatars_manage on storage.objects for all to authenticated using(bucket_id='profile-avatars' and ((storage.foldername(name))[1]=auth.uid()::text or public.is_super_admin())) with check(bucket_id='profile-avatars' and ((storage.foldername(name))[1]=auth.uid()::text or public.is_super_admin()));
 create policy team_member_photos_manage on storage.objects for all to authenticated
-using(bucket_id='team-member-photos' and (public.is_super_admin() or exists(select 1 from teams t join company_members cm on cm.company_id=t.company_id where t.id::text=(storage.foldername(name))[1] and cm.user_id=auth.uid())))
-with check(bucket_id='team-member-photos' and (public.is_super_admin() or exists(select 1 from teams t join company_members cm on cm.company_id=t.company_id where t.id::text=(storage.foldername(name))[1] and cm.user_id=auth.uid())));
+using(bucket_id='team-member-photos' and (public.is_super_admin() or exists(select 1 from teams t where t.id::text=(storage.foldername(name))[1] and (t.captain_id=auth.uid() or exists(select 1 from company_members cm where cm.company_id=t.company_id and cm.user_id=auth.uid())))))
+with check(bucket_id='team-member-photos' and (public.is_super_admin() or exists(select 1 from teams t where t.id::text=(storage.foldername(name))[1] and (t.captain_id=auth.uid() or exists(select 1 from company_members cm where cm.company_id=t.company_id and cm.user_id=auth.uid())))));

@@ -37,12 +37,21 @@ function profileLooksIncomplete(profile: {
   legal_representative_national_id?: string | null
   identity_completed_at?: string | null
   phone_verified_at?: string | null
+  gender?: string | null
+  province?: string | null
+  city?: string | null
+  country_code?: string | null
+  nationality?: string | null
+  residence?: string | null
+  is_foreign?: boolean
+  passport_number?: string | null
 }): boolean {
-  if (!profile.full_name?.trim() || !profile.email?.trim() || !profile.first_name_fa?.trim() || !profile.last_name_fa?.trim() || !profile.first_name_en?.trim() || !profile.last_name_en?.trim() || !profile.birth_date || !profile.postal_code?.trim() || !profile.address?.trim() || !profile.phone_verified_at || !profile.identity_completed_at) return true
+  if (!profile.full_name?.trim() || !profile.email?.trim() || !profile.first_name_fa?.trim() || !profile.last_name_fa?.trim() || !profile.first_name_en?.trim() || !profile.last_name_en?.trim() || !profile.postal_code?.trim() || !profile.address?.trim() || !profile.province?.trim() || !profile.city?.trim() || !profile.country_code?.trim() || !profile.nationality?.trim() || !profile.residence?.trim() || (!profile.is_foreign && !profile.phone_verified_at) || !profile.identity_completed_at) return true
   if (profile.account_type === 'legal') {
     return !profile.company_name?.trim() || !profile.company_national_id?.trim() || !profile.legal_representative_national_id?.trim()
   }
-  return !profile.national_id?.trim()
+  if (!profile.birth_date || !profile.gender) return true
+  return profile.is_foreign ? !profile.passport_number?.trim() : !profile.national_id?.trim()
 }
 
 function MenuIcon({ open }: { open: boolean }) {

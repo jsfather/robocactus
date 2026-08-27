@@ -81,6 +81,8 @@ export default function App() {
                 <Route path="live/:leagueSlug" element={<LiveResultsPage />} />
                 <Route path="companies" element={<CompaniesPage />} />
                 <Route path="companies/:slug" element={<CompanyPublicProfilePage />} />
+                <Route path="participants" element={<CompaniesPage />} />
+                <Route path="participants/:slug" element={<CompanyPublicProfilePage />} />
                 <Route path="blog" element={<BlogListPage />} />
                 <Route path="blog/:slug" element={<BlogPostPage />} />
                 <Route path="news" element={<NewsPage />} />

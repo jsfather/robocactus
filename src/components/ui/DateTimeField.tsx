@@ -70,9 +70,11 @@ type Props = {
   onChange: (iso: string | null) => void
   withTime?: boolean
   error?: string
+  required?: boolean
+  name?: string
 }
 
-export function DateTimeField({ label, value, onChange, withTime = true, error }: Props) {
+export function DateTimeField({ label, value, onChange, withTime = true, error, required, name }: Props) {
   const { i18n } = useTranslation()
   const isFa = i18n.language.toLowerCase().startsWith('fa')
 
@@ -97,7 +99,7 @@ export function DateTimeField({ label, value, onChange, withTime = true, error }
 
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm text-rc-muted">{label}</span>
+      <span className="text-sm font-bold text-slate-600">{label}{required ? <b className="ms-1 text-rose-500">*</b> : null}</span>
       <DatePicker
         value={pickerValue}
         onChange={(date: unknown) => {
@@ -133,9 +135,12 @@ export function DateTimeField({ label, value, onChange, withTime = true, error }
               : 'YYYY-MM-DD'
         }
         calendarPosition={isFa ? 'bottom-right' : 'bottom-left'}
+        headerOrder={['MONTH_YEAR', 'LEFT_BUTTON', 'RIGHT_BUTTON']}
+        showOtherDays
+        name={name}
         plugins={plugins}
         containerClassName="w-full"
-        inputClass="w-full rounded-lg border border-rc-line bg-rc-surface px-3 py-2.5 text-rc-text outline-none transition placeholder:text-rc-muted/60 focus:border-rc-blue/50 focus:ring-1 focus:ring-rc-blue/40"
+        inputClass={`min-h-12 w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:ring-4 ${error ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-sky-400 focus:ring-sky-100'}`}
         style={{ width: '100%', background: 'transparent' }}
       />
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
