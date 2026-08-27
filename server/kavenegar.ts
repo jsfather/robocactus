@@ -198,7 +198,7 @@ async function invoke(actorId: string | null, operation: string, params: Record<
       update public.kavenegar_operations set
         status = 'success', response_payload = ${JSON.stringify(result)}::jsonb,
         provider_status = ${providerStatus}, provider_message = ${providerMessage},
-        message_ids = ${messageIds}, completed_at = now()
+        message_ids = array(select jsonb_array_elements_text(${JSON.stringify(messageIds)}::jsonb)), completed_at = now()
       where id = ${id}::uuid
     `)
     return { ...result, operationId: id }
@@ -319,7 +319,7 @@ export function registerKavenegarRoutes(router: Router): void {
     }
     await db.execute(sql`
       insert into public.kavenegar_operations (operation, request_payload, response_payload, provider_status, provider_message, message_ids, status, completed_at)
-      values ('webhook', '{}'::jsonb, ${JSON.stringify(payload)}::jsonb, ${providerStatus}, ${String(payload.statustext ?? '') || null}, ${messageId ? [messageId] : []}, 'webhook', now())
+      values ('webhook', '{}'::jsonb, ${JSON.stringify(payload)}::jsonb, ${providerStatus}, ${String(payload.statustext ?? '') || null}, array(select jsonb_array_elements_text(${JSON.stringify(messageId ? [messageId] : [])}::jsonb)), 'webhook', now())
     `)
     response.json({ ok: true })
   })

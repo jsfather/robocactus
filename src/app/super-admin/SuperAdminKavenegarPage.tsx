@@ -21,6 +21,7 @@ import {
 type Tab = 'send' | 'reports' | 'inbox' | 'blocked' | 'templates' | 'media' | 'account' | 'logs'
 
 type Preset = { operation: KavenegarOperation; label: string; sample: Record<string, unknown>; note?: string }
+type ProviderTemplate = { id?: number; name: string; smsmessage?: string; approvalstatus?: string }
 
 const reportPresets: Preset[] = [
   { operation: 'status', label: 'وضعیت با شناسه پیام', sample: { messageid: '123,456' }, note: 'حداکثر ۵۰۰ شناسه و فقط پیام‌های ۴۸ ساعت گذشته' },
@@ -113,6 +114,7 @@ export function SuperAdminKavenegarPage() {
   const [settings, setSettings] = useState<AccessSettings | null>(null)
   const [patternsText, setPatternsText] = useState('{}')
   const [result, setResult] = useState<KavenegarResult | null>(null)
+  const [approvedTemplates, setApprovedTemplates] = useState<ProviderTemplate[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [mediaFile, setMediaFile] = useState<File | null>(null)
@@ -134,7 +136,7 @@ export function SuperAdminKavenegarPage() {
 
   const execute = async (operation: KavenegarOperation, params: Record<string, unknown>) => {
     setBusy(true); setError(null)
-    try { const value = await runKavenegarOperation(operation, params); setResult(value); toast.success('درخواست با موفقیت اجرا شد'); await reload() }
+    try { const value = await runKavenegarOperation(operation, params); setResult(value); if (operation === 'templateList') setApprovedTemplates((Array.isArray(value.entries) ? value.entries : []).filter((entry): entry is ProviderTemplate => !!entry && typeof entry === 'object' && !!(entry as ProviderTemplate).name && String((entry as ProviderTemplate).approvalstatus).toLowerCase() === 'approved')); toast.success('درخواست با موفقیت اجرا شد'); await reload() }
     catch (err) { setError(err instanceof Error ? err.message : 'درخواست ناموفق بود') }
     finally { setBusy(false) }
   }
@@ -179,6 +181,7 @@ export function SuperAdminKavenegarPage() {
     <FieldError message={error ?? undefined} />
 
     {tab === 'account' ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900"><strong className="block">تفاوت API Key و الگوی Lookup</strong><p>API Key فقط اتصال حساب را برقرار می‌کند. نام <span dir="ltr" className="font-mono font-bold">auth_otp</span> باید به نام دقیق الگوی تأییدشده نگاشت شود. در نبود الگوی معتبر، OTP اکنون از مسیر پیامک عادی ارسال می‌شود.</p><Button type="button" variant="secondary" disabled={busy} onClick={() => void execute('templateList', { page: 1 })}>بررسی اتصال و دریافت فهرست الگوها</Button></div> : null}
+    {tab === 'account' && approvedTemplates.length ? <PanelCard title="الگوهای تأییدشده" description="الگوی مناسب را برای کد ورود انتخاب و سپس تنظیمات اتصال را ذخیره کنید."><div className="grid gap-3 md:grid-cols-2">{approvedTemplates.map((template) => <button key={template.id ?? template.name} type="button" onClick={() => { let current: Record<string, string> = {}; try { current = JSON.parse(patternsText) as Record<string, string> } catch { /* replace invalid draft */ } setPatternsText(JSON.stringify({ ...current, auth_otp: template.name }, null, 2)); toast.success(`الگوی ${template.name} برای OTP انتخاب شد؛ حالا ذخیره کنید.`) }} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-start transition hover:border-emerald-400"><span className="flex items-center justify-between gap-3"><strong dir="ltr" className="text-emerald-900">{template.name}</strong><span className="rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white">تأییدشده</span></span><span className="mt-2 block line-clamp-3 whitespace-pre-line text-xs leading-6 text-emerald-800">{template.smsmessage}</span><span className="mt-3 block text-xs font-black text-emerald-700">انتخاب برای OTP</span></button>)}</div></PanelCard> : null}
 
     {tab === 'send' ? <div className="grid gap-5 xl:grid-cols-2">
       <PanelCard title="ارسال پیامک حرفه‌ای" description="ارسال فوری یا زمان‌بندی‌شده با خط، تگ، جریان ارسال و رسانه">
