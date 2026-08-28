@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
+import { PasswordField } from '@/components/auth/PasswordField'
 import { Button, FieldError, Input } from '@/components/ui/FormControls'
 import { useToast } from '@/components/ui/Toast'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
@@ -139,35 +140,48 @@ export function LoginPage() {
   const welcomeTitle = (isEn ? settings?.login_welcome_title_en : settings?.login_welcome_title_fa) || (isEn ? 'Welcome to Tabarestan Cup' : 'به جام تبرستان خوش آمدید')
   const welcomeText = (isEn ? settings?.login_welcome_text_en : settings?.login_welcome_text_fa) || (isEn ? 'Sign in to continue to your account.' : 'برای ادامه وارد حساب کاربری خود شوید.')
 
+  const logoUrl = settings?.login_logo_url || settings?.logo_url
+
   return (
-    <div className="auth-stage mx-auto flex min-h-[76vh] max-w-6xl items-center px-4 py-12">
-      <div className="grid w-full overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_30px_90px_rgb(18_76_98/0.16)] md:grid-cols-[0.9fr_1.1fr]">
-        <aside className="relative hidden overflow-hidden bg-gradient-to-br from-[#063d59] via-[#087eb8] to-[#0b9b65] p-10 text-white md:flex md:flex-col md:justify-between" style={settings?.login_cover_url ? { backgroundImage: `linear-gradient(135deg, rgb(4 47 68 / .9), rgb(5 126 107 / .78)), url(${settings.login_cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
-          <div className="absolute -end-24 -top-24 size-72 rounded-full border-[3rem] border-white/10" />
-          {settings?.login_logo_url || settings?.logo_url ? <img src={settings.login_logo_url || settings.logo_url || ''} alt="" className="relative h-20 w-auto max-w-48 object-contain drop-shadow-xl" /> : <span className="relative flex size-16 items-center justify-center rounded-2xl bg-white/15 text-3xl font-black backdrop-blur">ت</span>}
-          <div className="relative"><h2 className="text-4xl font-black leading-tight">{welcomeTitle}</h2><p className="mt-4 max-w-sm text-sm leading-8 text-white/80">{welcomeText}</p></div>
-        </aside>
-        <main className="p-6 sm:p-10 lg:p-12">
-          <p className="mb-2 text-sm font-black text-emerald-600">Tabarestan Cup</p>
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-slate-900">{t('auth.loginTitle')}</h1>
-          <p className="mb-7 text-sm leading-7 text-slate-500">{t('app.tagline')}</p>
+    <div className="auth-stage relative isolate min-h-[calc(100svh-7rem)] overflow-hidden bg-[#f6f8fa] px-4 py-8 sm:px-6 sm:py-12">
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-70" aria-hidden>
+        <span className="absolute -start-24 top-10 size-72 rounded-full bg-sky-100/70 blur-3xl" />
+        <span className="absolute -end-20 bottom-0 size-80 rounded-full bg-emerald-100/60 blur-3xl" />
+      </div>
+      <div className="mx-auto flex min-h-[calc(100svh-13rem)] max-w-5xl items-center">
+        <section className="grid w-full overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-[0_24px_70px_rgb(15_45_61/0.12)] lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,.72fr)]">
+          <main className="order-2 px-5 py-7 sm:px-10 sm:py-10 lg:order-1 lg:px-14 lg:py-12">
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <Link to="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-rc-blue">
+                <span className="grid size-9 place-items-center rounded-full border border-slate-200 bg-white" aria-hidden>←</span>
+                <span>{isEn ? 'Back to home' : 'بازگشت به صفحه اصلی'}</span>
+              </Link>
+              {logoUrl ? <img src={logoUrl} alt={isEn ? 'Tabarestan Cup' : 'جام تبرستان'} className="h-10 w-auto max-w-32 object-contain lg:hidden" /> : null}
+            </div>
+
+            <div className="mb-7">
+              <p className="mb-2 text-xs font-black uppercase tracking-[.14em] text-emerald-700">Tabarestan Cup</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{t('auth.loginTitle')}</h1>
+              <p className="mt-2 text-sm leading-7 text-slate-500">{isEn ? 'Enter your details to access your account.' : 'برای دسترسی به حساب کاربری، اطلاعات ورود خود را وارد کنید.'}</p>
+            </div>
+
           {!configured ? <FieldError message={t('auth.backendMissing')} /> : null}
-          <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
-            {options?.otp_login_enabled !== false ? <Button type="button" variant={mode === 'phone' ? 'primary' : 'ghost'} onClick={() => { setMode('phone'); setError(null) }}>{t('auth.loginWithSms')}</Button> : <span />}
-            {options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false ? <Button type="button" variant={mode === 'email' ? 'primary' : 'ghost'} onClick={() => { setMode('email'); setError(null) }}>{t('auth.loginWithEmail')}</Button> : null}
+          <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label={isEn ? 'Login method' : 'روش ورود'}>
+            {options?.otp_login_enabled !== false ? <button type="button" role="tab" aria-selected={mode === 'phone'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'phone' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('phone'); setError(null) }}>{t('auth.loginWithSms')}</button> : <span />}
+            {options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false ? <button type="button" role="tab" aria-selected={mode === 'email'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'email' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('email'); setError(null) }}>{t('auth.loginWithEmail')}</button> : null}
           </div>
           {mode === 'email' ? (
             <form noValidate className="space-y-4" onSubmit={(event) => void onEmailSubmit(event)}>
-              <div className="flex gap-3 text-xs font-bold">
-                {options?.password_login_enabled !== false ? <button type="button" className={emailSubMode === 'password' ? 'text-rc-blue' : 'text-slate-400'} onClick={() => { setEmailSubMode('password'); setMagicSent(false) }}>{t('auth.loginWithPassword')}</button> : null}
-                {options?.email_magic_login_enabled !== false ? <button type="button" className={emailSubMode === 'magic' ? 'text-rc-blue' : 'text-slate-400'} onClick={() => { setEmailSubMode('magic'); setMagicSent(false) }}>{t('auth.loginWithMagicLink')}</button> : null}
+              <div className="flex gap-5 border-b border-slate-100 text-xs font-bold">
+                {options?.password_login_enabled !== false ? <button type="button" className={`border-b-2 pb-3 transition ${emailSubMode === 'password' ? 'border-rc-blue text-rc-blue' : 'border-transparent text-slate-400 hover:text-slate-700'}`} onClick={() => { setEmailSubMode('password'); setMagicSent(false) }}>{t('auth.loginWithPassword')}</button> : null}
+                {options?.email_magic_login_enabled !== false ? <button type="button" className={`border-b-2 pb-3 transition ${emailSubMode === 'magic' ? 'border-rc-blue text-rc-blue' : 'border-transparent text-slate-400 hover:text-slate-700'}`} onClick={() => { setEmailSubMode('magic'); setMagicSent(false) }}>{t('auth.loginWithMagicLink')}</button> : null}
               </div>
-              <Input label={emailSubMode === 'password' ? 'نام کاربری، ایمیل یا شماره موبایل' : t('auth.email')} type={emailSubMode === 'magic' ? 'email' : 'text'} autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} dir="ltr" />
-              {emailSubMode === 'password' ? <div className="space-y-2"><Input label={t('auth.password')} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} dir="ltr" /><Link to="/forgot-password" className="inline-flex text-xs font-black text-rc-blue hover:underline">رمز عبور را فراموش کرده‌اید؟</Link></div> : null}
+              <Input label={emailSubMode === 'password' ? (isEn ? 'Username, email or mobile' : 'نام کاربری، ایمیل یا شماره موبایل') : t('auth.email')} type={emailSubMode === 'magic' ? 'email' : 'text'} autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} dir="ltr" className="rounded-lg" />
+              {emailSubMode === 'password' ? <div className="space-y-2"><PasswordField label={t('auth.password')} value={password} onChange={setPassword} autoComplete="current-password" showStrength={false} /><div className="text-end"><Link to="/forgot-password" className="inline-flex text-xs font-black text-rc-blue hover:underline">{isEn ? 'Forgot your password?' : 'رمز عبور را فراموش کرده‌اید؟'}</Link></div></div> : null}
               {magicSent ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{t('auth.magicLinkSent')}</p> : null}
               <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} />
               <FieldError message={error ?? undefined} />
-              <Button type="submit" className="w-full" disabled={submitting}>{submitting ? t('app.loading') : emailSubMode === 'magic' ? t('auth.sendMagicLink') : t('auth.loginCta')}</Button>
+              <Button type="submit" className="w-full rounded-lg bg-rc-blue shadow-none hover:bg-sky-700" disabled={submitting}>{submitting ? t('app.loading') : emailSubMode === 'magic' ? t('auth.sendMagicLink') : t('auth.loginCta')}</Button>
             </form>
           ) : (
             <form noValidate className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (otpSent) void verifyOtp(); else void onRequestOtp(event) }}>
@@ -176,13 +190,28 @@ export function LoginPage() {
               {devCode ? <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 font-mono text-xs text-sky-700">{t('auth.devOtp', { code: devCode })}</p> : null}
               {!otpSent ? <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
               <FieldError message={error ?? undefined} />
-              <Button type="submit" className="w-full" disabled={submitting || (otpSent && code.length !== 6)}>{submitting ? t('app.loading') : otpSent ? t('auth.verifyOtp') : t('auth.sendOtp')}</Button>
+              <Button type="submit" className="w-full rounded-lg bg-rc-blue shadow-none hover:bg-sky-700" disabled={submitting || (otpSent && code.length !== 6)}>{submitting ? t('app.loading') : otpSent ? t('auth.verifyOtp') : t('auth.sendOtp')}</Button>
               {otpSent ? <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold text-slate-500 hover:text-rc-blue" onClick={resetPhone}>{t('auth.changePhone')}</button><button type="button" disabled={resendSeconds > 0 || submitting} className="font-black text-rc-blue disabled:cursor-not-allowed disabled:text-slate-400" onClick={() => void onResend()}>{resendSeconds > 0 ? t('auth.otpResendAfterExpiry') : t('auth.otpResend')}</button></div> : null}
             </form>
           )}
-          {options?.show_registration_link !== false && (options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <p className="mt-6 text-center text-sm text-slate-500">{t('auth.noAccount')} <Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></p> : null}
-          <p className="mt-4 text-center text-xs leading-6 text-slate-400">{isEn ? 'By signing in, you accept the ' : 'با ورود به سایت، '}<Link to="/terms" className="font-bold text-sky-700 hover:underline">{t('nav.terms')}</Link>{isEn ? '.' : ' را می‌پذیرید.'} <Link to="/registration-guide" className="ms-2 font-bold text-emerald-700 hover:underline">{t('nav.registrationGuide')}</Link></p>
-        </main>
+            {options?.show_registration_link !== false && (options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <div className="mt-7 border-t border-slate-100 pt-5 text-center text-sm text-slate-500"><span>{t('auth.noAccount')} </span><Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></div> : null}
+            <p className="mt-4 text-center text-xs leading-6 text-slate-400">{isEn ? 'By signing in, you accept the ' : 'با ورود به سایت، '}<Link to="/terms" className="font-bold text-sky-700 hover:underline">{t('nav.terms')}</Link>{isEn ? '.' : ' را می‌پذیرید.'} <Link to="/registration-guide" className="ms-2 font-bold text-emerald-700 hover:underline">{t('nav.registrationGuide')}</Link></p>
+          </main>
+
+          <aside className="relative order-1 hidden min-h-[640px] overflow-hidden bg-[#07577b] p-10 text-white lg:flex lg:flex-col lg:justify-between" style={settings?.login_cover_url ? { backgroundImage: `linear-gradient(150deg, rgb(5 65 92 / .92), rgb(4 112 104 / .86)), url(${settings.login_cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+            <div className="pointer-events-none absolute inset-0 opacity-20" aria-hidden style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+            <span className="absolute -end-28 -top-24 size-72 rounded-full border-[42px] border-white/10" aria-hidden />
+            <div className="relative">
+              {logoUrl ? <div className="inline-flex rounded-2xl bg-white p-4 shadow-lg"><img src={logoUrl} alt={isEn ? 'Tabarestan Cup' : 'جام تبرستان'} className="h-16 w-auto max-w-44 object-contain" /></div> : <span className="grid size-16 place-items-center rounded-2xl bg-white text-3xl font-black text-rc-blue">ت</span>}
+            </div>
+            <div className="relative max-w-sm">
+              <span className="mb-5 block h-1 w-12 rounded-full bg-emerald-400" />
+              <h2 className="text-3xl font-black leading-[1.55]">{welcomeTitle}</h2>
+              <p className="mt-4 text-sm leading-8 text-white/80">{welcomeText}</p>
+              <div className="mt-8 flex items-center gap-3 text-xs font-bold text-white/70"><span className="h-px w-8 bg-white/40" /><span>{isEn ? 'National robotics competitions' : 'مسابقات ملی رباتیک و فناوری'}</span></div>
+            </div>
+          </aside>
+        </section>
       </div>
     </div>
   )

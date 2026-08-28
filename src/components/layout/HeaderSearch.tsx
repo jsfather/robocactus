@@ -9,7 +9,7 @@ type Hit =
   | { kind: 'company'; title: string; href: string; hint?: string }
   | { kind: 'blog'; title: string; href: string; hint?: string }
 
-export function HeaderSearch() {
+export function HeaderSearch({ expanded = false }: { expanded?: boolean }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -99,15 +99,15 @@ export function HeaderSearch() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="grid size-11 place-items-center border-s border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue"
+        className={expanded ? 'flex min-h-10 w-72 items-center justify-between rounded-full bg-white/75 ps-5 pe-1.5 text-slate-500 transition hover:bg-white hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue' : 'grid size-11 place-items-center border-s border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue'}
         aria-label={t('search.title')}
         aria-expanded={open}
         aria-controls="header-search-panel"
       >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+        {expanded ? <span className="truncate text-xs">{t('search.placeholder')}</span> : null}<span className={expanded ? 'grid size-9 shrink-0 place-items-center rounded-full bg-slate-950 text-white' : undefined}><svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
           <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        </svg>
+        </svg></span>
       </button>
       {open ? (
         <div id="header-search-panel" className="absolute end-0 top-full z-50 mt-2 w-[min(25rem,calc(100vw-1rem))] border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_18px_45px_rgb(15_23_42/0.16)]">
