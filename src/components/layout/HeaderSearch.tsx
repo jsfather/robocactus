@@ -99,12 +99,12 @@ export function HeaderSearch({ expanded = false }: { expanded?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={expanded ? 'flex min-h-10 w-72 items-center justify-between rounded-full bg-white/75 ps-5 pe-1.5 text-slate-500 transition hover:bg-white hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue' : 'grid size-11 place-items-center border-s border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue'}
+        className={expanded ? 'flex min-h-9 w-72 items-center justify-between rounded-xl border border-white/20 bg-white/15 ps-4 pe-1 text-white/90 transition hover:bg-white hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white' : 'grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue'}
         aria-label={t('search.title')}
         aria-expanded={open}
         aria-controls="header-search-panel"
       >
-        {expanded ? <span className="truncate text-xs">{t('search.placeholder')}</span> : null}<span className={expanded ? 'grid size-9 shrink-0 place-items-center rounded-full bg-slate-950 text-white' : undefined}><svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+        {expanded ? <span className="truncate text-xs">{t('search.placeholder')}</span> : null}<span className={expanded ? 'grid size-7 shrink-0 place-items-center rounded-lg bg-white text-rc-blue' : undefined}><svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
           <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </svg></span>

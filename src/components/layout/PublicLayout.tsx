@@ -1,7 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { PublicHeader } from './PublicHeader'
 import { PublicFooter } from './PublicFooter'
-import { BackToTopButton } from './BackToTopButton'
 import { BackendStatusBanner } from './BackendStatusBanner'
 import { LiveChatWidget } from '@/components/live-chat/LiveChatWidget'
 import { MobileBottomNavigation } from './MobileBottomNavigation'
@@ -31,7 +30,6 @@ export function PublicLayout() {
         </main>
         <PublicFooter />
         <LiveChatWidget />
-        <BackToTopButton />
         <MobileBottomNavigation />
       </div>
     </div>

@@ -13,7 +13,7 @@ function LineIcon({ children, className = 'size-5' }: { children: ReactNode; cla
   return <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 }
 
-const desktopNavClass = ({ isActive }: { isActive: boolean }) => `relative inline-flex min-h-11 items-center px-3 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue ${isActive ? 'text-rc-blue after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-rc-blue' : 'text-slate-600 hover:text-slate-950'}`
+const desktopNavClass = ({ isActive }: { isActive: boolean }) => `relative inline-flex min-h-10 items-center rounded-xl px-3 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue ${isActive ? 'bg-gradient-to-l from-sky-50 to-emerald-50 text-rc-blue shadow-sm ring-1 ring-sky-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`
 
 export function PublicHeader() {
   const { t, i18n } = useTranslation()
@@ -51,15 +51,15 @@ export function PublicHeader() {
 
   const openMega = () => { if (megaTimer.current) clearTimeout(megaTimer.current); setMegaOpen(true) }
   const closeMega = () => { megaTimer.current = window.setTimeout(() => setMegaOpen(false), 240) }
-  const controlClass = 'grid size-11 place-items-center border-s border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue'
+  const controlClass = 'grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue'
 
-  return <div className="pointer-events-none fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+  return <div className="pointer-events-none fixed inset-x-0 top-0 z-50 bg-transparent">
     {mobileOpen ? <button className="pointer-events-auto fixed inset-0 bg-slate-950/35 backdrop-blur-[2px] lg:hidden" aria-label={locale === 'en' ? 'Close menu' : 'بستن منو'} onClick={() => setMobileOpen(false)} /> : null}
-    <span className="absolute inset-x-0 top-0 hidden h-11 bg-slate-100 lg:block" aria-hidden="true" />
-    <header ref={headerRef} className="pointer-events-auto relative mx-auto max-w-7xl bg-transparent">
-      <div className="hidden h-11 items-center justify-between px-5 lg:flex">
+    <span className="absolute inset-x-0 top-0 hidden h-11 bg-gradient-to-l from-[#087eb8] via-[#078a9b] to-[#0b9b65] lg:block" aria-hidden="true" />
+    <header ref={headerRef} className="pointer-events-auto relative mx-auto max-w-7xl bg-transparent px-2 sm:px-4 lg:px-5">
+      <div className="hidden h-11 items-center justify-between px-3 text-white lg:flex">
         <HeaderSearch expanded />
-        <div className="flex h-full items-center gap-4 text-xs text-slate-600">
+        <div className="flex h-full items-center gap-4 text-xs text-white/90 [&_button]:border-white/20 [&_button]:bg-white/15 [&_button]:text-white [&_button:hover]:bg-white [&_button:hover]:text-rc-blue [&_a]:text-white [&_span]:border-white/25">
           <button type="button" onClick={() => setTheme((value) => value === 'light' ? 'dark' : 'light')} className="grid size-9 place-items-center rounded-full bg-white text-slate-700 transition hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue" aria-label={theme === 'light' ? (locale === 'en' ? 'Enable dark mode' : 'فعال‌کردن حالت تاریک') : (locale === 'en' ? 'Enable light mode' : 'فعال‌کردن حالت روشن')} aria-pressed={theme === 'dark'}>{theme === 'light' ? <LineIcon className="size-4"><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" /></LineIcon> : <LineIcon className="size-4"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2" /></LineIcon>}</button>
           <button type="button" onClick={() => void i18n.changeLanguage(locale === 'fa' ? 'en' : 'fa')} className="min-h-9 rounded-full bg-white px-3 font-mono font-black text-slate-700 transition hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue" aria-label={t('common.language')}>{locale === 'fa' ? 'EN' : 'فا'}</button>
           <span className="h-5 w-px bg-slate-300" aria-hidden="true" />
@@ -68,21 +68,21 @@ export function PublicHeader() {
           <span className="grid size-9 place-items-center rounded-full bg-rc-accent/10 text-rc-accent"><LineIcon className="size-4"><path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" /></LineIcon></span>
         </div>
       </div>
-      <div className="flex h-[4.25rem] items-stretch">
+      <div className="flex h-[4.25rem] items-center rounded-b-2xl border border-t-0 border-white/80 bg-white/95 px-1 shadow-[0_10px_35px_rgb(15_65_80/0.12)] backdrop-blur-xl lg:rounded-b-[1.4rem]">
         <Link to="/" className="flex min-w-0 items-center gap-3 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue sm:px-5">
-          <span className="grid size-10 shrink-0 place-items-center border border-slate-200 bg-white p-1.5">{settings?.logo_url ? <img src={settings.logo_url} alt={brand} className="size-full object-contain" /> : <span className="text-sm font-black text-rc-blue">TC</span>}</span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 p-1.5 ring-1 ring-sky-100">{settings?.logo_url ? <img src={settings.logo_url} alt={brand} className="size-full object-contain" /> : <span className="text-sm font-black text-rc-blue">TC</span>}</span>
           <span className="min-w-0"><strong className="block truncate text-sm font-black text-slate-950 sm:text-base">{brand}</strong><small className="hidden text-[10px] font-bold tracking-wide text-slate-500 sm:block">{locale === 'en' ? 'National Robotics Competition' : 'مسابقات ملی رباتیک'}</small></span>
         </Link>
 
-        <nav className="ms-auto hidden items-stretch xl:flex" aria-label={locale === 'en' ? 'Main navigation' : 'منوی اصلی'}>
+        <nav className="ms-auto hidden items-center gap-1 xl:flex" aria-label={locale === 'en' ? 'Main navigation' : 'منوی اصلی'}>
           {links.map((item) => item.href === '/leagues' ? <div key={item.key} className="flex" onMouseEnter={openMega} onMouseLeave={closeMega} onFocus={openMega} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) closeMega() }}><NavLink to={item.href} className={desktopNavClass}>{item.label}<LineIcon className="ms-1 size-3.5"><path d="m7 10 5 5 5-5" /></LineIcon></NavLink></div> : <NavLink key={item.key} to={item.href} end={item.href === '/'} className={desktopNavClass}>{item.label}</NavLink>)}
         </nav>
 
-        <div className="ms-auto flex items-stretch xl:ms-0">
+        <div className="ms-auto flex items-center gap-1.5 pe-1 xl:ms-2">
           <div className="hidden items-center sm:flex lg:hidden"><HeaderSearch /></div>
           <button type="button" className={`${controlClass} lg:hidden`} onClick={() => setTheme((value) => value === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? (locale === 'en' ? 'Enable dark mode' : 'فعال‌کردن حالت تاریک') : (locale === 'en' ? 'Enable light mode' : 'فعال‌کردن حالت روشن')} aria-pressed={theme === 'dark'}>{theme === 'light' ? <LineIcon><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" /></LineIcon> : <LineIcon><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></LineIcon>}</button>
           <button type="button" className={`${controlClass} w-14 font-mono text-xs font-black lg:hidden`} onClick={() => void i18n.changeLanguage(locale === 'fa' ? 'en' : 'fa')} aria-label={t('common.language')}><span>{locale === 'fa' ? 'EN' : 'فا'}</span></button>
-          {user ? <Link to="/dashboard" className="hidden min-h-11 items-center bg-rc-blue px-5 text-sm font-black text-white transition-colors hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white md:inline-flex">{t('nav.dashboard')}</Link> : <div className="hidden items-stretch md:flex"><Link to="/login" className="inline-flex items-center border-s border-slate-200 px-4 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue">{t('nav.login')}</Link><Link to="/signup" className="inline-flex items-center bg-rc-blue px-5 text-sm font-black text-white transition-colors hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white">{t('nav.signup')}</Link></div>}
+          {user ? <Link to="/dashboard" className="hidden min-h-10 items-center rounded-xl bg-gradient-to-l from-rc-blue to-rc-accent px-5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue md:inline-flex">{t('nav.dashboard')}</Link> : <div className="hidden items-center gap-1.5 md:flex"><Link to="/login" className="inline-flex min-h-10 items-center rounded-xl border border-sky-100 bg-sky-50 px-4 text-sm font-black text-rc-blue transition hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue">{t('nav.login')}</Link><Link to="/signup" className="inline-flex min-h-10 items-center rounded-xl bg-gradient-to-l from-rc-blue to-rc-accent px-5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue">{t('nav.signup')}</Link></div>}
           <button type="button" className={`${controlClass} xl:hidden`} onClick={() => setMobileOpen((value) => !value)} aria-label={locale === 'en' ? 'Navigation menu' : 'منوی ناوبری'} aria-expanded={mobileOpen} aria-controls="public-mobile-menu"><LineIcon>{mobileOpen ? <path d="M5 5l14 14M19 5 5 19" /> : <><path d="M4 7h16M4 12h16M4 17h16" /></>}</LineIcon></button>
         </div>
       </div>

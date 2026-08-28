@@ -13,7 +13,7 @@ const fallbackLinks = [
 ] as const
 
 function FooterHeading({ children }: { children: ReactNode }) {
-  return <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-rc-blue text-white shadow-[0_10px_25px_rgb(8_126_184/0.24)]"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2" /></svg></span><h2 className="text-lg font-black text-slate-900">{children}</h2></div>
+  return <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-rc-blue to-rc-accent text-white shadow-[0_10px_25px_rgb(8_126_184/0.2)]"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2" /></svg></span><h2 className="text-lg font-black text-slate-900">{children}</h2></div>
 }
 
 export function PublicFooter() {
@@ -38,8 +38,8 @@ export function PublicFooter() {
 
   return <footer className="relative mt-20 bg-slate-50 pt-14">
     <div className="mx-auto max-w-7xl px-4 sm:px-8">
-      <div className="relative rounded-[2rem] bg-rc-blue p-4 pt-7 shadow-[0_24px_60px_rgb(8_126_184/0.18)] sm:p-6 sm:pt-8">
-        <span className="absolute start-1/2 top-0 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-rc-blue text-white shadow-lg" aria-hidden="true"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="m7 14 5-5 5 5" /></svg></span>
+      <div className="relative rounded-[2rem] bg-gradient-to-br from-[#087eb8] via-[#087f9c] to-[#0b9b65] p-4 pt-7 shadow-[0_24px_60px_rgb(8_126_145/0.2)] sm:p-6 sm:pt-8">
+        <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="absolute start-1/2 top-0 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-gradient-to-br from-rc-blue to-rc-accent text-white shadow-[0_10px_26px_rgb(8_126_145/0.32)] transition hover:-translate-y-[55%] hover:shadow-[0_14px_30px_rgb(8_126_145/0.4)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80" aria-label={t('footer.backToTop')} title={t('footer.backToTop')}><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m7 14 5-5 5 5" /></svg></button>
         <div className="grid gap-4 lg:grid-cols-[1fr_15rem]">
           <div className="overflow-hidden rounded-[1.65rem] bg-white p-6 sm:p-8">
             <div className="grid gap-9 md:grid-cols-3 md:gap-0">
