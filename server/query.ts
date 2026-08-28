@@ -40,9 +40,9 @@ const TABLES = new Set([
 const RPCS = new Set([
   'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'analytics_export_teams', 'analytics_snapshot',
   'apply_payment_result', 'close_live_chat_session', 'count_unread_tickets', 'create_company',
-  'create_invoice_for_team', 'create_ticket', 'enqueue_broadcast_sms', 'enqueue_incomplete_profile_sms',
+  'create_invoice_for_team', 'create_ticket', 'create_ticket_with_department', 'enqueue_broadcast_sms', 'enqueue_incomplete_profile_sms',
   'fetch_live_chat_guest_messages', 'home_stats', 'issue_mock_payment_authority',
-  'league_registered_count', 'list_unread_ticket_ids', 'mark_ticket_read', 'profile_exists_by_phone',
+  'league_registered_count', 'list_unread_ticket_ids', 'mark_ticket_read', 'profile_exists_by_phone', 'team_name_available',
   'refer_ticket', 'reply_live_chat_agent', 'reply_ticket', 'resolve_account_issue',
   'resolve_team_captain', 'respond_account_issue', 'review_team', 'review_team_member',
   'send_live_chat_guest_message', 'set_league_results_status',

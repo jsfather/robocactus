@@ -81,7 +81,7 @@ export function TeamRegistrationWizard({
   const [idFiles, setIdFiles] = useState<Record<number, File | null>>({})
   const [photoFiles, setPhotoFiles] = useState<Record<number, File | null>>({})
   const [draftHydrated, setDraftHydrated] = useState(!initialTeamId)
-  const [nameAvailability, setNameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const [nameAvailability, setNameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle')
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -132,7 +132,7 @@ export function TeamRegistrationWizard({
         p_name: name,
         p_exclude_team_id: draft.teamId ?? null,
       }).then(({ data, error: availabilityError }) => {
-        if (availabilityError) { setNameAvailability('idle'); return }
+        if (availabilityError) { setNameAvailability('error'); return }
         setNameAvailability(data === true ? 'available' : 'taken')
       })
     }, 450)
@@ -388,7 +388,7 @@ export function TeamRegistrationWizard({
 
       {step === 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <div><Input label={t('team.nameFa')} required value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} error={nameAvailability === 'taken' ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : undefined} />{nameAvailability === 'checking' ? <p className="mt-1.5 text-xs text-slate-500">در حال بررسی نام تیم…</p> : nameAvailability === 'available' ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600"><span aria-hidden>✓</span> این نام قابل استفاده است.</p> : null}</div>
+          <div><Input label={t('team.nameFa')} required value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} error={nameAvailability === 'taken' ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : nameAvailability === 'error' ? 'بررسی نام تیم انجام نشد؛ دوباره تلاش کنید.' : undefined} />{nameAvailability === 'checking' ? <p className="mt-1.5 text-xs text-slate-500">در حال بررسی نام تیم…</p> : nameAvailability === 'available' ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600"><span aria-hidden>✓</span> این نام قابل استفاده است.</p> : null}</div>
           <Input label={t('team.nameEn')} required value={draft.nameEn} onChange={(e) => patchDraft({ nameEn: e.target.value })} dir="ltr" />
           <Input label={t('team.mottoFa')} value={draft.mottoFa} onChange={(e) => patchDraft({ mottoFa: e.target.value })} />
           <Input label={t('team.mottoEn')} value={draft.mottoEn} onChange={(e) => patchDraft({ mottoEn: e.target.value })} dir="ltr" />
@@ -592,7 +592,7 @@ export function TeamRegistrationWizard({
           </Button>
         ) : null}
         {step < EDITABLE_STEPS - 1 ? (
-          <Button type="button" onClick={() => void goNext()} disabled={busy}>
+          <Button type="button" onClick={() => void goNext()} disabled={busy || (step === 0 && nameAvailability !== 'available')}>
             {busy ? t('app.loading') : t('team.next')}
           </Button>
         ) : (
