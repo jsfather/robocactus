@@ -21,12 +21,12 @@ export function PublicLayout() {
       />
       <div className="relative pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
         <PublicHeader />
-        <div className="pointer-events-none fixed inset-x-0 top-[4.75rem] z-50 px-3 sm:top-[5.25rem] sm:px-5">
+        <div className="pointer-events-none fixed inset-x-0 top-[4.25rem] z-50 px-3 sm:px-5">
           <div className="pointer-events-auto mx-auto max-w-6xl overflow-hidden rounded-xl">
             <BackendStatusBanner />
           </div>
         </div>
-        <main className={isHome ? undefined : 'pt-[4.75rem] sm:pt-[5.25rem]'}>
+        <main className={isHome ? undefined : 'pt-[4.25rem]'}>
           <Outlet />
         </main>
         <PublicFooter />

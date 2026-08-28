@@ -19,7 +19,13 @@ export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
   const goTo = useCallback((index: number) => {
     if (!sponsors.length) return
     const next = (index + sponsors.length) % sponsors.length
-    viewportRef.current?.querySelector<HTMLElement>(`[data-sponsor-index="${next}"]`)?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' })
+    const viewport = viewportRef.current
+    const target = viewport?.querySelector<HTMLElement>(`[data-sponsor-index="${next}"]`)
+    if (viewport && target) {
+      const viewportRect = viewport.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      viewport.scrollBy({ left: targetRect.left + targetRect.width / 2 - (viewportRect.left + viewportRect.width / 2), behavior: reducedMotion ? 'auto' : 'smooth' })
+    }
     setCurrent(next)
   }, [reducedMotion, sponsors.length])
   useEffect(() => { const query = matchMedia('(prefers-reduced-motion: reduce)'); const sync = () => setReducedMotion(query.matches); sync(); query.addEventListener('change', sync); return () => query.removeEventListener('change', sync) }, [])

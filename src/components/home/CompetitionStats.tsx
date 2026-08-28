@@ -4,15 +4,15 @@ import type { HomeStatCard } from '@/features/home/homeSectionsApi'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useInViewOnce } from '@/hooks/useInViewOnce'
 
-function StatValue({ card, locale, maxValue }: { card: HomeStatCard; locale: string; maxValue: number }) {
-  const [ref, active] = useInViewOnce(0.25)
+function Stat({ card, locale, index }: { card: HomeStatCard; locale: string; index: number }) {
+  const [ref, active] = useInViewOnce(0.2)
   const reducedMotion = useReducedMotion()
-  const shown = useCountUp(card.value_num, active)
-  const ratio = Math.max(6, Math.round((card.value_num / Math.max(1, maxValue)) * 100))
-  return <motion.li ref={ref} initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={active ? { opacity: 1, y: 0 } : undefined} transition={{ duration: .3 }} className="relative min-w-0 border-b border-slate-200 py-5 last:border-b-0 sm:border-b-0 sm:border-e sm:px-6 sm:first:ps-0 sm:last:border-e-0 sm:last:pe-0">
-    <div className="flex items-baseline gap-1.5" dir="ltr"><strong className="text-3xl font-black tracking-[-.04em] text-slate-900 sm:text-4xl tabular-nums">{shown.toLocaleString(locale)}</strong>{card.suffix ? <span className="text-sm font-bold text-rc-blue">{card.suffix}</span> : null}</div>
-    <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{locale === 'en-US' ? card.label_en : card.label_fa}</p>
-    <span className="absolute inset-x-0 bottom-0 h-0.5 bg-slate-100" aria-hidden="true"><motion.span className="block h-full bg-rc-blue" initial={{ width: 0 }} animate={active ? { width: `${ratio}%` } : undefined} transition={{ duration: .45 }} /></span>
+  const value = useCountUp(card.value_num, active)
+  const ratio = 100
+  return <motion.li ref={ref} initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={active ? { opacity: 1, y: 0 } : undefined} transition={{ duration: .35, delay: index * .04 }} className="group relative border-t border-slate-200 py-6 sm:border-s sm:border-t-0 sm:px-6 sm:first:border-s-0 sm:first:ps-0">
+    <span className="absolute inset-x-0 top-0 h-px origin-start scale-x-0 bg-rc-blue transition-transform duration-300 group-hover:scale-x-100 sm:inset-x-auto sm:inset-y-0 sm:start-0 sm:h-auto sm:w-px" style={{ opacity: ratio / 100 }} aria-hidden="true" />
+    <div className="flex items-baseline gap-2" dir="ltr"><strong className="text-[2.5rem] font-black leading-none tracking-[-.05em] text-slate-950 sm:text-5xl tabular-nums">{value.toLocaleString(locale)}</strong>{card.suffix ? <span className="text-sm font-black text-rc-blue">{card.suffix}</span> : null}</div>
+    <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{locale === 'en-US' ? card.label_en : card.label_fa}</p>
   </motion.li>
 }
 
@@ -20,11 +20,8 @@ export function CompetitionStats({ cards }: { cards: HomeStatCard[] }) {
   const { t, i18n } = useTranslation()
   if (!cards.length) return null
   const locale = i18n.language.startsWith('en') ? 'en-US' : 'fa-IR'
-  const maxValue = Math.max(...cards.map((card) => card.value_num), 1)
-  return <section className="py-12 sm:py-16" aria-labelledby="competition-stats-title"><div className="mx-auto max-w-7xl px-4 sm:px-8">
-    <div className="grid gap-6 border-y border-slate-300 py-7 lg:grid-cols-[minmax(15rem,.8fr)_2fr] lg:items-center lg:gap-10">
-      <div><p className="text-xs font-black uppercase tracking-[.16em] text-rc-blue">{t('home.statsEyebrow')}</p><h2 id="competition-stats-title" className="mt-2 text-2xl font-black leading-tight text-slate-900 sm:text-3xl">{t('home.competitionStatsTitle')}</h2><p className="mt-3 max-w-md text-sm leading-7 text-slate-600">{t('home.competitionStatsSubtitle')}</p></div>
-      <ul className={`grid sm:grid-cols-2 ${cards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>{cards.map((card) => <StatValue key={card.id} card={card} locale={locale} maxValue={maxValue} />)}</ul>
-    </div>
+  return <section className="bg-white py-16 sm:py-20" aria-labelledby="stats-heading"><div className="mx-auto max-w-7xl px-4 sm:px-8">
+    <header className="mb-10 grid gap-4 md:grid-cols-[.8fr_1.2fr] md:items-end"><div><p className="text-xs font-black tracking-[.14em] text-rc-blue">{t('home.statsEyebrow')}</p><h2 id="stats-heading" className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{t('home.competitionStatsTitle')}</h2></div><p className="max-w-2xl text-sm leading-7 text-slate-600 md:justify-self-end">{t('home.competitionStatsSubtitle')}</p></header>
+    <ul className={`grid sm:grid-cols-2 ${cards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>{cards.map((card, index) => <Stat key={card.id} card={card} locale={locale} index={index} />)}</ul>
   </div></section>
 }
