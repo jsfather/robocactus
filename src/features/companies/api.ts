@@ -57,7 +57,7 @@ export async function createCompany(input: {
 export async function updateCompany(
   companyId: string,
   patch: Partial<
-    Pick<Company, 'name' | 'slug' | 'bio' | 'founded_year' | 'website' | 'logo_url' | 'cover_image_url' | 'tagline'>
+    Pick<Company, 'name' | 'slug' | 'bio' | 'founded_year' | 'website' | 'logo_url' | 'cover_image_url' | 'tagline' | 'entity_type'>
   >,
 ): Promise<Company> {
   const { data, error } = await backend

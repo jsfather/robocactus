@@ -17,6 +17,8 @@ import type { Company, Invoice, League, Team } from '@/types/database'
 import { backend } from '@/lib/backend'
 import type { RankingsRow } from '@/features/rankings/api'
 
+const entityLabels: Record<string, string> = { individual: 'شخص حقیقی', company: 'شرکت', institute: 'مؤسسه', school: 'مدرسه', university: 'دانشگاه', academy: 'آموزشگاه', club: 'باشگاه', other: 'سایر' }
+
 export function CompanyPanelPage({
   section = 'overview',
 }: {
@@ -31,6 +33,7 @@ export function CompanyPanelPage({
   const [leagues, setLeagues] = useState<League[]>([])
   const [companyResults, setCompanyResults] = useState<RankingsRow[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [memberCount, setMemberCount] = useState(0)
   const [showWizard, setShowWizard] = useState(section === 'teams')
   const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
   const [editingProfile, setEditingProfile] = useState(false)
@@ -71,6 +74,7 @@ export function CompanyPanelPage({
       setTeams([])
       setCompanyResults([])
       setInvoices([])
+      setMemberCount(0)
       return
     }
     void fetchCompanyTeams(activeCompanyId)
@@ -84,6 +88,13 @@ export function CompanyPanelPage({
       .catch(() => setInvoices([]))
   }, [activeCompanyId])
 
+  useEffect(() => {
+    if (!teams.length) { setMemberCount(0); return }
+    void backend.from('team_members').select('id').in('team_id', teams.map((team) => team.id))
+      .then((result) => setMemberCount(result.data?.length ?? 0))
+      .catch(() => setMemberCount(0))
+  }, [teams])
+
   const leagueName = (leagueId: string) =>
     leagues.find((l) => l.id === leagueId)?.name ?? leagueId.slice(0, 8)
 
@@ -93,7 +104,7 @@ export function CompanyPanelPage({
 
   if (!companies.length) {
     return (
-      <PanelPage title={t('company.panelTitle')} description="برای شروع حضور در لیگ‌ها، پروفایل مجموعه خود را تکمیل کنید." index="CO.00">
+      <PanelPage title="پروفایل مجموعه" description={profile?.account_type === 'individual' ? 'مجموعه شخصی شما برای مدیریت تیم‌ها و حضور در لیگ‌ها با نام خودتان ساخته می‌شود.' : 'اطلاعات مجموعه خود را برای مدیریت تیم‌ها و حضور در لیگ‌ها تکمیل کنید.'} index="ORG.00">
         <div className="mx-auto max-w-3xl">
         <CompanyForm
           onSaved={(company) => {
@@ -109,9 +120,9 @@ export function CompanyPanelPage({
 
   return (
     <PanelPage
-      title={section === 'teams' ? t('team.listTitle') : t('company.panelTitle')}
-      description={`${profile?.full_name ?? ''} · ${t(`dashboard.roles.${profile?.role ?? 'company_admin'}`)}`}
-      index="CO"
+      title={section === 'teams' ? 'تیم‌های ما' : 'داشبورد مجموعه'}
+      description={`مدیریت مجموعه ${activeCompany?.name ?? profile?.full_name ?? ''}`}
+      index="ORG"
       actions={
         <div className="flex flex-wrap gap-2">
           {companies.length > 1 ? (
@@ -141,7 +152,7 @@ export function CompanyPanelPage({
     >
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-      {section === 'overview' && activeCompany ? <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-emerald-200">پرتال مجموعه</p><h2 className="mt-2 text-2xl font-black text-white">{activeCompany.name}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">تیم‌ها، ثبت‌نام لیگ‌ها، پرداخت‌ها و افتخارات مجموعه را از این فضای یکپارچه دنبال کنید.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{teams.length} تیم ثبت‌شده</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{companyResults.length} نتیجه منتشرشده</span></div></div> : null}
+      {section === 'overview' && activeCompany ? <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-emerald-200">داشبورد مدیریت مجموعه</p><h2 className="mt-2 text-2xl font-black text-white">مجموعه: {activeCompany.name}{activeCompany.entity_type === 'individual' ? ' (شخص حقیقی)' : ''}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">تیم‌ها، ثبت‌نام لیگ‌ها، پرداخت‌ها و افتخارات مجموعه را از این فضای یکپارچه دنبال کنید.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{teams.length} تیم</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{memberCount} عضو</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{companyResults.filter((result) => result.rank != null && result.rank <= 3).length} مقام</span></div></div> : null}
 
       {section === 'overview' ? (
         <>
@@ -150,6 +161,14 @@ export function CompanyPanelPage({
             <DashboardMetric label="در انتظار پرداخت" value={invoices.filter((invoice) => invoice.status === 'pending').length} tone="sky" />
             <DashboardMetric label="پرداخت موفق" value={invoices.filter((invoice) => invoice.status === 'paid').length} tone="emerald" />
             <DashboardMetric label="نتیجه منتشرشده" value={companyResults.length} tone="violet" />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PanelCard title="لیگ‌های پیش رو" description="لیگ‌های فعال و آماده ثبت‌نام برای مجموعه شما">
+              {leagues.length ? <div className="space-y-2">{leagues.slice(0, 4).map((league) => <div key={league.id} className="flex items-center justify-between gap-3 border-b border-rc-line/60 py-3 last:border-0"><div><p className="font-bold text-slate-800">{league.name}</p><p className="mt-1 text-xs text-rc-muted">{league.registration_close_at ? `مهلت ثبت‌نام: ${new Date(league.registration_close_at).toLocaleDateString('fa-IR')}` : 'ثبت‌نام فعال'}</p></div><Link to="/company/competitions" className="shrink-0 text-sm font-bold text-rc-blue">مشاهده و ثبت‌نام</Link></div>)}</div> : <p className="text-sm text-rc-muted">در حال حاضر لیگ فعالی برای ثبت‌نام وجود ندارد.</p>}
+            </PanelCard>
+            <PanelCard title="راهنمای شروع" description="مسیر پیشنهادی برای تکمیل حضور در مسابقات">
+              <ol className="space-y-3 text-sm text-slate-700"><li><b>۱. پروفایل مجموعه:</b> اطلاعات هویتی و مدارک را کامل کنید.</li><li><b>۲. تیم‌های ما:</b> تیم، سرپرست و اعضا را تعریف کنید.</li><li><b>۳. انتخاب لیگ:</b> شرایط لیگ را بررسی و ثبت‌نام را آغاز کنید.</li><li><b>۴. پرداخت و پیگیری:</b> صورتحساب و وضعیت تأیید را از پنل دنبال کنید.</li></ol>
+            </PanelCard>
           </div>
           {(teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) || invoices.some((invoice) => invoice.status === 'pending')) ? <div className="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-5"><h3 className="font-black text-amber-900">اقدام‌های باز شما</h3><div className="mt-3 flex flex-wrap gap-3">{teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) ? <Link to="/company/teams" className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white">ادامه ثبت‌نام تیم</Link> : null}{invoices.some((invoice) => invoice.status === 'pending') ? <Link to="/account/invoices" className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-800">مشاهده صورتحساب‌های باز</Link> : null}</div></div> : null}
           {editingProfile && activeCompany ? (
@@ -176,7 +195,7 @@ export function CompanyPanelPage({
                 )}
                 <div className="text-sm text-rc-muted">
                   <p>
-                    <span className="font-mono text-rc-blue">{activeCompany.slug}</span>
+                    <span className="font-bold text-slate-700">نوع مجموعه: {entityLabels[activeCompany.entity_type ?? 'company']}</span>
                   </p>
                   {activeCompany.website ? (
                     <a href={activeCompany.website} className="text-rc-blue hover:underline" dir="ltr">

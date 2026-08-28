@@ -100,6 +100,7 @@ export const COMPANY_NAV: PanelNavGroup = {
     { to: '/company', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.company.overview' },
     { to: '/company/competitions', labelKey: 'competitions.nav', helpKey: 'panel.help.company.competitions' },
     { to: '/company/teams', labelKey: 'team.listTitle', helpKey: 'panel.help.company.teams' },
+    { to: '/account/tickets', labelKey: 'staff.tabTickets', helpKey: 'panel.help.sa.tickets', badge: 'tickets' },
   ],
 }
 
@@ -123,7 +124,7 @@ const roleHome: Record<UserRole, string> = {
   league_admin: '/league-admin',
   staff: '/staff',
   company_admin: '/company',
-  team_captain: '/team',
+  team_captain: '/company',
 }
 
 export function roleHomePath(role: UserRole): string {
@@ -153,7 +154,7 @@ export function panelsForRole(role: UserRole): PanelNavGroup[] {
     case 'company_admin':
       return [COMPANY_NAV, ACCOUNT_NAV]
     case 'team_captain':
-      return [TEAM_NAV, COMPANY_NAV, ACCOUNT_NAV]
+      return [COMPANY_NAV, ACCOUNT_NAV]
     default:
       return []
   }

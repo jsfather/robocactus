@@ -139,6 +139,7 @@ export type Company = {
   created_at: string
   cover_image_url?: string | null
   tagline?: string | null
+  entity_type?: 'individual' | 'company' | 'institute' | 'school' | 'university' | 'academy' | 'club' | 'other'
 }
 
 export type CompanyMember = {

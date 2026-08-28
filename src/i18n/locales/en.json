@@ -245,8 +245,8 @@
       "super_admin": "Super Admin",
       "league_admin": "League Admin",
       "staff": "Staff",
-      "company_admin": "Company Admin",
-      "team_captain": "Team Captain"
+      "company_admin": "Organization Manager",
+      "team_captain": "Organization Manager"
     },
     "comingSoon": "This panel will be completed in later phases.",
     "goCompany": "Manage company & teams",
@@ -326,7 +326,7 @@
     }
   },
   "company": {
-    "panelTitle": "Company panel",
+    "panelTitle": "Organization profile",
     "createTitle": "Register a company",
     "editTitle": "Edit company profile",
     "hideEdit": "Close editor",
@@ -348,7 +348,7 @@
     "wizardTitle": "Register a new team",
     "wizardHint": "Multi-step form — draft survives page refresh.",
     "addTeam": "Add team",
-    "listTitle": "Company teams",
+    "listTitle": "Our teams",
     "listHint": "Each company may register one team per league.",
     "empty": "No teams yet.",
     "view": "View",

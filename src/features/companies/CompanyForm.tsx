@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Textarea, FieldError, PanelCard } from '@/components/ui/FormControls'
+import { Button, Input, Textarea, FieldError, PanelCard, Select } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
 import { createCompany, updateCompany, uploadCompanyLogo } from '@/features/companies/api'
 import { slugify } from '@/lib/validation'
@@ -13,11 +13,11 @@ interface CompanyFormProps {
 
 export function CompanyForm({ company, onSaved }: CompanyFormProps) {
   const { t } = useTranslation()
-  const { user, refreshProfile } = useAuth()
+  const { user, profile } = useAuth()
   const isEdit = Boolean(company)
 
-  const [name, setName] = useState(company?.name ?? '')
-  const [slug, setSlug] = useState(company?.slug ?? '')
+  const [name, setName] = useState(company?.name ?? (profile?.account_type === 'individual' ? profile.full_name : profile?.company_name) ?? '')
+  const [entityType, setEntityType] = useState<NonNullable<Company['entity_type']>>(company?.entity_type ?? (profile?.account_type === 'individual' ? 'individual' : 'company'))
   const [bio, setBio] = useState(company?.bio ?? '')
   const [tagline, setTagline] = useState(company?.tagline ?? '')
   const [website, setWebsite] = useState(company?.website ?? '')
@@ -32,7 +32,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
   useEffect(() => {
     if (!company) return
     setName(company.name)
-    setSlug(company.slug)
+    setEntityType(company.entity_type ?? (profile?.account_type === 'individual' ? 'individual' : 'company'))
     setBio(company.bio ?? '')
     setTagline(company.tagline ?? '')
     setWebsite(company.website ?? '')
@@ -41,9 +41,6 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
 
   const onNameChange = (value: string) => {
     setName(value)
-    if (!isEdit || slug === slugify(company?.name ?? '')) {
-      setSlug(slugify(value))
-    }
   }
 
   const onSubmit = async (event: FormEvent) => {
@@ -64,7 +61,8 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
 
       const payload = {
         name: name.trim(),
-        slug: slugify(slug || name),
+        slug: company?.slug ?? `${slugify(name) || 'organization'}-${crypto.randomUUID().slice(0, 8)}`,
+        entity_type: entityType,
         bio: bio.trim() || undefined,
         tagline: tagline.trim() || undefined,
         website: website.trim() || undefined,
@@ -88,12 +86,12 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
                 return updateCompany(created.id, {
                   cover_image_url: payload.cover_image_url,
                   tagline: payload.tagline,
+                  entity_type: payload.entity_type,
                 })
               }
-              return created
+              return updateCompany(created.id, { entity_type: payload.entity_type })
             })
 
-      await refreshProfile()
       onSaved(saved)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'error'
@@ -120,14 +118,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
         />
-        <Input
-          label={t('company.slug')}
-          name="slug"
-          required
-          value={slug}
-          onChange={(e) => setSlug(slugify(e.target.value))}
-          dir="ltr"
-        />
+        <Select label="نوع مجموعه" value={entityType} onChange={(event) => setEntityType(event.target.value as NonNullable<Company['entity_type']>)}><option value="individual">شخص حقیقی</option><option value="company">شرکت</option><option value="institute">مؤسسه</option><option value="school">مدرسه</option><option value="university">دانشگاه</option><option value="academy">آموزشگاه</option><option value="club">باشگاه</option><option value="other">سایر</option></Select>
         <Input
           label={t('company.website')}
           name="website"

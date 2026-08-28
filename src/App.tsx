@@ -30,6 +30,7 @@ import { ContactPage } from '@/app/public/ContactPage'
 import { FaqPage } from '@/app/public/FaqPage'
 import { LeagueDetailPage } from '@/app/public/LeagueDetailPage'
 import { CompanyPanelPage } from '@/app/company/CompanyPanelPage'
+import { ParticipantTicketsPage } from '@/app/company/ParticipantTicketsPage'
 import { CompanyCompetitionsPage } from '@/app/company/CompanyCompetitionsPage'
 import { TeamPanelPage } from '@/app/team/TeamPanelPage'
 import { SuperAdminFinancePage } from '@/app/super-admin/SuperAdminFinancePage'
@@ -169,6 +170,7 @@ export default function App() {
                   <Route path="company" element={<CompanyPanelPage section="overview" />} />
                   <Route path="company/competitions" element={<CompanyCompetitionsPage />} />
                   <Route path="company/teams" element={<CompanyPanelPage section="teams" />} />
+                  <Route path="account/tickets" element={<ParticipantTicketsPage />} />
                   <Route path="payments/teams/:teamId" element={<TeamPaymentPage />} />
                   <Route path="payments/callback" element={<PaymentCallbackPage />} />
                 </Route>

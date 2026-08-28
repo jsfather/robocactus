@@ -99,18 +99,18 @@ export function HeaderSearch({ expanded = false }: { expanded?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={expanded ? 'flex min-h-9 w-72 items-center justify-between rounded-xl border border-white/20 bg-white/15 ps-4 pe-1 text-white/90 transition hover:bg-white hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white' : 'grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue'}
+        className={expanded ? 'flex min-h-9 w-64 items-center justify-between border-b border-white/45 bg-transparent ps-1 pe-0 text-white/90 transition hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white' : 'grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue'}
         aria-label={t('search.title')}
         aria-expanded={open}
         aria-controls="header-search-panel"
       >
-        {expanded ? <span className="truncate text-xs">{t('search.placeholder')}</span> : null}<span className={expanded ? 'grid size-7 shrink-0 place-items-center rounded-lg bg-white text-rc-blue' : undefined}><svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+        {expanded ? <span className="truncate text-xs">{t('search.placeholder')}</span> : null}<span className={expanded ? 'grid size-8 shrink-0 place-items-center text-white' : undefined}><svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
           <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </svg></span>
       </button>
       {open ? (
-        <div id="header-search-panel" className="absolute end-0 top-full z-50 mt-2 w-[min(25rem,calc(100vw-1rem))] border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_18px_45px_rgb(15_23_42/0.16)]">
+        <div id="header-search-panel" className="absolute end-0 top-full z-50 mt-3 w-[min(25rem,calc(100vw-1rem))] rounded-2xl border border-sky-100 bg-white p-4 text-slate-900 shadow-[0_20px_48px_rgb(15_65_80/0.16)]">
           <p className="mb-3 text-xs font-black tracking-[0.12em] text-slate-500">
             {t('search.title')}
           </p>
@@ -119,7 +119,7 @@ export function HeaderSearch({ expanded = false }: { expanded?: boolean }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('search.placeholder')}
-            className="min-h-12 w-full border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-rc-blue focus:ring-2 focus:ring-sky-100"
+            className="min-h-12 w-full rounded-xl border border-sky-100 bg-sky-50/60 px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-rc-blue focus:bg-white focus:ring-2 focus:ring-sky-100"
           />
           <ul className="mt-3 max-h-72 divide-y divide-slate-100 overflow-y-auto">
             {busy ? <li className="px-2 py-2 text-xs text-rc-muted">{t('app.loading')}</li> : null}

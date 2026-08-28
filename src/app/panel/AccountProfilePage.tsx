@@ -35,6 +35,9 @@ export function AccountProfilePage() {
 
   useEffect(() => setForm(profile), [profile])
   useEffect(() => {
+    setForm((current) => current && (current.country_code ?? 'IR') === 'IR' && !current.nationality?.trim() ? { ...current, nationality: 'ایرانی', is_foreign: false } : current)
+  }, [profile?.id])
+  useEffect(() => {
     if (!profile?.account_type || !user) return
     void Promise.all([
       fetchRegistrationDocTypes(profile.account_type),

@@ -29,6 +29,18 @@ async function lookupObject(bucket: string, objectPath: string) {
   return result.rows[0] as { disk_path: string; mime_type: string | null; is_public: boolean } | undefined
 }
 
+async function sendStoredObject(response: Response, object: { disk_path: string; mime_type: string | null } | undefined) {
+  if (!object) { response.sendStatus(404); return }
+  try {
+    const body = await fs.readFile(object.disk_path)
+    response.type(object.mime_type ?? 'application/octet-stream').send(body)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') { response.sendStatus(404); return }
+    console.error('[storage] read failed', { diskPath: object.disk_path, error })
+    response.status(503).json({ error: 'storage_read_failed' })
+  }
+}
+
 function pathFromRegex(request: Request, group: number): string {
   return cleanObjectPath(decodeURIComponent(request.params[group] ?? ''))
 }
@@ -152,7 +164,7 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
-    response.type(object.mime_type ?? 'application/octet-stream').sendFile(object.disk_path)
+    await sendStoredObject(response, object)
   })
 
   router.get(/^\/storage\/private\/([^/]+)\/(.+)$/, async (request, response: Response) => {
@@ -175,7 +187,7 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
-    response.type(object.mime_type ?? 'application/octet-stream').sendFile(object.disk_path)
+    await sendStoredObject(response, object)
   })
 
   router.get(/^\/storage\/signed\/([^/]+)\/(.+)$/, async (request, response: Response) => {
@@ -196,6 +208,6 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
-    response.type(object.mime_type ?? 'application/octet-stream').sendFile(object.disk_path)
+    await sendStoredObject(response, object)
   })
 }

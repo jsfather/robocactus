@@ -113,7 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true)
     setProfileError(null)
     try {
-      const next = await fetchProfile(userId)
+      let next: Profile | null
+      try {
+        next = await fetchProfile(userId)
+      } catch {
+        await new Promise((resolve) => window.setTimeout(resolve, 450))
+        next = await fetchProfile(userId)
+      }
       setProfile(next)
       if (!next) setProfileError('profile_missing')
       return next
@@ -129,14 +135,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    const userId = (await backend.auth.getUser()).data.user?.id
+    const activeUserId = session?.user?.id
+    if (activeUserId) {
+      await loadProfile(activeUserId)
+      return
+    }
+    const result = await backend.auth.getUser()
+    if (result.error) {
+      setProfileError(result.error.message)
+      return
+    }
+    const userId = result.data.user?.id
     if (!userId) {
       setProfile(null)
       setProfileError(null)
       return
     }
     await loadProfile(userId)
-  }, [loadProfile])
+  }, [loadProfile, session?.user?.id])
 
   useEffect(() => {
     if (!configured) {

@@ -101,7 +101,7 @@ export function emptyMemberDraft(role: 'captain' | 'coach' | 'member' = 'member'
     national_id: '',
     birth_date: '',
     education: '',
-    father_name_fa: '', father_name_en: '', phone: '', residence: '', province: '', city: '', country_code: 'IR', nationality: '', is_foreign: false,
+    father_name_fa: '', father_name_en: '', phone: '', residence: '', province: '', city: '', country_code: 'IR', nationality: 'ایرانی', is_foreign: false,
     passport_number: '', education_level: '', field_of_study: '',
   }
 }
