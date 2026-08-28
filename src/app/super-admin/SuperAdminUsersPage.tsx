@@ -4,18 +4,15 @@ import { Button, FieldError, Input, PanelCard, Select, Textarea } from '@/compon
 import {
   adminUpdateProfile,
   fetchAllProfiles,
-  setUserRole,
 } from '@/features/leagues/adminApi'
 import { activateUserAccount, createAccountIssue } from '@/features/notifications/api'
 import { AccountIssuesAdminList } from '@/features/account-issues/AccountIssuesPanel'
 import { useToast } from '@/components/ui/Toast'
-import type { Profile, UserRole } from '@/types/database'
+import type { Profile } from '@/types/database'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
 import { normalizeIranMobile, participantDisplayName } from '@/features/participants/identity'
-
-const ALL_ROLES: UserRole[] = ['company_admin', 'team_captain']
 
 export function SuperAdminUsersPage() {
   const { t } = useTranslation()
@@ -118,19 +115,6 @@ export function SuperAdminUsersPage() {
     }
   }
 
-  const onRoleChange = async (userId: string, role: UserRole) => {
-    setBusy(true)
-    setError(null)
-    try {
-      const updated = await setUserRole(userId, role)
-      setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const onCreateUser = async (event: FormEvent) => {
     event.preventDefault()
     if (!createForm.full_name.trim() || !normalizeIranMobile(createForm.phone.trim())) {
@@ -156,7 +140,7 @@ export function SuperAdminUsersPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard index="01" label="کل کاربران" value={profiles.length} hint="تمام حساب‌های ثبت‌شده" />
         <StatCard index="02" label="در انتظار فعال‌سازی" value={profiles.filter((profile) => profile.account_status === 'pending').length} hint="نیازمند بررسی مدیریت" accent="orange" />
-        <StatCard index="03" label="مدیران شرکت" value={profiles.filter((profile) => profile.role === 'company_admin').length} hint="حساب‌های حقوقی و سازمانی" accent="green" />
+        <StatCard index="03" label="اشخاص حقوقی" value={participants.filter((profile) => profile.account_type === 'legal').length} hint="شرکت‌ها و سازمان‌های شرکت‌کننده" accent="green" />
         <StatCard index="04" label="مدیر لیگ و همکار" value={profiles.filter((profile) => profile.role === 'league_admin' || profile.role === 'staff').length} hint="اعضای اجرایی پنل" />
       </div>
 
@@ -251,7 +235,7 @@ export function SuperAdminUsersPage() {
                 <tr className="border-b border-white/10 text-rc-muted">
                   <th className="px-2 py-2 text-start">{t('auth.fullName')}</th>
                   <th className="px-2 py-2 text-start">{t('auth.phone')}</th>
-                  <th className="px-2 py-2 text-start">{t('dashboard.role')}</th>
+                  <th className="px-2 py-2 text-start">نوع شرکت‌کننده</th>
                   <th className="px-2 py-2 text-start">{t('admin.users.status')}</th>
                   <th className="px-2 py-2 text-start">{t('admin.users.actions')}</th>
                 </tr>
@@ -259,25 +243,14 @@ export function SuperAdminUsersPage() {
               <tbody>
                 {filteredParticipants.map((profile) => (
                   <tr key={profile.id} className="border-b border-white/5">
-                    <td className="px-2 py-2">{participantDisplayName(profile)}</td>
+                    <td className="px-2 py-2">{profile.account_type === 'legal' ? `شرکت ${profile.company_name || participantDisplayName(profile)}` : `${profile.gender === 'female' ? 'خانم' : profile.gender === 'male' ? 'آقای' : ''} ${participantDisplayName(profile)}`.trim()}</td>
                     <td className="px-2 py-2 font-mono text-xs" dir="ltr">
                       {profile.phone}
                     </td>
                     <td className="px-2 py-2">
-                      <select
-                        className="rounded-md border border-white/10 bg-rc-navy px-2 py-1.5 text-sm"
-                        value={profile.role}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void onRoleChange(profile.id, e.target.value as UserRole)
-                        }
-                      >
-                        {ALL_ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {t(`dashboard.roles.${role}`)}
-                          </option>
-                        ))}
-                      </select>
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${profile.account_type === 'legal' ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800'}`}>
+                        {profile.account_type === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}
+                      </span>
                     </td>
                     <td className="px-2 py-2 font-mono text-xs">
                       {profile.account_status ?? 'active'}

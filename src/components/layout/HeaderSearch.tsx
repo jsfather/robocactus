@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchActiveLeagues } from '@/features/companies/api'
@@ -15,6 +15,7 @@ export function HeaderSearch() {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<Hit[]>([])
   const [busy, setBusy] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -22,7 +23,9 @@ export function HeaderSearch() {
       if (e.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const onPointer = (event: PointerEvent) => { if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false) }
+    window.addEventListener('pointerdown', onPointer)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onPointer) }
   }, [open])
 
   useEffect(() => {
@@ -92,12 +95,14 @@ export function HeaderSearch() {
   )
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="rounded-md border border-rc-line p-2 text-rc-muted hover:bg-rc-hover hover:text-rc-text"
+        className="grid size-11 place-items-center border-s border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue"
         aria-label={t('search.title')}
+        aria-expanded={open}
+        aria-controls="header-search-panel"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
@@ -105,8 +110,8 @@ export function HeaderSearch() {
         </svg>
       </button>
       {open ? (
-        <div className="absolute end-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] border border-rc-line bg-rc-navy p-3 shadow-xl">
-          <p className="mb-2 font-mono text-[10px] tracking-[0.2em] text-rc-blue uppercase">
+        <div id="header-search-panel" className="absolute end-0 top-full z-50 mt-2 w-[min(25rem,calc(100vw-1rem))] border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_18px_45px_rgb(15_23_42/0.16)]">
+          <p className="mb-3 text-xs font-black tracking-[0.12em] text-slate-500">
             {t('search.title')}
           </p>
           <input
@@ -114,9 +119,9 @@ export function HeaderSearch() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('search.placeholder')}
-            className="w-full border border-rc-line bg-rc-surface px-3 py-2 text-sm outline-none focus:border-rc-blue/50"
+            className="min-h-12 w-full border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:border-rc-blue focus:ring-2 focus:ring-sky-100"
           />
-          <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
+          <ul className="mt-3 max-h-72 divide-y divide-slate-100 overflow-y-auto">
             {busy ? <li className="px-2 py-2 text-xs text-rc-muted">{t('app.loading')}</li> : null}
             {!busy && q.trim().length >= 2 && hits.length === 0 ? (
               <li className="px-2 py-2 text-xs text-rc-muted">{t('search.empty')}</li>
@@ -129,7 +134,7 @@ export function HeaderSearch() {
                     setOpen(false)
                     setQ('')
                   }}
-                  className="block px-2 py-2 text-sm hover:bg-rc-hover"
+                  className="block min-h-12 px-3 py-3 text-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue"
                 >
                   <span className="font-mono text-[9px] text-rc-blue uppercase">{label[h.kind]}</span>
                   <p className="font-medium">{h.title}</p>

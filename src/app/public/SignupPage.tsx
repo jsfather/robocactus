@@ -255,7 +255,7 @@ export function SignupPage() {
       clearSignupDraft()
       setOtpState('success')
       toast.success(t('auth.phoneVerified'))
-      await new Promise((resolve) => window.setTimeout(resolve, 720))
+      await new Promise((resolve) => window.setTimeout(resolve, 5000))
       setStep('docs')
     } catch (err) {
       setOtpState('error')

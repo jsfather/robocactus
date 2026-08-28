@@ -10,6 +10,7 @@ import {
   updateSiteSettings,
 } from '@/features/settings/api'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
+import { useToast } from '@/components/ui/Toast'
 import type { SiteNavItem, SiteSettings } from '@/types/database'
 
 const emptyNav = (): SiteNavItem => ({
@@ -24,6 +25,7 @@ const emptyNav = (): SiteNavItem => ({
 export function SuperAdminSettingsPage() {
   const { t } = useTranslation()
   const { refresh } = useSiteSettings()
+  const toast = useToast()
   const [form, setForm] = useState<SiteSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -51,6 +53,7 @@ export function SuperAdminSettingsPage() {
       setForm(saved)
       applySiteBrandColors(saved)
       await refresh()
+      toast.success('عنوان و توضیحات سایت با موفقیت ذخیره شد.')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -152,31 +155,46 @@ export function SuperAdminSettingsPage() {
           </div>
         </HudFrame>
 
-        <HudFrame className="space-y-3 p-4">
-          <SectionLabel index="SEO.03" title={t('settings.seo')} />
+        <HudFrame className="space-y-4 p-4">
+          <SectionLabel index="SEO.03" title={t('settings.seo')} hint="عنوان و توضیحی که در گوگل، مرورگر و هنگام اشتراک‌گذاری سایت نمایش داده می‌شود را از این بخش مدیریت کنید." />
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               label={t('settings.seoTitleFa')}
               value={form.seo_title_fa ?? ''}
               onChange={(e) => patch({ seo_title_fa: e.target.value })}
+              maxLength={70}
             />
             <Input
               label={t('settings.seoTitleEn')}
               value={form.seo_title_en ?? ''}
               onChange={(e) => patch({ seo_title_en: e.target.value })}
+              maxLength={70}
+              dir="ltr"
             />
             <Textarea
               label={t('settings.seoDescFa')}
               className="min-h-20"
               value={form.seo_description_fa ?? ''}
               onChange={(e) => patch({ seo_description_fa: e.target.value })}
+              maxLength={180}
             />
             <Textarea
               label={t('settings.seoDescEn')}
               className="min-h-20"
               value={form.seo_description_en ?? ''}
               onChange={(e) => patch({ seo_description_en: e.target.value })}
+              maxLength={180}
+              dir="ltr"
             />
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between text-xs text-slate-500">
+              <span>پیش‌نمایش نتیجه جست‌وجو</span>
+              <span>{(form.seo_title_fa ?? '').length}/۷۰ · {(form.seo_description_fa ?? '').length}/۱۸۰</span>
+            </div>
+            <p className="truncate text-lg font-bold text-blue-700">{form.seo_title_fa?.trim() || form.site_name_fa}</p>
+            <p className="mt-1 text-xs text-emerald-700" dir="ltr">robo.ecactus.co</p>
+            <p className="mt-2 line-clamp-2 text-sm leading-7 text-slate-600">{form.seo_description_fa?.trim() || form.tagline_fa || 'توضیحات فارسی سایت در این قسمت نمایش داده می‌شود.'}</p>
           </div>
           <ImageUploadField
             label={t('settings.ogDefault')}

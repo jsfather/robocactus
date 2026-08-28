@@ -7004,6 +7004,13 @@ alter table public.auth_otp_challenges drop constraint if exists auth_otp_challe
 alter table public.auth_otp_challenges add constraint auth_otp_challenges_purpose_check
   check (purpose in ('login','signup','profile','password_reset'));
 
+-- ===== 0054_collaborator_departments.sql =====
+alter table public.profiles
+  add column if not exists staff_department text;
+
+comment on column public.profiles.staff_department is
+  'Internal organizational unit for collaborators, e.g. support, finance, operations or content.';
+
 -- ===== 9999_application_runtime.sql =====
 -- Runtime privileges and database-backed realtime event capture.
 

@@ -239,7 +239,7 @@
   },
   "dashboard": {
     "welcome": "خوش آمدید، {{name}}",
-    "role": "نقش شما",
+    "role": "نقش",
     "roles": {
       "super_admin": "مدیر کل",
       "league_admin": "سرداور لیگ",

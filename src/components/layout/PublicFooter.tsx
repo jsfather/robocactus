@@ -4,22 +4,16 @@ import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sortedNavItems } from '@/features/settings/api'
 import { sanitizeTrustSealHtml } from '@/lib/sanitize'
 
-const FALLBACK_LINKS = [
-  { href: '/leagues', labelKey: 'nav.leagues' }, { href: '/rankings', labelKey: 'nav.rankings' },
-  { href: '/companies', labelKey: 'nav.companies' }, { href: '/blog', labelKey: 'nav.blog' },
-  { href: '/gallery', labelKey: 'nav.gallery' }, { href: '/about', labelKey: 'nav.about' },
-  { href: '/contact', labelKey: 'nav.contact' }, { href: '/faq', labelKey: 'nav.faq' },
-  { href: '/privacy', labelKey: 'nav.privacy' },
-  { href: '/terms', labelKey: 'nav.terms' }, { href: '/registration-guide', labelKey: 'nav.registrationGuide' },
+const fallbackLinks = [
+  ['/leagues', 'nav.leagues'], ['/rankings', 'nav.rankings'], ['/companies', 'nav.companies'],
+  ['/blog', 'nav.blog'], ['/gallery', 'nav.gallery'], ['/about', 'nav.about'],
+  ['/contact', 'nav.contact'], ['/faq', 'nav.faq'], ['/privacy', 'nav.privacy'],
+  ['/terms', 'nav.terms'], ['/registration-guide', 'nav.registrationGuide'],
 ] as const
 
-function ContactIcon({ kind }: { kind: 'phone' | 'email' | 'address' }) {
-  const paths = {
-    phone: <path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" />,
-    email: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>,
-    address: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
-  }
-  return <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-100"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind]}</svg></span>
+function ContactIcon({ type }: { type: 'phone' | 'email' | 'address' }) {
+  const body = type === 'phone' ? <path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" /> : type === 'email' ? <><rect x="3" y="5" width="18" height="14" /><path d="m4 7 8 6 8-6" /></> : <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>
+  return <svg viewBox="0 0 24 24" className="mt-0.5 size-5 shrink-0 text-sky-300" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{body}</svg>
 }
 
 export function PublicFooter() {
@@ -28,58 +22,35 @@ export function PublicFooter() {
   const isEn = i18n.language.startsWith('en')
   const brand = isEn ? settings?.site_name_en || t('app.name') : settings?.site_name_fa || t('app.name')
   const about = (isEn ? settings?.footer_en || settings?.tagline_en : settings?.footer_fa || settings?.tagline_fa) || t('home.footerTagline')
-  const contactBlurb = isEn ? settings?.contact_blurb_en : settings?.contact_blurb_fa
   const address = isEn ? settings?.contact_address_en : settings?.contact_address_fa
+  const contactBlurb = isEn ? settings?.contact_blurb_en : settings?.contact_blurb_fa
   const copyright = isEn ? settings?.copyright_en || t('footer.copyrightDefault') : settings?.copyright_fa || t('footer.copyrightDefault')
-  const developerCredit = isEn
-    ? settings?.developer_credit_en || 'Designed and developed by'
-    : settings?.developer_credit_fa || 'طراحی و توسعه'
+  const developerCredit = isEn ? settings?.developer_credit_en || 'Designed and developed by' : settings?.developer_credit_fa || 'طراحی و توسعه'
   const developerName = settings?.developer_name?.trim() || (isEn ? 'Farino' : 'فارینو')
   const developerUrl = settings?.developer_url?.trim() || 'https://farino.ir'
   const phone = settings?.support_phone?.trim()
-  const telephoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined
   const email = settings?.contact_email?.trim()
-  const socials = [
-    ['Instagram', settings?.instagram_url], ['Telegram', settings?.telegram_url],
-    ['LinkedIn', settings?.linkedin_url], ['WhatsApp', settings?.whatsapp_url],
-  ].filter((item): item is [string, string] => Boolean(item[1]?.trim() && /^https:\/\//i.test(item[1])))
-  const hasTrustSeal = Boolean(settings?.trust_seal_html?.trim() || settings?.trust_seal_url)
-  const configuredNav = sortedNavItems(settings?.nav_items)
-  const useful = configuredNav.length ? [...configuredNav] : FALLBACK_LINKS.map((item, index) => ({ id: String(index), href: item.href, label_fa: t(item.labelKey), label_en: t(item.labelKey), enabled: true, order: index }))
-  for (const item of [{ href: '/terms', key: 'nav.terms' }, { href: '/registration-guide', key: 'nav.registrationGuide' }]) if (!useful.some((link) => link.href === item.href)) useful.push({ id: item.href, href: item.href, label_fa: t(item.key), label_en: t(item.key), enabled: true, order: useful.length })
+  const socials = [['Instagram', settings?.instagram_url], ['Telegram', settings?.telegram_url], ['LinkedIn', settings?.linkedin_url], ['WhatsApp', settings?.whatsapp_url]].filter((item): item is [string, string] => Boolean(item[1]?.trim() && /^https:\/\//i.test(item[1])))
+  const hasTrust = Boolean(settings?.trust_seal_html?.trim() || settings?.trust_seal_url)
+  const configured = sortedNavItems(settings?.nav_items)
+  const links = configured.length ? [...configured] : fallbackLinks.map(([href, key], index) => ({ id: String(index), href, label_fa: t(key), label_en: t(key), enabled: true, order: index }))
+  for (const [href, key] of [['/terms', 'nav.terms'], ['/registration-guide', 'nav.registrationGuide']] as const) if (!links.some((item) => item.href === href)) links.push({ id: href, href, label_fa: t(key), label_en: t(key), enabled: true, order: links.length })
 
-  return <footer className="relative mt-20 border-t border-sky-900 bg-[#052f46] text-white">
-    <div className="relative overflow-hidden">
-      <span className="pointer-events-none absolute -end-36 -top-48 size-[30rem] rounded-full border-[5rem] border-white/[0.025]" aria-hidden="true" />
-      <span className="pointer-events-none absolute -bottom-36 -start-32 size-96 rounded-full bg-emerald-400/[0.05] blur-3xl" aria-hidden="true" />
+  return <footer className="relative mt-16 border-t-4 border-rc-blue bg-slate-950 text-slate-200">
+    <div className="mx-auto max-w-7xl px-4 sm:px-8">
+      <section className="grid gap-6 border-b border-white/15 py-9 md:grid-cols-[1fr_auto] md:items-center" aria-labelledby="footer-cta-title"><div><p className="text-xs font-black tracking-[.14em] text-sky-300">{brand}</p><h2 id="footer-cta-title" className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{t('footer.ctaTitle')}</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">{t('footer.ctaSubtitle')}</p></div><Link to="/contact" className="inline-flex min-h-12 items-center justify-center border border-sky-400 px-6 text-sm font-black text-white transition-colors hover:bg-sky-400 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">{t('nav.contact')}<span className="ms-2" aria-hidden="true">←</span></Link></section>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-10 sm:px-8 sm:pt-14">
-        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-sky-100 bg-white p-6 text-slate-950 shadow-[0_24px_70px_rgb(0_0_0/0.18)] md:grid-cols-[1fr_auto] md:items-center md:p-8">
-          <div><p className="text-xs font-black tracking-widest text-emerald-700">{brand}</p><h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{t('footer.ctaTitle')}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{t('footer.ctaSubtitle')}</p></div>
-          <Link to="/contact" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-sky-700 to-emerald-600 px-6 font-black text-white shadow-xl transition duration-300 hover:-translate-y-1">{t('nav.contact')} <span aria-hidden>←</span></Link>
-        </section>
-      </div>
+      <div className={`grid gap-0 py-10 md:grid-cols-2 ${hasTrust ? 'lg:grid-cols-[1.25fr_.9fr_1fr_.55fr]' : 'lg:grid-cols-[1.25fr_.9fr_1fr]'}`}>
+        <section className="pb-8 md:pe-8 lg:pb-0"><div className="flex items-center gap-4">{settings?.logo_url ? <span className="grid size-16 place-items-center bg-white p-2"><img src={settings.logo_url} alt={brand} className="max-h-12 max-w-full object-contain" /></span> : <span className="grid size-14 place-items-center border border-white/25 text-lg font-black text-sky-300">TC</span>}<div><h2 className="text-xl font-black text-white">{brand}</h2><p className="mt-1 text-[11px] font-bold tracking-wider text-slate-400">TABARESTAN CUP · AMOL</p></div></div><p className="mt-5 max-w-md text-sm leading-8 text-slate-400">{about}</p><p className="mt-5 border-s-2 border-sky-400 ps-3 text-xs font-bold text-slate-300">{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</p></section>
 
-      <div className={`relative mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-8 sm:py-14 md:grid-cols-2 ${hasTrustSeal ? 'lg:grid-cols-[1.4fr_.9fr_1fr_.55fr]' : 'lg:grid-cols-[1.4fr_.9fr_1fr]'}`}>
-        <section>
-          <div className="flex items-center gap-4">{settings?.logo_url ? <span className="grid size-16 place-items-center rounded-2xl bg-white p-2 shadow-lg"><img src={settings.logo_url} alt={brand} className="max-h-12 max-w-full object-contain" /></span> : <span className="grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-emerald-400 text-lg font-black shadow-lg">TC</span>}<div><h2 className="text-2xl font-black">{brand}</h2><p className="mt-1 text-xs font-bold tracking-wide text-emerald-200">Tabarestan Cup · Amol</p></div></div>
-          <p className="mt-5 max-w-lg text-sm leading-8 text-sky-100/65">{about}</p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white bg-white px-3 py-2 text-xs font-black text-slate-800 shadow-lg"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgb(16_185_129/0.14)]" />{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</div>
-        </section>
+        <nav className="border-t border-white/15 py-8 md:border-s md:border-t-0 md:px-8 md:py-0" aria-label={t('footer.usefulLinks')}><h3 className="text-xs font-black tracking-[.12em] text-white">{t('footer.usefulLinks')}</h3><ul className="mt-5 grid grid-cols-2 gap-x-5 gap-y-1">{links.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex min-h-9 items-center text-xs font-bold text-slate-400 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></nav>
 
-        <section className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-900 shadow-[0_18px_45px_rgb(1_24_38/0.18)]"><h3 className="text-sm font-black text-slate-950">{t('footer.usefulLinks')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent" /><ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs font-bold text-slate-700">{useful.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex min-h-8 items-center gap-2 rounded-lg px-1 transition hover:bg-sky-50 hover:text-sky-800"><span className="size-1.5 rounded-full bg-emerald-500" />{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></section>
+        <section className="border-t border-white/15 py-8 md:border-s md:px-8 lg:border-t-0 lg:py-0"><h3 className="text-xs font-black tracking-[.12em] text-white">{t('footer.contact')}</h3><ul className="mt-5 space-y-4 text-sm leading-6 text-slate-400">{phone ? <li><a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="flex min-h-10 items-start gap-3 transition-colors hover:text-sky-300"><ContactIcon type="phone" /><span dir="ltr">{phone}</span></a></li> : null}{email ? <li><a href={`mailto:${email}`} className="flex min-h-10 min-w-0 items-start gap-3 transition-colors hover:text-sky-300"><ContactIcon type="email" /><span className="[overflow-wrap:anywhere]" dir="ltr">{email}</span></a></li> : null}{address ? <li className="flex items-start gap-3"><ContactIcon type="address" /><span>{address}</span></li> : null}{contactBlurb ? <li className="border-t border-white/10 pt-4 text-xs leading-6">{contactBlurb}</li> : null}</ul>{socials.length ? <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/10 pt-4">{socials.map(([name, href]) => <a key={name} href={href} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-9 items-center text-xs font-black text-slate-300 underline decoration-slate-600 underline-offset-4 transition-colors hover:text-sky-300">{name}</a>)}</div> : null}</section>
 
-        <section className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-900 shadow-[0_18px_45px_rgb(1_24_38/0.18)]"><h3 className="text-sm font-black text-slate-950">{t('footer.contact')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" /><ul className="mt-5 space-y-3 text-xs leading-6 text-slate-700">{phone && telephoneHref ? <li><a href={telephoneHref} className="flex items-center gap-3 rounded-xl transition hover:bg-sky-50 hover:text-sky-800"><ContactIcon kind="phone" /><span dir="ltr">{phone}</span></a></li> : null}{email ? <li><a href={`mailto:${email}`} className="flex items-center gap-3 rounded-xl transition hover:bg-sky-50 hover:text-sky-800"><ContactIcon kind="email" /><span className="min-w-0 truncate" dir="ltr">{email}</span></a></li> : null}{address ? <li className="flex items-start gap-3"><ContactIcon kind="address" /><span>{address}</span></li> : null}{socials.length ? <li className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">{socials.map(([name, href]) => <a key={name} href={href} target="_blank" rel="noreferrer noopener" className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700 transition hover:bg-sky-100 hover:text-sky-800">{name}</a>)}</li> : null}{contactBlurb ? <li className="border-t border-slate-100 pt-3 text-slate-600">{contactBlurb}</li> : null}{!phone && !email && !address && !contactBlurb ? <li>{t('footer.contactEmpty')}</li> : null}</ul></section>
-
-        {hasTrustSeal ? <section className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-900 shadow-[0_18px_45px_rgb(1_24_38/0.18)]"><h3 className="text-sm font-black text-slate-950">{t('footer.trust')}</h3>{settings?.trust_seal_html?.trim() ? <div className="mt-5 grid min-h-28 place-items-center overflow-hidden rounded-2xl bg-slate-50 p-3 [&_img]:max-h-28 [&_img]:max-w-full [&_img]:object-contain" dangerouslySetInnerHTML={{ __html: sanitizeTrustSealHtml(settings.trust_seal_html) }} /> : <a href={settings?.trust_seal_href || '#'} target="_blank" rel="noreferrer noopener" className="mt-5 grid aspect-square place-items-center rounded-2xl bg-slate-50 p-3 transition hover:-translate-y-1"><img src={settings?.trust_seal_url || ''} alt={t('footer.trust')} className="max-h-24 max-w-full object-contain" /></a>}</section> : null}
+        {hasTrust ? <section className="border-t border-white/15 pt-8 md:border-s md:px-8 lg:border-t-0 lg:pt-0"><h3 className="text-xs font-black tracking-[.12em] text-white">{t('footer.trust')}</h3>{settings?.trust_seal_html?.trim() ? <div className="mt-5 grid min-h-28 place-items-center bg-white p-3 [&_img]:max-h-24 [&_img]:max-w-full [&_img]:object-contain" dangerouslySetInnerHTML={{ __html: sanitizeTrustSealHtml(settings.trust_seal_html) }} /> : <a href={settings?.trust_seal_href || '#'} target="_blank" rel="noreferrer noopener" className="mt-5 grid min-h-28 place-items-center bg-white p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"><img src={settings?.trust_seal_url || ''} alt={t('footer.trust')} className="max-h-24 max-w-full object-contain" /></a>}</section> : null}
       </div>
     </div>
 
-    <div className="relative border-t border-white/10 bg-[#03283b]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-6 text-center text-xs text-sky-50 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:pb-7 sm:text-start">
-        <div className="space-y-1.5"><p>{copyright}</p><p className="text-sky-100/75">{developerCredit}: <a href={developerUrl} target="_blank" rel="noreferrer noopener" className="font-black text-emerald-200 underline decoration-emerald-400/50 underline-offset-4 transition hover:text-white">{developerName}</a></p></div>
-        <p className="font-mono text-[10px] tracking-[0.18em] text-emerald-200 uppercase">Amol · Mazandaran · Iran</p>
-      </div>
-    </div>
+    <div className="border-t border-white/15 bg-black/20"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-6 text-center text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:pb-6 sm:text-start"><div><p>{copyright}</p><p className="mt-1.5">{developerCredit}: <a href={developerUrl} target="_blank" rel="noreferrer noopener" className="font-black text-sky-300 underline underline-offset-4 hover:text-white">{developerName}</a></p></div><p className="font-mono text-[10px] tracking-[.14em] text-slate-500">AMOL · MAZANDARAN · IRAN</p></div></div>
   </footer>
 }

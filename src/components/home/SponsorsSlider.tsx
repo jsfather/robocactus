@@ -5,76 +5,34 @@ import { HomeSection } from './HomeSection'
 
 function SponsorLogo({ sponsor }: { sponsor: HomeSponsor }) {
   const [failed, setFailed] = useState(!sponsor.logo_url)
-  if (failed) return <span className="grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-emerald-50 text-2xl font-black text-rc-blue" aria-hidden="true">{sponsor.name.trim().slice(0, 1).toUpperCase()}</span>
-  return <img src={sponsor.logo_url} alt={sponsor.name} className="aspect-[3/2] h-full max-h-20 w-full max-w-[10rem] object-contain" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  if (failed) return <span className="text-xl font-black text-slate-400" aria-hidden="true">{sponsor.name.trim().slice(0, 1).toUpperCase()}</span>
+  return <img src={sponsor.logo_url} alt={sponsor.name} className="max-h-16 max-w-[9rem] object-contain" loading="lazy" decoding="async" onError={() => setFailed(true)} />
 }
 
 export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
   const { t } = useTranslation()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [current, setCurrent] = useState(0)
-  const [interactionPaused, setInteractionPaused] = useState(false)
   const [manualPaused, setManualPaused] = useState(false)
+  const [interactionPaused, setInteractionPaused] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
-
-  const goTo = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+  const goTo = useCallback((index: number) => {
     if (!sponsors.length) return
     const next = (index + sponsors.length) % sponsors.length
-    const target = viewportRef.current?.querySelector<HTMLElement>(`[data-sponsor-index="${next}"]`)
-    const viewport = viewportRef.current
-    if (target && viewport) {
-      const viewportRect = viewport.getBoundingClientRect()
-      const targetRect = target.getBoundingClientRect()
-      const horizontalDelta = targetRect.left + targetRect.width / 2 - (viewportRect.left + viewportRect.width / 2)
-      viewport.scrollBy({ left: horizontalDelta, behavior: reducedMotion ? 'auto' : behavior })
-    }
+    viewportRef.current?.querySelector<HTMLElement>(`[data-sponsor-index="${next}"]`)?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' })
     setCurrent(next)
   }, [reducedMotion, sponsors.length])
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const sync = () => setReducedMotion(query.matches)
-    sync(); query.addEventListener('change', sync)
-    return () => query.removeEventListener('change', sync)
-  }, [])
-
-  useEffect(() => {
-    if (sponsors.length <= 1 || manualPaused || interactionPaused || reducedMotion) return
-    const timer = window.setInterval(() => {
-      if (!document.hidden) goTo(current + 1)
-    }, 4200)
-    return () => window.clearInterval(timer)
-  }, [current, goTo, interactionPaused, manualPaused, reducedMotion, sponsors.length])
-
+  useEffect(() => { const query = matchMedia('(prefers-reduced-motion: reduce)'); const sync = () => setReducedMotion(query.matches); sync(); query.addEventListener('change', sync); return () => query.removeEventListener('change', sync) }, [])
+  useEffect(() => { if (sponsors.length <= 1 || manualPaused || interactionPaused || reducedMotion) return; const timer = window.setInterval(() => { if (!document.hidden) goTo(current + 1) }, 5000); return () => clearInterval(timer) }, [current, goTo, interactionPaused, manualPaused, reducedMotion, sponsors.length])
   if (!sponsors.length) return null
 
-  const handleScroll = () => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const center = viewport.getBoundingClientRect().left + viewport.clientWidth / 2
-    let nearest = current
-    let distance = Number.POSITIVE_INFINITY
-    viewport.querySelectorAll<HTMLElement>('[data-sponsor-index]').forEach((item) => {
-      const rect = item.getBoundingClientRect()
-      const nextDistance = Math.abs(rect.left + rect.width / 2 - center)
-      if (nextDistance < distance) { distance = nextDistance; nearest = Number(item.dataset.sponsorIndex) }
-    })
-    if (nearest !== current) setCurrent(nearest)
-  }
-
-  return <HomeSection index="01" title={t('home.sponsorsTitle')} subtitle={t('home.sponsorsSubtitle')} className="bg-white">
-    <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-emerald-50/70 p-4 shadow-[0_18px_55px_rgb(16_84_105/0.08)] sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex gap-2"><button type="button" onClick={() => goTo(current - 1)} className="grid size-10 place-items-center rounded-full border border-sky-100 bg-white text-rc-blue shadow-sm transition hover:border-sky-300 hover:bg-sky-50" aria-label={t('home.sponsorsPrevious')}>→</button><button type="button" onClick={() => goTo(current + 1)} className="grid size-10 place-items-center rounded-full border border-sky-100 bg-white text-rc-blue shadow-sm transition hover:border-sky-300 hover:bg-sky-50" aria-label={t('home.sponsorsNext')}>←</button></div>
-        {sponsors.length > 1 ? <button type="button" onClick={() => setManualPaused((value) => !value)} className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-500 transition hover:text-rc-blue" aria-pressed={manualPaused}>{manualPaused ? <span aria-hidden>▶</span> : <span aria-hidden>Ⅱ</span>}{manualPaused ? t('home.sponsorsPlay') : t('home.sponsorsPause')}</button> : null}
-      </div>
-      <div ref={viewportRef} onScroll={handleScroll} onMouseEnter={() => setInteractionPaused(true)} onMouseLeave={() => setInteractionPaused(false)} onFocusCapture={() => setInteractionPaused(true)} onBlurCapture={() => setInteractionPaused(false)} onPointerDown={() => setInteractionPaused(true)} onPointerUp={() => setInteractionPaused(false)} onPointerCancel={() => setInteractionPaused(false)} className="flex touch-pan-x snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-[calc(50%_-_7rem)] py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-roledescription="carousel" aria-label={t('home.sponsorsTitle')}>
-        {sponsors.map((sponsor, index) => {
-          const card = <article className="flex h-44 w-56 flex-col rounded-2xl border border-white bg-white p-4 text-center shadow-[0_10px_28px_rgb(16_84_105/0.08)] transition duration-300 hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_16px_36px_rgb(16_84_105/0.12)]"><div className="grid aspect-[3/2] min-h-0 flex-1 place-items-center overflow-hidden rounded-xl bg-slate-50/80 p-3"><SponsorLogo sponsor={sponsor} /></div><p className="mt-3 truncate text-sm font-black text-slate-700">{sponsor.name}</p></article>
-          return <div key={sponsor.id} data-sponsor-index={index} className="w-56 shrink-0 snap-center">{sponsor.link_url ? <a href={sponsor.link_url} target="_blank" rel="noreferrer" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500" aria-label={sponsor.name}>{card}</a> : card}</div>
-        })}
-      </div>
-      {sponsors.length > 1 ? <div className="mt-5 flex justify-center gap-1.5" aria-hidden="true">{sponsors.map((sponsor, index) => <button key={sponsor.id} type="button" tabIndex={-1} onClick={() => goTo(index)} className={`h-1.5 rounded-full transition-all duration-300 ${current === index ? 'w-7 bg-rc-blue' : 'w-1.5 bg-slate-200'}`} />)}</div> : null}
+  return <HomeSection title={t('home.sponsorsTitle')} subtitle={t('home.sponsorsSubtitle')} className="bg-white !py-14 sm:!py-16">
+    <div className="border-y border-slate-300 py-6">
+      <div className="mb-4 flex items-center justify-between"><p className="text-xs font-bold text-slate-500">{current + 1} / {sponsors.length}</p>{sponsors.length > 1 ? <div className="flex items-center gap-1"><button type="button" onClick={() => goTo(current - 1)} className="grid size-11 place-items-center border border-slate-300 text-slate-700 transition-colors hover:border-rc-blue hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue" aria-label={t('home.sponsorsPrevious')}>→</button><button type="button" onClick={() => setManualPaused((value) => !value)} className="min-h-11 border border-slate-300 px-3 text-xs font-bold text-slate-700 transition-colors hover:border-rc-blue hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue" aria-pressed={manualPaused}>{manualPaused ? t('home.sponsorsPlay') : t('home.sponsorsPause')}</button><button type="button" onClick={() => goTo(current + 1)} className="grid size-11 place-items-center border border-slate-300 text-slate-700 transition-colors hover:border-rc-blue hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue" aria-label={t('home.sponsorsNext')}>←</button></div> : null}</div>
+      <div ref={viewportRef} onMouseEnter={() => setInteractionPaused(true)} onMouseLeave={() => setInteractionPaused(false)} onFocusCapture={() => setInteractionPaused(true)} onBlurCapture={() => setInteractionPaused(false)} onPointerDown={() => setInteractionPaused(true)} onPointerUp={() => setInteractionPaused(false)} className="flex touch-pan-x snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-roledescription="carousel" aria-label={t('home.sponsorsTitle')}>{sponsors.map((sponsor, index) => {
+        const content = <article className="flex h-36 w-48 flex-col items-center justify-center border-e border-slate-200 px-5 text-center sm:w-56"><div className="grid h-20 w-full place-items-center"><SponsorLogo sponsor={sponsor} /></div><p className="mt-2 max-w-full truncate text-sm font-bold text-slate-700">{sponsor.name}</p></article>
+        return <div key={sponsor.id} data-sponsor-index={index} className="shrink-0 snap-center">{sponsor.link_url ? <a href={sponsor.link_url} target="_blank" rel="noreferrer" className="block transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue" aria-label={sponsor.name}>{content}</a> : content}</div>
+      })}</div>
     </div>
   </HomeSection>
 }

@@ -128,7 +128,7 @@ export function LoginPage() {
     setOtpState('success')
     toast.success(result.registrationRequired ? t('auth.otpNewUser') : t('auth.otpExistingUser'))
     const destination = result.registrationRequired ? (result.nextPath || '/signup?onboarding=phone') : from
-    window.setTimeout(() => void navigate(destination, { replace: true }), 850)
+    window.setTimeout(() => void navigate(destination, { replace: true }), 5000)
   }
   const onResend = async () => {
     if (resendSeconds || submitting) return

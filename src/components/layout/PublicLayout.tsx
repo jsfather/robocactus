@@ -12,7 +12,7 @@ export function PublicLayout() {
   const isHome = pathname === '/'
 
   return (
-    <div className="min-h-dvh bg-rc-bg text-rc-text">
+    <div className="public-layout min-h-dvh bg-rc-bg text-rc-text">
       <div
         className="pointer-events-none fixed inset-0"
         style={{

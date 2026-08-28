@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
 :root,
-html.light,
-html.dark {
+html.light {
   color-scheme: light;
   --rc-bg: #f7fbfa;
   --rc-navy: #eaf5f4;
@@ -18,6 +17,33 @@ html.dark {
   --rc-glow-blue: rgb(36 152 216 / 0.10);
   --rc-glow-orange: rgb(37 211 102 / 0.08);
 }
+
+/* Keep password glyphs readable across public, account and admin themes. */
+input[type='password'] {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0284c7;
+}
+
+html.dark {
+  color-scheme: dark;
+  --rc-bg: #06131d;
+  --rc-navy: #0b2230;
+  --rc-text: #e7f4f7;
+  --rc-muted: #9bb4c1;
+  --rc-line: rgb(148 197 216 / 0.18);
+  --rc-line-soft: rgb(148 197 216 / 0.10);
+  --rc-surface: rgb(11 34 48 / 0.92);
+  --rc-hover: rgb(56 189 248 / 0.10);
+  --rc-glow-blue: rgb(14 165 233 / 0.14);
+  --rc-glow-orange: rgb(16 185 129 / 0.10);
+}
+
+html.dark .public-layout :is(.bg-white, [class*="from-white"], [class*="via-white"]) { background-color: #0b2230 !important; }
+html.dark .public-layout :is(.text-slate-950,.text-slate-900,.text-slate-800,.text-slate-700) { color: #e7f4f7 !important; }
+html.dark .public-layout :is(.text-slate-600,.text-slate-500,.text-slate-400) { color: #9bb4c1 !important; }
+html.dark .public-layout :is(.bg-slate-50,.bg-slate-100,.bg-sky-50,.bg-emerald-50) { background-color: #102b3a !important; }
+html.dark .public-layout :is(.border-slate-100,.border-slate-200,.border-sky-100,.border-sky-200) { border-color: rgb(148 197 216 / .2) !important; }
 
 .tabarestan-pattern {
   background-image: linear-gradient(rgb(36 152 216 / .1) 1px, transparent 1px), linear-gradient(90deg, rgb(37 211 102 / .08) 1px, transparent 1px);

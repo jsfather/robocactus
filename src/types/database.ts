@@ -125,6 +125,7 @@ export type Profile = {
   is_foreign?: boolean
   passport_number?: string | null
   avatar_url?: string | null
+  staff_department?: 'support' | 'finance' | 'operations' | 'content' | null
 }
 
 export type Company = {
