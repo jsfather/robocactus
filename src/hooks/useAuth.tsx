@@ -162,17 +162,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true
 
-    void backend.auth
-      .getSession()
-      .then(async ({ data }) => {
+    const restoreSession = async () => {
+      let lastError: string | null = null
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const result = await backend.auth.getSession()
+        if (!result.error) return result.data.session
+        lastError = result.error.message
+        await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)))
+      }
+      throw new Error(lastError ?? 'session_restore_failed')
+    }
+
+    void restoreSession()
+      .then(async (restoredSession) => {
         if (!mounted) return
-        setSession(data.session)
-        if (data.session?.user) {
-          await loadProfile(data.session.user.id)
+        setSession(restoredSession)
+        if (restoredSession?.user) {
+          await loadProfile(restoredSession.user.id)
         }
       })
       .catch((err: unknown) => {
         console.error('[auth] getSession failed', err)
+        if (mounted) setProfileError(err instanceof Error ? err.message : 'session_restore_failed')
       })
       .finally(() => {
         if (mounted) setLoading(false)

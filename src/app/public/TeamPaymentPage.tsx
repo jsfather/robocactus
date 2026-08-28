@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, FieldError, PanelCard, StatusBadge } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues } from '@/features/companies/api'
-import { fetchTeamById } from '@/features/registration/api'
+import { fetchTeamById, fetchTeamMembers } from '@/features/registration/api'
 import {
   createInvoiceForTeam,
   acceptInvoiceTerms,
@@ -36,6 +36,7 @@ export function TeamPaymentPage() {
   const [options, setOptions] = useState<BackendAuthOptions | null>(null)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [registrationBlock, setRegistrationBlock] = useState<string | null>(null)
 
   useEffect(() => {
     if (!teamId || authLoading || !user) return
@@ -51,20 +52,42 @@ export function TeamPaymentPage() {
         }
         setTeam(row)
 
-        const [leagues, companyRes, existing, optionResponse] = await Promise.all([
+        const [leagues, companyRes, existing, optionResponse, members] = await Promise.all([
           fetchActiveLeagues(),
           backend.from('companies').select('*').eq('id', row.company_id).maybeSingle(),
           fetchLatestInvoiceForTeam(row.id),
           backend.auth.getOptions(),
+          fetchTeamMembers(row.id),
         ])
 
-        setLeague(leagues.find((l) => l.id === row.league_id) ?? null)
+        const selectedLeague = leagues.find((l) => l.id === row.league_id) ?? null
+        setLeague(selectedLeague)
         setCompany((companyRes.data as Company | null) ?? null)
         setInvoice(existing)
         setTermsAccepted(Boolean(existing?.terms_accepted_at))
         setOptions(optionResponse.data)
 
-        if (row.status === 'draft' && (!existing || existing.status !== 'paid')) {
+        const hasCaptain = members.some((member) => member.role === 'captain')
+        const hasIncompletePerson = members.some((member) => !member.first_name_fa || !member.last_name_fa || !member.birth_date || !member.photo_url || !member.national_id_doc_path)
+        const belowMinimum = selectedLeague?.team_size_min != null && members.length < selectedLeague.team_size_min
+        const aboveMaximum = selectedLeague?.team_size_max != null && members.length > selectedLeague.team_size_max
+        const reachedPayment = row.lifecycle_status === 'awaiting_payment' || ['invoice', 'payment', 'completed'].includes(row.registration_stage ?? '')
+        const blockReason = !hasCaptain
+          ? 'اطلاعات سرپرست تیم هنوز ثبت نشده است.'
+          : !members.length
+            ? 'اعضای تیم هنوز ثبت نشده‌اند.'
+            : hasIncompletePerson
+              ? 'اطلاعات هویتی یا مدارک یک یا چند نفر کامل نشده است.'
+              : belowMinimum
+                ? `حداقل تعداد افراد این لیگ ${selectedLeague?.team_size_min?.toLocaleString('fa-IR')} نفر است.`
+                : aboveMaximum
+                  ? `حداکثر تعداد افراد این لیگ ${selectedLeague?.team_size_max?.toLocaleString('fa-IR')} نفر است.`
+                  : !reachedPayment
+                    ? 'ثبت‌نام هنوز به مرحله تأیید نهایی و صدور صورتحساب نرسیده است.'
+                    : null
+        setRegistrationBlock(existing?.status === 'paid' ? null : blockReason)
+
+        if (!blockReason && row.status === 'draft' && (!existing || existing.status !== 'paid')) {
           const created = await createInvoiceForTeam(row.id)
           setInvoice(created)
         }
@@ -124,6 +147,10 @@ export function TeamPaymentPage() {
         </Link>
       </div>
     )
+  }
+
+  if (registrationBlock) {
+    return <div className="mx-auto max-w-2xl px-4 py-12"><section className="rounded-3xl border border-amber-200 bg-white p-6 shadow-lg sm:p-8"><span className="grid size-12 place-items-center rounded-2xl bg-amber-100 text-xl font-black text-amber-700">!</span><h1 className="mt-5 text-2xl font-black text-slate-900">ثبت‌نام برای پرداخت آماده نیست</h1><p className="mt-3 text-sm leading-7 text-slate-600">{registrationBlock} ابتدا ثبت‌نام تیم را تکمیل و اطلاعات را تأیید کنید؛ پس از آن مبلغ نهایی براساس سرپرست، مربی و اعضا محاسبه می‌شود.</p><Link to="/company/competitions" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-sky-600 to-emerald-600 px-5 py-2.5 text-sm font-bold text-white">ادامه و تکمیل ثبت‌نام</Link></section></div>
   }
 
   const isPaid = invoice?.status === 'paid' || team.status !== 'draft'

@@ -20,6 +20,8 @@ for (const filename of ['.env', '.env.local']) {
   }
 }
 
+const configuredSessionDays = Number(process.env.SESSION_DAYS ?? 30)
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? '',
@@ -29,7 +31,7 @@ export const config = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
-  sessionDays: Number(process.env.SESSION_DAYS ?? 30),
+  sessionDays: Number.isFinite(configuredSessionDays) && configuredSessionDays >= 1 ? configuredSessionDays : 30,
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './data/uploads'),
   uploadSecret: process.env.UPLOAD_SIGNING_SECRET ?? process.env.SESSION_SECRET ?? 'change-me-in-production',
   smsMock: (process.env.SMS_MOCK ?? 'true') === 'true',
