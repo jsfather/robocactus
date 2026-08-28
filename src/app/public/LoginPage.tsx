@@ -63,7 +63,9 @@ export function LoginPage() {
     return () => window.clearTimeout(timer)
   }, [otpSent, otpRemainingSeconds])
 
-  if (user) return <Navigate to={from.startsWith('/') ? from : '/dashboard'} replace />
+  // During a successful OTP exchange the session becomes available before the
+  // success animation and server-authorized destination have completed.
+  if (user && otpState !== 'success') return <Navigate to={from.startsWith('/') ? from : '/dashboard'} replace />
 
   const mapOtpError = (value: string | null) => {
     if (!value) return t('common.error')

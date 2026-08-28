@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Button, FieldError, Input, PanelCard, Select, Textarea } from '@/components/ui/FormControls'
-import { BirthDateField } from '@/components/ui/BirthDateField'
+import { BirthDateField, latinDigits } from '@/components/ui/BirthDateField'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,6 +12,7 @@ import { normalizeIranMobile, participantErrors } from '@/features/participants/
 import type { AccountType, ParticipantFieldRule, Profile } from '@/types/database'
 import { useTranslation } from 'react-i18next'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
+import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
 
 const baseRequired = ['first_name_fa', 'last_name_fa', 'first_name_en', 'last_name_en', 'birth_date', 'gender', 'email', 'province', 'city', 'country_code', 'nationality', 'residence', 'postal_code', 'address']
 const fallbackRules = baseRequired.map((field_key) => ({ field_key, label_fa: field_key, label_en: field_key, is_required: true, is_locked: false, applies_to: (field_key === 'birth_date' || field_key === 'gender' ? 'individual' : 'both') as ParticipantFieldRule['applies_to'], updated_at: '' }))
@@ -24,7 +25,7 @@ export function AccountProfilePage() {
   const [form, setForm] = useState<Profile | null>(profile)
   const [rules, setRules] = useState<ParticipantFieldRule[]>(fallbackRules)
   const [docs, setDocs] = useState<RegistrationDocType[]>([])
-  const [uploaded, setUploaded] = useState<Set<string>>(new Set())
+  const [uploaded, setUploaded] = useState<Record<string, string>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [otpCode, setOtpCode] = useState('')
@@ -37,11 +38,11 @@ export function AccountProfilePage() {
     if (!profile?.account_type || !user) return
     void Promise.all([
       fetchRegistrationDocTypes(profile.account_type),
-      backend.from('profile_documents').select('doc_type_id').eq('user_id', user.id),
+      backend.from('profile_documents').select('doc_type_id,file_url').eq('user_id', user.id),
       backend.from('participant_field_rules').select('*').order('field_key'),
     ]).then(([types, response, ruleResponse]) => {
       setDocs(types)
-      setUploaded(new Set((response.data ?? []).map((row: { doc_type_id: string }) => row.doc_type_id)))
+      setUploaded(Object.fromEntries((response.data ?? []).map((row: { doc_type_id: string; file_url: string }) => [row.doc_type_id, row.file_url])))
       if (ruleResponse.data?.length) setRules(ruleResponse.data as ParticipantFieldRule[])
     })
   }, [profile?.account_type, user])
@@ -55,7 +56,7 @@ export function AccountProfilePage() {
     event.preventDefault()
     if (!form || !user) return
     const nextErrors = participantErrors(form, rules)
-    if (docs.some((doc) => doc.is_required && !uploaded.has(doc.id))) nextErrors.documents = 'همه مدارک الزامی را بارگذاری کنید.'
+    if (docs.some((doc) => doc.is_required && !uploaded[doc.id])) nextErrors.documents = 'همه مدارک الزامی را بارگذاری کنید.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
       requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"], [data-form-error="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
@@ -63,7 +64,7 @@ export function AccountProfilePage() {
     }
     setBusy(true)
     const { id: _id, role: _role, created_at: _created, ...payload } = form
-    const { error } = await backend.from('profiles').update({ ...payload, phone: normalizeIranMobile(form.phone), full_name: `${form.first_name_fa} ${form.last_name_fa}`.trim(), identity_completed_at: new Date().toISOString() }).eq('id', user.id)
+    const { error } = await backend.from('profiles').update({ ...payload, birth_date: form.birth_date ? latinDigits(form.birth_date).slice(0, 10) : null, phone: normalizeIranMobile(form.phone), full_name: `${form.first_name_fa} ${form.last_name_fa}`.trim(), identity_completed_at: new Date().toISOString() }).eq('id', user.id)
     setBusy(false)
     if (error) return void toast.error(error.message)
     setErrors({}); await refreshProfile(); toast.success('اطلاعات هویتی با موفقیت ذخیره شد.')
@@ -71,13 +72,25 @@ export function AccountProfilePage() {
 
   const uploadDoc = async (doc: RegistrationDocType, file?: File) => {
     if (!file || !user) return
+    const validation = validateIdentityImage(file)
+    if (validation) return void toast.error(validation)
     setBusy(true)
     try {
       const url = await uploadProfileDocument(user.id, file)
       await backend.from('profile_documents').delete().eq('user_id', user.id).eq('doc_type_id', doc.id)
       await backend.from('profile_documents').insert({ user_id: user.id, doc_type_id: doc.id, file_url: url })
-      setUploaded((current) => new Set(current).add(doc.id)); toast.success('مدرک بارگذاری شد.')
+      setUploaded((current) => ({ ...current, [doc.id]: url })); toast.success('مدرک بارگذاری شد.')
     } catch (error) { toast.error(error instanceof Error ? error.message : 'بارگذاری ناموفق بود.') } finally { setBusy(false) }
+  }
+
+  const removeDoc = async (doc: RegistrationDocType) => {
+    if (!user) return
+    setBusy(true)
+    const { error } = await backend.from('profile_documents').delete().eq('user_id', user.id).eq('doc_type_id', doc.id)
+    setBusy(false)
+    if (error) return void toast.error(error.message)
+    setUploaded((current) => { const next = { ...current }; delete next[doc.id]; return next })
+    toast.success('مدرک حذف شد.')
   }
 
   const uploadAvatar = async (file?: File) => {
@@ -135,15 +148,15 @@ export function AccountProfilePage() {
         <Input label="نام فارسی" {...field('first_name_fa')} value={form.first_name_fa ?? ''} onChange={(e) => patch({ first_name_fa: e.target.value })} /><Input label="نام خانوادگی فارسی" {...field('last_name_fa')} value={form.last_name_fa ?? ''} onChange={(e) => patch({ last_name_fa: e.target.value })} />
         <Input label="نام انگلیسی" {...field('first_name_en')} dir="ltr" value={form.first_name_en ?? ''} onChange={(e) => patch({ first_name_en: e.target.value })} /><Input label="نام خانوادگی انگلیسی" {...field('last_name_en')} dir="ltr" value={form.last_name_en ?? ''} onChange={(e) => patch({ last_name_en: e.target.value })} />
         <Select label="جنسیت" {...field('gender')} value={form.gender ?? ''} onChange={(e) => patch({ gender: e.target.value as Profile['gender'] })}><option value="">انتخاب کنید</option><option value="male">مرد</option><option value="female">زن</option><option value="other">سایر</option></Select><BirthDateField label="تاریخ تولد" name="birth_date" required={required('birth_date')} value={form.birth_date} onChange={(date) => patch({ birth_date: date })} error={errors.birth_date} />
-        <Input label="ایمیل" {...field('email')} type="email" dir="ltr" value={form.email ?? ''} onChange={(e) => patch({ email: e.target.value })} /><Input label="تلفن ثابت (اختیاری)" {...field('landline')} dir="ltr" value={form.landline ?? ''} onChange={(e) => patch({ landline: e.target.value })} />
+        <Input label="ایمیل" {...field('email')} type="email" dir="ltr" value={form.email ?? ''} onChange={(e) => patch({ email: e.target.value })} /><Input label="تلفن ثابت (اختیاری)" {...field('landline')} dir="ltr" inputMode="numeric" value={form.landline ?? ''} onChange={(e) => patch({ landline: e.target.value.replace(/\D/g, '') })} />
         <div><Input label="شماره موبایل" {...field('phone')} dir="ltr" value={form.phone ?? ''} onChange={(e) => { patch({ phone: e.target.value, phone_verified_at: null }); setOtpSent(false); setOtpChallengeId('') }} />{form.is_foreign ? <p className="mt-2 text-xs text-slate-500">برای شرکت‌کننده خارج از ایران، احراز هویت حساب از مسیر ایمیل انجام می‌شود.</p> : !form.phone_verified_at ? <div className="mt-2 flex gap-2">{otpSent ? <Input label="کد تأیید" dir="ltr" inputMode="numeric" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} /> : null}<Button type="button" variant="secondary" onClick={() => void handleProfileOtp()}>{otpSent ? 'تأیید کد' : 'ارسال کد'}</Button></div> : <p className="mt-2 text-xs font-bold text-emerald-600">شماره موبایل تأیید شده است.</p>}</div>
-        <Select label="کشور" {...field('country_code')} value={form.country_code ?? 'IR'} onChange={(e) => patch({ country_code: e.target.value, is_foreign: e.target.value !== 'IR' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select><Input label="تابعیت" {...field('nationality')} value={form.nationality ?? ''} onChange={(e) => patch({ nationality: e.target.value })} />
+        <Select label="کشور" {...field('country_code')} value={form.country_code ?? 'IR'} onChange={(e) => patch({ country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>{form.country_code === 'IR' ? <Select label="تابعیت" {...field('nationality')} value={form.nationality ?? 'ایرانی'} onChange={(e) => patch({ nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
         {form.is_foreign ? <Input label="شماره گذرنامه" required error={errors.passport_number} dir="ltr" value={form.passport_number ?? ''} onChange={(e) => patch({ passport_number: e.target.value })} /> : <Input label="کد ملی" required error={errors.national_id} dir="ltr" value={form.national_id ?? ''} onChange={(e) => patch({ national_id: e.target.value })} />}
-        <Input label="استان" {...field('province')} value={form.province ?? ''} onChange={(e) => patch({ province: e.target.value })} /><Input label="شهر" {...field('city')} value={form.city ?? ''} onChange={(e) => patch({ city: e.target.value })} /><Input label="محل سکونت" {...field('residence')} value={form.residence ?? ''} onChange={(e) => patch({ residence: e.target.value })} /><Input label="کد پستی" {...field('postal_code')} dir="ltr" value={form.postal_code ?? ''} onChange={(e) => patch({ postal_code: e.target.value })} />
+        <Input label="استان" {...field('province')} value={form.province ?? ''} onChange={(e) => patch({ province: e.target.value })} /><Input label="شهر" {...field('city')} value={form.city ?? ''} onChange={(e) => patch({ city: e.target.value })} /><Input label="محل سکونت" {...field('residence')} value={form.residence ?? ''} onChange={(e) => patch({ residence: e.target.value })} /><Input label="کد پستی" {...field('postal_code')} dir="ltr" inputMode="numeric" value={form.postal_code ?? ''} onChange={(e) => patch({ postal_code: e.target.value.replace(/\D/g, '') })} />
         <Textarea label="نشانی کامل" {...field('address')} className="md:col-span-2" value={form.address ?? ''} onChange={(e) => patch({ address: e.target.value })} />
       </div></PanelCard>
       {form.account_type === 'legal' ? <PanelCard title="اطلاعات شخص حقوقی"><div className="grid gap-4 md:grid-cols-2"><Input label="نام شرکت" required error={errors.company_name} value={form.company_name ?? ''} onChange={(e) => patch({ company_name: e.target.value })} /><Input label="شناسه ملی شرکت" required error={errors.company_national_id} dir="ltr" value={form.company_national_id ?? ''} onChange={(e) => patch({ company_national_id: e.target.value })} /><Input label="کد اقتصادی" dir="ltr" value={form.economic_code ?? ''} onChange={(e) => patch({ economic_code: e.target.value })} /><Input label="کد ملی نماینده قانونی" required error={errors.legal_representative_national_id} dir="ltr" value={form.legal_representative_national_id ?? ''} onChange={(e) => patch({ legal_representative_national_id: e.target.value })} /></div></PanelCard> : null}
-      <PanelCard title="مدارک احراز هویت"><div data-form-error={Boolean(errors.documents)} className={`grid gap-3 md:grid-cols-2 ${errors.documents ? 'rounded-2xl ring-2 ring-rose-300' : ''}`}>{docs.map((doc) => <label key={doc.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><span className="block text-sm font-bold">{doc.label_fa}{doc.is_required ? <b className="ms-1 text-rose-500">*</b> : null}</span><input className="mt-3 text-xs" type="file" accept="image/*,application/pdf" onChange={(e) => void uploadDoc(doc, e.target.files?.[0])} />{uploaded.has(doc.id) ? <p className="mt-2 text-xs font-bold text-emerald-600">بارگذاری شده</p> : null}</label>)}</div></PanelCard>
+      <PanelCard title="مدارک احراز هویت" description="تصویر باید واضح، بدون برش و حداکثر ۵ مگابایت باشد. فقط فایل‌های JPG و PNG پذیرفته می‌شوند."><div data-form-error={Boolean(errors.documents)} className={`grid gap-4 md:grid-cols-2 ${errors.documents ? 'rounded-2xl ring-2 ring-rose-300 ring-offset-4' : ''}`}>{docs.map((doc) => <DocumentUploadField key={doc.id} label={doc.label_fa} required={doc.is_required} value={uploaded[doc.id]} busy={busy} onSelect={(file) => void uploadDoc(doc, file)} onRemove={() => void removeDoc(doc)} />)}</div></PanelCard>
       <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره و تکمیل پرونده'}</Button>
     </form>
     <PanelCard title="امنیت حساب" description="قدرت رمز جدید را بررسی کنید؛ رمز عبور هرگز در پنل نمایش دائمی داده نمی‌شود."><form className="grid gap-4 md:grid-cols-3" onSubmit={(e) => void changePassword(e)}><PasswordField label="رمز فعلی" value={passwords.current} onChange={(value) => setPasswords((p) => ({ ...p, current: value }))} autoComplete="current-password" showStrength={false} /><PasswordField label="رمز جدید" value={passwords.next} onChange={(value) => setPasswords((p) => ({ ...p, next: value }))} /><PasswordField label="تکرار رمز جدید" value={passwords.repeat} onChange={(value) => setPasswords((p) => ({ ...p, repeat: value }))} confirmValue={passwords.next} /><Button type="submit" disabled={busy || !isStrongPassword(passwords.next) || passwords.next !== passwords.repeat}>تغییر امن رمز عبور</Button></form></PanelCard>

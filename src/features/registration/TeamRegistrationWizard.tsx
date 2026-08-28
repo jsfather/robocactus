@@ -7,10 +7,11 @@ import {
   Select,
   StatusBadge,
 } from '@/components/ui/FormControls'
-import { DateTimeField } from '@/components/ui/DateTimeField'
+import { BirthDateField } from '@/components/ui/BirthDateField'
+import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues } from '@/features/companies/api'
-import { ageFromBirthDate, toDateOnly } from '@/lib/dates'
+import { ageFromBirthDate } from '@/lib/dates'
 import { backend } from '@/lib/backend'
 import {
   clearTeamDraft,
@@ -33,6 +34,16 @@ import {
 } from '@/features/registration/api'
 import { registrationLifecycleForStep } from '@/features/registration/lifecycle'
 import type { DocumentRow, League, Team } from '@/types/database'
+
+function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { label: string; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
+  const [preview, setPreview] = useState(storedUrl ?? '')
+  useEffect(() => {
+    if (!file) { setPreview(storedUrl ?? ''); return }
+    const url = URL.createObjectURL(file); setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file, storedUrl])
+  return <DocumentUploadField label={label} required value={preview} busy={busy} onSelect={(next) => { const error = validateIdentityImage(next); if (!error) onChange(next) }} onRemove={() => onChange(null)} />
+}
 
 const STEPS = ['info', 'members', 'documents', 'review', 'invoice', 'payment'] as const
 const EDITABLE_STEPS = 4
@@ -422,25 +433,12 @@ export function TeamRegistrationWizard({
                   <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: e.target.value })} />
                   <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: e.target.value })} dir="ltr" />
                   {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: e.target.value })} dir="ltr" /> : null}
-                  <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
-                  <Input label="تابعیت" required value={member.nationality} onChange={(e) => patchMember(index, { nationality: e.target.value })} />
+                  <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
+                  {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
                   {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value })} dir="ltr" />}
                   <Input label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })} /><Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: e.target.value })} />
                   <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
-                  <DateTimeField
-                    label={t('team.memberBirthDate')}
-                    withTime={false}
-                    value={
-                      member.birth_date
-                        ? member.birth_date.length === 10
-                          ? `${member.birth_date}T12:00:00.000Z`
-                          : member.birth_date
-                        : null
-                    }
-                    onChange={(iso) =>
-                      patchMember(index, { birth_date: toDateOnly(iso) ?? '' })
-                    }
-                  />
+                  <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={selectedLeague?.min_age ?? 3} maxAge={selectedLeague?.max_age ?? 100} />
                   <Input
                     label={t('team.memberAge')}
                     value={age == null ? '' : String(age)}
@@ -455,25 +453,7 @@ export function TeamRegistrationWizard({
                   <Select label={age != null && age < 18 ? 'مقطع تحصیلی فعلی' : 'آخرین مدرک تحصیلی'} required value={member.education_level} onChange={(e) => patchMember(index, { education_level: e.target.value })}><option value="">انتخاب کنید</option>{age != null && age < 18 ? <><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">متوسطه دوم</option></> : <><option value="high_school">دیپلم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></>}</Select>
                   <Input label="رشته تحصیلی" value={member.field_of_study} onChange={(e) => patchMember(index, { field_of_study: e.target.value })} />
                   <label className="block space-y-1.5"><span className="text-sm font-bold text-slate-600">تصویر چهره <b className="text-rose-500">*</b></span><input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" onChange={(e) => setPhotoFiles((prev) => ({ ...prev, [index]: e.target.files?.[0] ?? null }))} />{(photoFiles[index] || member.photo_url) ? <span className="text-xs font-bold text-emerald-600">آماده بارگذاری</span> : null}</label>
-                  <label className="block space-y-1.5">
-                    <span className="text-sm text-rc-muted">{t('team.memberNationalIdCard')}</span>
-                    <input
-                      type="file"
-                      accept=".pdf,image/jpeg,image/png,image/webp"
-                      className="block w-full text-sm text-rc-muted file:me-3 file:rounded-md file:border-0 file:bg-rc-blue/15 file:px-3 file:py-2 file:text-rc-blue"
-                      onChange={(e) =>
-                        setIdFiles((prev) => ({
-                          ...prev,
-                          [index]: e.target.files?.[0] ?? null,
-                        }))
-                      }
-                    />
-                    {(idFiles[index] || member.national_id_doc_path) && (
-                      <span className="font-mono text-[10px] text-emerald-400">
-                        {idFiles[index]?.name ?? t('team.docUploaded')}
-                      </span>
-                    )}
-                  </label>
+                  <MemberIdentityUpload label={t('team.memberNationalIdCard')} file={idFiles[index]} storedUrl={member.national_id_doc_path} busy={busy} onChange={(file) => setIdFiles((prev) => ({ ...prev, [index]: file }))} />
                 </div>
               </div>
             )

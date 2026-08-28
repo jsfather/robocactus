@@ -472,6 +472,19 @@ export function registerAuthRoutes(router: Router): void {
     response.json({ ok: true })
   })
 
+  router.post('/auth/admin/users/:userId/delete', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const targetId = String(request.params.userId)
+    if (targetId === actor.id) return void response.status(400).json({ error: 'cannot_delete_self' })
+    const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
+    if (!target) return void response.status(404).json({ error: 'user_not_found' })
+    await db.delete(users).where(eq(users.id, targetId))
+    response.json({ ok: true })
+  })
+
   router.post('/auth/admin/collaborators', async (request, response) => {
     const actor = await userFromRequest(request)
     if (!actor) return void response.status(401).json({ error: 'authentication_required' })

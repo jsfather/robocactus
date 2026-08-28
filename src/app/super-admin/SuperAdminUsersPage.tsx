@@ -131,6 +131,13 @@ export function SuperAdminUsersPage() {
     setCreateForm({ full_name: '', phone: '', email: '', username: '', password: '', account_type: 'individual', account_status: 'pending' })
     setCreating(false); await reload()
   }
+  const deleteUser = async (profile: Profile) => {
+    if (!window.confirm(`حساب «${participantDisplayName(profile)}» و اطلاعات وابسته برای همیشه حذف شود؟`)) return
+    setBusy(true); const result = await backend.auth.adminDeleteUser(profile.id); setBusy(false)
+    if (result.error) return void toast.error(result.error.message)
+    await reload(); toast.success('حساب کاربر حذف شد.')
+  }
+  const accountStatusLabel: Record<string, string> = { active: 'فعال', pending: 'در انتظار تکمیل', suspended: 'تعلیق‌شده', rejected: 'ردشده', inactive: 'غیرفعال' }
 
   return (
     <PanelPage index="USR.01" title={t('admin.users.title')} description="مدیریت حساب شرکت‌کنندگان حقیقی و حقوقی؛ اعضای مدیریتی از بخش نقش‌ها مدیریت می‌شوند." actions={<Button type="button" onClick={() => setCreating((value) => !value)}>{creating ? 'بستن فرم' : '+ افزودن کاربر'}</Button>}>
@@ -252,8 +259,8 @@ export function SuperAdminUsersPage() {
                         {profile.account_type === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}
                       </span>
                     </td>
-                    <td className="px-2 py-2 font-mono text-xs">
-                      {profile.account_status ?? 'active'}
+                    <td className="px-2 py-2 text-xs font-bold">
+                      <span className={`inline-flex rounded-full px-3 py-1 ${profile.account_status === 'active' && profile.identity_completed_at ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{!profile.identity_completed_at ? 'پرونده ناقص' : accountStatusLabel[profile.account_status ?? 'active'] ?? profile.account_status}</span>
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap gap-1">
@@ -285,6 +292,7 @@ export function SuperAdminUsersPage() {
                             {t('admin.users.activate')}
                           </Button>
                         ) : null}
+                        <Button type="button" variant="danger" disabled={busy} onClick={() => void deleteUser(profile)}>حذف</Button>
                         <Button
                           type="button"
                           variant="ghost"

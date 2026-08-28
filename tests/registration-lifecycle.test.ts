@@ -140,9 +140,9 @@ test('SMS OTP exchange accepts the issued token kind and consumes it atomically'
   assert.match(authServer, /\.for\('update'\)/)
 })
 
-test('OTP UI exposes one validity clock and aligns resend availability with it', () => {
-  assert.match(otpServer, /created_at \+ interval '5 minutes'/)
-  assert.match(otpServer, /resend_after_sec: Number\(issued\.row\?\.expires_in_sec/)
+test('OTP keeps a five-minute validity window and rate-limits resend to one minute', () => {
+  assert.match(otpServer, /created_at \+ interval '1 minute'/)
+  assert.match(otpServer, /resend_after_sec: 60/)
   assert.match(otpLogin, /otpResendAfterExpiry/)
   assert.doesNotMatch(otpLogin, /otpResendCountdown/)
   assert.doesNotMatch(signupPage, /otpResendCountdown/)

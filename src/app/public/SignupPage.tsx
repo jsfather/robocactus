@@ -3,7 +3,8 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { Button, Input, Textarea } from '@/components/ui/FormControls'
-import { BirthDateField } from '@/components/ui/BirthDateField'
+import { BirthDateField, latinDigits } from '@/components/ui/BirthDateField'
+import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
 import {
   clearSignupDraft,
   saveSignupDraft,
@@ -20,7 +21,7 @@ import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 
-type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
+type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs' | 'review'
 type AuthChannel = 'phone' | 'email'
 type OtpState = 'idle' | 'verifying' | 'success' | 'error'
 
@@ -71,6 +72,8 @@ export function SignupPage() {
   const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0)
   const [resendSeconds, setResendSeconds] = useState(0)
   const [otpState, setOtpState] = useState<OtpState>('idle')
+  const [confirmAccuracy, setConfirmAccuracy] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const verifyInFlight = useRef(false)
 
   useEffect(() => {
@@ -103,6 +106,14 @@ export function SignupPage() {
       setUserId(user.id)
     }
   }, [phoneOnboardingRequested, user])
+
+  useEffect(() => {
+    const uid = userId ?? user?.id
+    if (!uid || (step !== 'docs' && step !== 'review')) return
+    void backend.from('profile_documents').select('doc_type_id,file_url').eq('user_id', uid).then(({ data }) => {
+      if (data?.length) setUploads(Object.fromEntries(data.map((row: { doc_type_id: string; file_url: string }) => [row.doc_type_id, row.file_url])))
+    })
+  }, [step, user?.id, userId])
 
   const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
 
@@ -176,7 +187,7 @@ export function SignupPage() {
   }
 
   const persistProfileFields = async (uid: string) => {
-    await backend
+    const { error: profileError } = await backend
       .from('profiles')
       .update({
         account_type: accountType,
@@ -194,12 +205,13 @@ export function SignupPage() {
         last_name_fa: lastNameFa.trim(),
         first_name_en: firstNameEn.trim(),
         last_name_en: lastNameEn.trim(),
-        birth_date: birthDate || null,
+        birth_date: birthDate ? latinDigits(birthDate).slice(0, 10) : null,
         postal_code: postalCode.trim(),
         legal_representative_national_id: accountType === 'legal' ? representativeNationalId.trim() : null,
         identity_completed_at: new Date().toISOString(),
       })
       .eq('id', uid)
+    if (profileError) throw new Error(profileError.message)
   }
 
   const onRequestOtp = async (event: FormEvent) => {
@@ -364,12 +376,15 @@ export function SignupPage() {
 
   const onUploadDoc = async (docId: string, file: File | undefined) => {
     if (!file) return
+    const validation = validateIdentityImage(file)
+    if (validation) { setError(validation); return }
     const uid = userId ?? user?.id
     if (!uid) return
     setSubmitting(true)
     try {
       const url = await uploadProfileDocument(uid, file)
       setUploads((prev) => ({ ...prev, [docId]: url }))
+      await backend.from('profile_documents').delete().eq('user_id', uid).eq('doc_type_id', docId)
       await backend.from('profile_documents').insert({
         user_id: uid,
         doc_type_id: docId,
@@ -383,25 +398,37 @@ export function SignupPage() {
     }
   }
 
+  const removeUpload = async (docId: string) => {
+    const uid = userId ?? user?.id
+    if (!uid) return
+    setSubmitting(true)
+    const { error: removeError } = await backend.from('profile_documents').delete().eq('user_id', uid).eq('doc_type_id', docId)
+    setSubmitting(false)
+    if (removeError) { setError(removeError.message); return }
+    setUploads((current) => { const next = { ...current }; delete next[docId]; return next })
+  }
+
   const finish = async () => {
     const missing = docTypes.filter((d) => d.is_required).some((d) => !uploads[d.id])
     if (missing) {
       setError(t('auth.docsRequired'))
       return
     }
+    if (!confirmAccuracy || !acceptTerms) { setError('تأیید صحت اطلاعات و پذیرش قوانین برای ثبت نهایی الزامی است.'); return }
     toast.success(t('auth.signupPendingDone'))
     void navigate('/dashboard')
   }
 
   const steps: Step[] = isPhoneOnboarding
-    ? ['type', 'identity', 'docs']
-    : ['type', 'channel', 'identity', 'verify', 'docs']
+    ? ['type', 'identity', 'docs', 'review']
+    : ['type', 'channel', 'identity', 'verify', 'docs', 'review']
   const stepLabels: Record<Step, string> = {
     type: t('auth.registrationSteps.type'),
     channel: t('auth.registrationSteps.channel'),
     identity: t('auth.registrationSteps.identity'),
     verify: t('auth.registrationSteps.verify'),
     docs: t('auth.registrationSteps.docs'),
+    review: 'تأیید اطلاعات',
   }
 
   return (
@@ -506,7 +533,7 @@ export function SignupPage() {
             <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} dir="ltr" />
           </div>
           <BirthDateField label="تاریخ تولد" value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
-          <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} dir="ltr" />
+          <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" maxLength={10} />
           {accountType === 'individual' ? (
             <Input
               label={t('auth.nationalId')}
@@ -631,31 +658,23 @@ export function SignupPage() {
 
       {step === 'docs' ? (
         <div className="mt-6 space-y-4">
-          <p className="text-sm text-rc-muted">{t('auth.uploadDocsHint')}</p>
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4"><p className="text-sm font-black text-sky-900">{t('auth.uploadDocsHint')}</p><p className="mt-1 text-xs leading-6 text-sky-700">تصویر باید واضح باشد؛ حداکثر حجم ۵ مگابایت و فرمت مجاز فقط JPG یا PNG است.</p></div>
           {docTypes.length === 0 ? (
             <p className="text-sm text-rc-muted">{t('auth.noDocsConfigured')}</p>
           ) : (
             docTypes.map((d) => (
-              <label key={d.id} className="block space-y-1.5 border border-rc-line p-3">
-                <span className="text-sm">
-                  {d.label_fa}
-                  {d.is_required ? ' *' : ''}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="block w-full text-sm text-rc-muted"
-                  onChange={(e) => void onUploadDoc(d.id, e.target.files?.[0])}
-                />
-                {uploads[d.id] ? <p className="font-mono text-[10px] text-emerald-400">OK</p> : null}
-              </label>
+              <DocumentUploadField key={d.id} label={d.label_fa} required={d.is_required} value={uploads[d.id]} busy={submitting} onSelect={(file) => void onUploadDoc(d.id, file)} onRemove={() => void removeUpload(d.id)} />
             ))
           )}
-          <Button type="button" disabled={submitting} onClick={() => void finish()}>
-            {t('auth.finishSignup')}
-          </Button>
+          <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setStep(isPhoneOnboarding ? 'identity' : 'verify')}>{t('team.back')}</Button><Button type="button" disabled={submitting} onClick={() => { const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id]); if (missing) { setError(t('auth.docsRequired')); return } setError(null); setStep('review') }}>{t('team.next')}</Button></div>
         </div>
       ) : null}
+
+      {step === 'review' ? <div className="mt-6 space-y-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black text-slate-900">بررسی نهایی اطلاعات</h2><p className="mt-2 text-sm leading-7 text-slate-500">پیش از ثبت نهایی، مشخصات و مدارک خود را مرور کنید. در صورت نیاز با دکمه بازگشت اطلاعات را اصلاح کنید.</p><dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نوع حساب</dt><dd className="mt-1 font-black">{accountType === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام</dt><dd className="mt-1 font-black">{firstNameFa} {lastNameFa}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام انگلیسی</dt><dd className="mt-1 font-black" dir="ltr">{firstNameEn} {lastNameEn}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-black" dir="ltr">{birthDate}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">شماره تماس</dt><dd className="mt-1 font-black" dir="ltr">{phone}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تعداد مدارک</dt><dd className="mt-1 font-black">{Object.keys(uploads).length.toLocaleString('fa-IR')}</dd></div></dl></div>
+        <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={confirmAccuracy} onChange={(event) => setConfirmAccuracy(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span>تأیید می‌کنم اطلاعات واردشده صحیح و متعلق به این حساب است.</span></label><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span><Link to="/terms" target="_blank" className="text-rc-blue underline">قوانین و مقررات</Link> را مطالعه کرده‌ام و می‌پذیرم.</span></label></div>
+        <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setStep('docs')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
+      </div> : null}
     </div>
   )
 }
