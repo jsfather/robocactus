@@ -18,6 +18,7 @@ import { AccountPendingBanner } from '@/components/layout/AccountPendingBanner'
 import { AccountIssuesPanel } from '@/features/account-issues/AccountIssuesPanel'
 import { enqueueIncompleteProfileSms } from '@/features/notifications/api'
 import { formatAppDate } from '@/lib/dates'
+import { fetchMyCompanies } from '@/features/companies/api'
 import type { UserRole } from '@/types/database'
 
 function profileLooksIncomplete(profile: {
@@ -137,6 +138,7 @@ export function PanelShell() {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
+  const [participantOrganizationName, setParticipantOrganizationName] = useState('')
 
   useEffect(() => {
     setMobileOpen(false)
@@ -153,6 +155,13 @@ export function PanelShell() {
     const id = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    if (!user || !profile || !['company_admin', 'team_captain'].includes(profile.role)) { setParticipantOrganizationName(''); return }
+    void fetchMyCompanies(user.id)
+      .then((organizations) => setParticipantOrganizationName(organizations[0]?.name ?? ''))
+      .catch(() => setParticipantOrganizationName(''))
+  }, [user, profile])
 
   useEffect(() => {
     if (!profile?.id || profile.account_status === 'pending') return
@@ -216,7 +225,7 @@ export function PanelShell() {
 
   const dateLabel = formatAppDate(now.toISOString(), i18n.language, { withTime: true })
   const participantManagerLabel = (role === 'company_admin' || role === 'team_captain')
-    ? `مدیریت مجموعه ${profile.account_type === 'legal' ? profile.company_name || profile.full_name : profile.full_name}`
+    ? `مدیریت مجموعه ${participantOrganizationName && participantOrganizationName.trim() !== profile.full_name.trim() ? participantOrganizationName : (profile.account_type === 'legal' ? profile.company_name : '') || 'شخصی'}`
     : t(`dashboard.roles.${role}`)
 
   return (

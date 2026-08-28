@@ -17,6 +17,7 @@ export function CompanyCompetitionsPage() {
   const [leagues, setLeagues] = useState<League[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [registerLeagueId, setRegisterLeagueId] = useState<string | null>(null)
+  const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -105,12 +106,15 @@ export function CompanyCompetitionsPage() {
 
       {registerLeagueId && activeCompanyId ? (
         <TeamRegistrationWizard
+          key={resumeTeamId ?? registerLeagueId}
           companyId={activeCompanyId}
           initialLeagueId={registerLeagueId}
-          onCancel={() => setRegisterLeagueId(null)}
+          initialTeamId={resumeTeamId ?? undefined}
+          onCancel={() => { setRegisterLeagueId(null); setResumeTeamId(null) }}
           onCompleted={(team) => {
             setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
             setRegisterLeagueId(null)
+            setResumeTeamId(null)
           }}
         />
       ) : (
@@ -152,24 +156,15 @@ export function CompanyCompetitionsPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {team ? (
-                          <>
-                            <Link
-                              to={`/team/${team.id}`}
-                              className="border border-rc-line px-3 py-1.5 text-sm hover:bg-rc-hover"
-                            >
-                              {t('team.view')}
-                            </Link>
-                            {team.status === 'draft' ? (
-                              <Link
-                                to={`/payments/teams/${team.id}`}
-                                className="bg-rc-accent px-3 py-1.5 text-sm font-medium text-white"
-                              >
-                                {t('payment.payCta')}
-                              </Link>
-                            ) : null}
-                          </>
+                          team.lifecycle_status === 'awaiting_payment' || ['invoice', 'payment'].includes(team.registration_stage ?? '') ? (
+                            <Link to={`/payments/teams/${team.id}`} className="rounded-xl bg-rc-accent px-4 py-2 text-sm font-bold text-white">پرداخت و ویرایش</Link>
+                          ) : !['completed', 'cancelled'].includes(team.lifecycle_status ?? '') || team.status === 'draft' ? (
+                            <Button type="button" onClick={() => { setResumeTeamId(team.id); setRegisterLeagueId(league.id) }}>تکمیل ثبت‌نام</Button>
+                          ) : (
+                            <Link to={`/team/${team.id}`} className="rounded-xl border border-rc-line px-4 py-2 text-sm font-bold hover:bg-rc-hover">{t('team.view')}</Link>
+                          )
                         ) : period === 'open' && (league.registration_cycle_status ?? 'open') === 'open' ? (
-                          <Button type="button" onClick={() => setRegisterLeagueId(league.id)}>
+                          <Button type="button" onClick={() => { setResumeTeamId(null); setRegisterLeagueId(league.id) }}>
                             {t('competitions.registerTeam')}
                           </Button>
                         ) : <span className="rounded-xl border border-rc-line px-3 py-2 text-xs text-rc-muted">ثبت‌نام این دوره بسته است</span>}

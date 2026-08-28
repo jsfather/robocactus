@@ -63,6 +63,7 @@ export function TicketInbox({
   const [assignDeptId, setAssignDeptId] = useState('')
   const [newSubject, setNewSubject] = useState('')
   const [newBody, setNewBody] = useState('')
+  const [newDepartmentId, setNewDepartmentId] = useState('')
   const [liveHint, setLiveHint] = useState(false)
   const [attachFile, setAttachFile] = useState<File | null>(null)
   const [query, setQuery] = useState('')
@@ -96,13 +97,10 @@ export function TicketInbox({
   }, [reload])
 
   useEffect(() => {
+    void fetchTicketDepartments(true).then(setDepartments).catch(() => undefined)
     if (mode !== 'staff') return
     void fetchActiveLeagues().then(setLeagues).catch(() => undefined)
-    void backend
-      .from('profiles')
-      .select('*')
-      .then(({ data }) => setProfiles((data ?? []) as Profile[]))
-    void fetchTicketDepartments(true).then(setDepartments).catch(() => undefined)
+    void backend.from('profiles').select('*').then(({ data }) => setProfiles((data ?? []) as Profile[]))
   }, [mode])
 
   // Load history + mark read when selecting a ticket
@@ -235,7 +233,7 @@ export function TicketInbox({
 
   const onCreate = async (event: FormEvent) => {
     event.preventDefault()
-    if (!teamId || !newSubject.trim() || !newBody.trim()) return
+    if (!teamId || !newDepartmentId || !newSubject.trim() || !newBody.trim()) return
     setBusy(true)
     setError(null)
     try {
@@ -244,9 +242,11 @@ export function TicketInbox({
         subject: newSubject.trim(),
         body: newBody.trim(),
         leagueId: null,
+        departmentId: newDepartmentId,
       })
       setNewSubject('')
       setNewBody('')
+      setNewDepartmentId('')
       setSelectedId(ticket.id)
       await reload()
     } catch (err) {
@@ -325,6 +325,10 @@ export function TicketInbox({
         {mode === 'team' && teamId ? (
           <PanelCard title={t('tickets.newTitle')}>
             <form className="space-y-3" onSubmit={(e) => void onCreate(e)}>
+              <Select label={t('tickets.department')} required value={newDepartmentId} onChange={(e) => setNewDepartmentId(e.target.value)}>
+                <option value="">انتخاب دپارتمان</option>
+                {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+              </Select>
               <Input
                 label={t('tickets.subject')}
                 required

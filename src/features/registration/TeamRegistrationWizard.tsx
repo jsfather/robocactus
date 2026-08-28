@@ -81,6 +81,7 @@ export function TeamRegistrationWizard({
   const [idFiles, setIdFiles] = useState<Record<number, File | null>>({})
   const [photoFiles, setPhotoFiles] = useState<Record<number, File | null>>({})
   const [draftHydrated, setDraftHydrated] = useState(!initialTeamId)
+  const [nameAvailability, setNameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -120,6 +121,24 @@ export function TeamRegistrationWizard({
     [leagues, draft.leagueId],
   )
 
+  useEffect(() => {
+    const name = draft.name.trim()
+    if (!name || !draft.leagueId || !selectedLeague) { setNameAvailability('idle'); return }
+    setNameAvailability('checking')
+    const timer = window.setTimeout(() => {
+      void backend.rpc('team_name_available', {
+        p_league_id: draft.leagueId,
+        p_season_year: selectedLeague.current_season_year ?? new Date().getFullYear(),
+        p_name: name,
+        p_exclude_team_id: draft.teamId ?? null,
+      }).then(({ data, error: availabilityError }) => {
+        if (availabilityError) { setNameAvailability('idle'); return }
+        setNameAvailability(data === true ? 'available' : 'taken')
+      })
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [draft.name, draft.leagueId, draft.teamId, selectedLeague])
+
   const patchDraft = useCallback((partial: Partial<TeamWizardDraft>) => {
     setDraft((prev) => ({ ...prev, ...partial }))
   }, [])
@@ -142,6 +161,14 @@ export function TeamRegistrationWizard({
     const captainId = user.id
 
     const memberCount = draft.members.filter((m) => (m.first_name || m.full_name).trim()).length
+    const { data: available, error: availabilityError } = await backend.rpc('team_name_available', {
+      p_league_id: draft.leagueId,
+      p_season_year: selectedLeague?.current_season_year ?? new Date().getFullYear(),
+      p_name: draft.name.trim(),
+      p_exclude_team_id: draft.teamId ?? null,
+    })
+    if (availabilityError) throw new Error(availabilityError.message)
+    if (!available) throw new Error('تیم دیگری با این نام در این لیگ وجود دارد.')
 
     if (draft.teamId) {
       await updateDraftTeam(draft.teamId, {
@@ -251,7 +278,8 @@ export function TeamRegistrationWizard({
       patchDraft({ teamId: teamId ?? draft.teamId, step: nextStep })
       if (teamId) await persistRegistrationDraft(teamId, nextDraft, { ...registrationLifecycleForStep(nextStep), lastCompletedStep: step })
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message.includes('team_name_already_exists') ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : message)
     } finally {
       setBusy(false)
     }
@@ -360,12 +388,7 @@ export function TeamRegistrationWizard({
 
       {step === 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            label={t('team.nameFa')}
-            required
-            value={draft.name}
-            onChange={(e) => patchDraft({ name: e.target.value })}
-          />
+          <div><Input label={t('team.nameFa')} required value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} error={nameAvailability === 'taken' ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : undefined} />{nameAvailability === 'checking' ? <p className="mt-1.5 text-xs text-slate-500">در حال بررسی نام تیم…</p> : nameAvailability === 'available' ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600"><span aria-hidden>✓</span> این نام قابل استفاده است.</p> : null}</div>
           <Input label={t('team.nameEn')} required value={draft.nameEn} onChange={(e) => patchDraft({ nameEn: e.target.value })} dir="ltr" />
           <Input label={t('team.mottoFa')} value={draft.mottoFa} onChange={(e) => patchDraft({ mottoFa: e.target.value })} />
           <Input label={t('team.mottoEn')} value={draft.mottoEn} onChange={(e) => patchDraft({ mottoEn: e.target.value })} dir="ltr" />

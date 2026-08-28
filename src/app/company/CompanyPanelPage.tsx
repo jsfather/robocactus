@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
@@ -39,6 +39,7 @@ export function CompanyPanelPage({
   const [editingProfile, setEditingProfile] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const profileEditorRef = useRef<HTMLDivElement | null>(null)
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null
 
@@ -94,6 +95,11 @@ export function CompanyPanelPage({
       .then((result) => setMemberCount(result.data?.length ?? 0))
       .catch(() => setMemberCount(0))
   }, [teams])
+
+  useEffect(() => {
+    if (!editingProfile) return
+    window.requestAnimationFrame(() => profileEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [editingProfile])
 
   const leagueName = (leagueId: string) =>
     leagues.find((l) => l.id === leagueId)?.name ?? leagueId.slice(0, 8)
@@ -172,13 +178,13 @@ export function CompanyPanelPage({
           </div>
           {(teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) || invoices.some((invoice) => invoice.status === 'pending')) ? <div className="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-5"><h3 className="font-black text-amber-900">اقدام‌های باز شما</h3><div className="mt-3 flex flex-wrap gap-3">{teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) ? <Link to="/company/teams" className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white">ادامه ثبت‌نام تیم</Link> : null}{invoices.some((invoice) => invoice.status === 'pending') ? <Link to="/account/invoices" className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-800">مشاهده صورتحساب‌های باز</Link> : null}</div></div> : null}
           {editingProfile && activeCompany ? (
-            <CompanyForm
+            <div ref={profileEditorRef} className="scroll-mt-28"><CompanyForm
               company={activeCompany}
               onSaved={(company) => {
                 setCompanies((prev) => prev.map((c) => (c.id === company.id ? company : c)))
                 setEditingProfile(false)
               }}
-            />
+            /></div>
           ) : activeCompany ? (
             <PanelCard title={activeCompany.name} description={activeCompany.bio ?? undefined}>
               <div className="flex flex-wrap items-center gap-4">

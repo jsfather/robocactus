@@ -140,12 +140,14 @@ export async function createTicket(input: {
   subject: string
   body: string
   leagueId?: string | null
+  departmentId?: string | null
 }): Promise<Ticket> {
-  const { data, error } = await backend.rpc('create_ticket', {
+  const { data, error } = await backend.rpc('create_ticket_with_department', {
     p_team_id: input.teamId,
     p_subject: input.subject,
     p_body: input.body,
     p_league_id: input.leagueId ?? null,
+    p_department_id: input.departmentId ?? null,
   })
   if (error) throw new Error(error.message)
   return data as Ticket

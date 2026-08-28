@@ -328,7 +328,7 @@
   "company": {
     "panelTitle": "Organization profile",
     "createTitle": "Register a company",
-    "editTitle": "Edit company profile",
+    "editTitle": "Edit organization profile",
     "hideEdit": "Close editor",
     "formHint": "Set the company name, logo, and bio. Then register one team per league.",
     "name": "Company name",
