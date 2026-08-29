@@ -6994,6 +6994,16 @@ alter table public.site_settings
   add column if not exists whatsapp_url text,
   add column if not exists trust_seal_html text;
 
+-- ===== 0052_gallery_albums.sql =====
+alter table public.gallery_categories
+  add column if not exists description_fa text,
+  add column if not exists description_en text;
+
+-- ===== 0053_password_reset_otp_purpose.sql =====
+alter table public.auth_otp_challenges drop constraint if exists auth_otp_challenges_purpose_check;
+alter table public.auth_otp_challenges add constraint auth_otp_challenges_purpose_check
+  check (purpose in ('login','signup','profile','password_reset'));
+
 -- ===== 9999_application_runtime.sql =====
 -- Runtime privileges and database-backed realtime event capture.
 

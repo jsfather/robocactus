@@ -131,7 +131,7 @@ export function GalleryPage() {
 
   const categoryTiles = useMemo(() => {
     const photos = items.filter((i) => i.media_type !== 'video')
-    const tiles: { id: string; name: string; cover: string; count: number }[] = []
+    const tiles: { id: string; name: string; cover: string; count: number; description?: string | null }[] = []
 
     for (const cat of categories) {
       const inCat = photos.filter((i) => i.category_id === cat.id)
@@ -141,6 +141,7 @@ export function GalleryPage() {
         name: catName(cat),
         cover: cat.cover_url || inCat[0]!.media_url,
         count: inCat.length,
+        description: i18n.language?.startsWith('fa') ? cat.description_fa : cat.description_en,
       })
     }
 
@@ -246,6 +247,7 @@ export function GalleryPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-4">
                       <p className="text-lg font-semibold text-white">{cat.name}</p>
+                      {cat.description ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/80">{cat.description}</p> : null}
                       <p className="font-mono text-xs text-white/70">
                         {t('content.photoCount', { count: cat.count })}
                       </p>

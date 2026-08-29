@@ -95,7 +95,7 @@ export function registerOtpRoutes(router: Router): void {
     try {
       const action = String(request.body?.action ?? '')
       const requestedPurpose = String(request.body?.purpose ?? 'login')
-      const purpose = requestedPurpose === 'profile' || requestedPurpose === 'signup' ? requestedPurpose : 'login'
+      const purpose = requestedPurpose === 'profile' || requestedPurpose === 'signup' || requestedPurpose === 'password_reset' ? requestedPurpose : 'login'
       const phone = normalizeIranPhone(String(request.body?.phone ?? ''))
       if (!phone) {
         response.status(400).json({ error: 'invalid_phone' })
@@ -103,11 +103,11 @@ export function registerOtpRoutes(router: Router): void {
       }
 
       if (action === 'request') {
-        if (purpose !== 'profile') {
+          if (purpose !== 'profile') {
           const grantKey = captchaGrantKey(request, phone, purpose)
           const grantedUntil = captchaGrants.get(grantKey) ?? 0
           if (grantedUntil <= Date.now()) {
-            const captcha = await verifyCaptcha(request, purpose === 'signup' ? 'signup' : 'login')
+            const captcha = await verifyCaptcha(request, purpose === 'signup' ? 'signup' : purpose === 'password_reset' ? 'password_reset' : 'login')
             if (!captcha.ok) {
               response.status(400).json({ error: captcha.error })
               return
@@ -137,6 +137,17 @@ export function registerOtpRoutes(router: Router): void {
             response.status(409).json({ error: 'phone_in_use' })
             return
           }
+        }
+
+        if (purpose === 'password_reset') {
+          const resetUser = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
+          if (!resetUser) {
+            response.status(400).json({ error: 'account_not_found' })
+            return
+          }
+          const resetToken = await createOneTimeToken(resetUser.id, 'password_reset', '/reset-password')
+          response.json({ ok: true, password_reset_token: resetToken })
+          return
         }
         if (ipRateLimited(request.ip)) {
           response.status(429).json({ error: 'too_many_attempts' })

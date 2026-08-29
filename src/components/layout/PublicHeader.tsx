@@ -124,7 +124,7 @@ export function PublicHeader() {
             {links.map((item) => item.href === '/leagues' ? (
               <div key={item.key} className="group/mega relative" onMouseEnter={() => setMegaOpen(true)} onMouseLeave={() => setMegaOpen(false)} onFocus={() => setMegaOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setMegaOpen(false) }}>
                 <NavLink to={item.href} end={item.end} className={navClass}>{({ isActive }) => <>{item.label}<span className="ms-1 text-[10px]">⌄</span><span className={['absolute inset-x-3 -bottom-0.5 h-px origin-center bg-rc-blue transition duration-300', isActive ? 'scale-x-100' : 'scale-x-0'].join(' ')} /></>}</NavLink>
-                <div className={`absolute start-1/2 top-[calc(100%+1rem)] w-[min(46rem,calc(100vw-3rem))] -translate-x-1/2 pt-2 transition duration-200 ${megaOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-2 opacity-0'}`}>
+                <div className={`fixed inset-x-4 top-24 mx-auto hidden w-auto max-w-3xl pt-2 transition duration-200 lg:block ${megaOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-2 opacity-0'}`}>
                   <section className="overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-[0_28px_80px_rgb(15_56_79/0.22)]"><div className="grid grid-cols-[13rem_1fr]"><aside className="bg-gradient-to-br from-[#063d59] to-[#087b61] p-6 text-white"><p className="text-xs font-black tracking-widest text-emerald-200">{locale === 'en' ? 'COMPETITIONS' : 'مسابقات جام تبرستان'}</p><h2 className="mt-3 text-xl font-black">{locale === 'en' ? 'Find your league' : 'لیگ مناسب خود را پیدا کنید'}</h2><p className="mt-3 text-xs leading-6 text-white/75">{locale === 'en' ? 'Review active competitions, requirements and registration status.' : 'مسابقات فعال، شرایط و وضعیت ثبت‌نام را سریع بررسی کنید.'}</p><Link to="/leagues" onClick={() => setMegaOpen(false)} className="mt-5 inline-flex rounded-xl bg-white px-3 py-2 text-xs font-black text-sky-800">{locale === 'en' ? 'All leagues' : 'مشاهده همه لیگ‌ها'}</Link></aside><div className="grid max-h-[24rem] grid-cols-2 gap-2 overflow-y-auto p-4">{activeLeagues.slice(0, 8).map((league) => <Link key={league.id} to={`/leagues/${league.slug}`} onClick={() => setMegaOpen(false)} className="group/item flex items-center gap-3 rounded-2xl border border-transparent bg-slate-50 p-3 transition hover:border-sky-100 hover:bg-sky-50"><span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-sky-700 shadow-sm">{league.cover_image_url ? <img src={league.cover_image_url} alt="" className="size-full object-cover" /> : '🏆'}</span><span className="min-w-0"><strong className="block truncate text-sm text-slate-900 group-hover/item:text-sky-700">{locale === 'en' ? league.name_en || league.name : league.name}</strong><small className="mt-1 block text-[10px] font-bold text-emerald-700">{league.registration_cycle_status === 'open' ? (locale === 'en' ? 'Registration open' : 'ثبت‌نام فعال') : (locale === 'en' ? 'View details' : 'مشاهده جزئیات')}</small></span></Link>)}{!activeLeagues.length ? <p className="col-span-2 p-8 text-center text-sm text-slate-500">{locale === 'en' ? 'No active leagues are available.' : 'در حال حاضر لیگ فعالی برای نمایش وجود ندارد.'}</p> : null}</div></div></section>
                 </div>
               </div>
@@ -150,10 +150,10 @@ export function PublicHeader() {
             <button
               type="button"
               onClick={toggleLocale}
-              className="rounded-lg border border-rc-line px-2.5 py-1.5 font-mono text-xs text-rc-muted transition hover:border-rc-blue/40 hover:text-rc-text"
+              className="grid size-10 place-items-center rounded-xl border border-sky-200 bg-white font-mono text-xs font-black text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md"
               aria-label={t('common.language')}
             >
-              {locale === 'fa' ? 'EN' : 'FA'}
+              <span className="flex items-center gap-1.5"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>{locale === 'fa' ? 'EN' : 'فا'}</span>
             </button>
 
             {user ? (
@@ -176,15 +176,15 @@ export function PublicHeader() {
               <>
                 <Link
                   to="/login"
-                  className="hidden rounded-lg px-2.5 py-1.5 text-sm text-rc-muted hover:text-rc-text sm:inline"
+                  className="hidden min-h-10 items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 text-sm font-black text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md sm:inline-flex"
                 >
-                  {t('nav.login')}
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M14 8l4 4-4 4M18 12H7" /><path d="M11 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6" /></svg>{t('nav.login')}
                 </Link>
                 <Link
                   to="/signup"
-                  className="hidden rounded-xl bg-gradient-to-l from-emerald-500 to-green-500 px-4 py-2 text-sm font-bold text-white shadow-[0_8px_22px_rgb(19_169_77/0.22)] transition hover:-translate-y-0.5 sm:inline-flex"
+                  className="hidden min-h-10 items-center rounded-xl bg-gradient-to-l from-emerald-600 to-sky-600 px-5 text-sm font-black text-white shadow-[0_10px_26px_rgb(8_126_184/0.25)] ring-1 ring-white transition hover:-translate-y-0.5 hover:shadow-lg sm:inline-flex"
                 >
-                  {t('nav.signup')}
+                  <svg viewBox="0 0 24 24" className="me-2 size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t('nav.signup')}
                 </Link>
               </>
             )}
@@ -209,7 +209,9 @@ export function PublicHeader() {
         {mobileOpen ? (
           <div className="border-t border-sky-100 bg-gradient-to-b from-white to-sky-50/70 px-4 py-4 lg:hidden">
             <nav className="flex flex-col gap-1">
-              {links.map((item) => (
+              {links.map((item) => item.href === '/leagues' ? (
+                <div key={item.key} className="rounded-2xl border border-sky-100 bg-white p-2"><NavLink to={item.href} onClick={() => setMobileOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-black text-sky-800"><span>{item.label}</span><span aria-hidden="true">←</span></NavLink>{activeLeagues.length ? <div className="grid grid-cols-2 gap-1.5 border-t border-sky-50 pt-2">{activeLeagues.slice(0, 4).map((league) => <Link key={league.id} to={`/leagues/${league.slug}`} onClick={() => setMobileOpen(false)} className="truncate rounded-xl bg-sky-50 px-3 py-2 text-xs font-bold text-slate-700">{locale === 'en' ? league.name_en || league.name : league.name}</Link>)}</div> : null}</div>
+              ) : (
                 <NavLink
                   key={item.key}
                   to={item.href}

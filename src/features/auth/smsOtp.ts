@@ -9,6 +9,7 @@ type OtpRequestResult =
 type OtpVerifyResult =
   | { ok: true; token_hash: string; email: string; registration_required: boolean; next_path: string }
   | { ok: true; profile_verified: true }
+  | { ok: true; password_reset_token: string }
   | { ok: false; error: string }
 
 async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -26,7 +27,7 @@ async function callSmsOtp(body: Record<string, unknown>): Promise<Record<string,
   }
 }
 
-export type OtpPurpose = 'login' | 'signup' | 'profile'
+export type OtpPurpose = 'login' | 'signup' | 'profile' | 'password_reset'
 
 export async function requestSmsOtp(phoneRaw: string, purpose: OtpPurpose = 'login', captchaToken?: string): Promise<OtpRequestResult> {
   if (!isBackendConfigured()) return { ok: false, error: 'backend_missing' }
@@ -72,6 +73,7 @@ export async function verifySmsOtp(input: {
   })
 
   if (json.profile_verified === true) return { ok: true, profile_verified: true }
+  if (json.password_reset_token) return { ok: true, password_reset_token: String(json.password_reset_token) }
   if (json.error || !json.token_hash) {
     return { ok: false, error: String(json.error ?? 'server_error') }
   }

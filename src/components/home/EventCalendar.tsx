@@ -18,7 +18,7 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
             <span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 shadow-lg backdrop-blur"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg></span>
             <p className="relative mt-6 text-xs font-black tracking-[0.18em] text-emerald-200 uppercase">{isEn ? 'Event roadmap' : 'نقشه زمانی رویدادها'}</p>
             <p className="relative mt-3 text-sm leading-7 text-sky-50/85">{isEn ? 'Important competition dates, workshops and milestones in one clear timeline.' : 'تاریخ مسابقات، کارگاه‌ها و نقاط مهم را در یک مسیر زمانی روشن دنبال کنید.'}</p>
-            <div className="relative mt-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold"><span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_0_5px_rgb(110_231_183/0.12)]" />{events.length.toLocaleString(isEn ? 'en-US' : 'fa-IR')} {isEn ? 'scheduled events' : 'رویداد برنامه‌ریزی‌شده'}</div>
+            <div className="relative mt-7 inline-flex items-center gap-2 rounded-full border border-white bg-white px-4 py-2 text-xs font-black text-slate-800 shadow-lg"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgb(16_185_129/0.12)]" />{events.length.toLocaleString(isEn ? 'en-US' : 'fa-IR')} {isEn ? 'scheduled events' : 'رویداد برنامه‌ریزی‌شده'}</div>
           </aside>
           <ol className="relative p-5 sm:p-8">
             {events.map((event, index) => {

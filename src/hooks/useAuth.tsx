@@ -265,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await refreshProfile()
         return { error: null }
       }
+      if ('password_reset_token' in verified) return { error: 'invalid_session' }
       const sessionResult = await completeSmsOtpSession(verified.token_hash)
       if (sessionResult.error) return { error: sessionResult.error === 'invalid_or_expired_token' ? 'invalid_session' : 'server_error' }
       await refreshProfile()

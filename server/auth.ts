@@ -58,6 +58,10 @@ async function verifyPassword(password: string, stored: string | null): Promise<
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
+function strongPassword(password: string): boolean {
+  return password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)
+}
+
 async function createSession(response: Response, user: typeof users.$inferSelect) {
   const token = randomBytes(32).toString('base64url')
   const expiresAt = new Date(Date.now() + config.sessionDays * 24 * 60 * 60 * 1000)
@@ -295,7 +299,7 @@ export function registerAuthRoutes(router: Router): void {
       auth_channel: requestedMetadata.auth_channel === 'phone' ? 'phone' : 'email',
       email,
     }
-    if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 8) {
+    if (!/^\S+@\S+\.\S+$/.test(email) || !strongPassword(password)) {
       response.status(400).json({ error: 'invalid_signup' })
       return
     }
@@ -384,7 +388,7 @@ export function registerAuthRoutes(router: Router): void {
   router.post('/auth/password-reset/confirm', async (request, response) => {
     const code = String(request.body?.code ?? '')
     const password = String(request.body?.password ?? '')
-    if (!code || password.length < 8) {
+    if (!code || !strongPassword(password)) {
       response.status(400).json({ error: 'invalid_password_reset' })
       return
     }
@@ -424,7 +428,7 @@ export function registerAuthRoutes(router: Router): void {
     if (!actor) return void response.status(401).json({ error: 'authentication_required' })
     const currentPassword = String(request.body?.currentPassword ?? '')
     const newPassword = String(request.body?.newPassword ?? '')
-    if (newPassword.length < 8) return void response.status(400).json({ error: 'password_too_short' })
+    if (!strongPassword(newPassword)) return void response.status(400).json({ error: 'password_too_weak' })
     if (rateLimited(`password-change:${actor.id}:${request.ip}`, 8, 15 * 60 * 1000)) return void response.status(429).json({ error: 'too_many_attempts' })
     const rows = await db.select().from(users).where(eq(users.id, actor.id)).limit(1)
     const user = rows[0]
@@ -457,7 +461,7 @@ export function registerAuthRoutes(router: Router): void {
     const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
     if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
     const newPassword = String(request.body?.newPassword ?? '')
-    if (newPassword.length < 8) return void response.status(400).json({ error: 'password_too_short' })
+    if (!strongPassword(newPassword)) return void response.status(400).json({ error: 'password_too_weak' })
     const targetId = String(request.params.userId)
     const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
     if (!target) return void response.status(404).json({ error: 'user_not_found' })
@@ -479,7 +483,7 @@ export function registerAuthRoutes(router: Router): void {
     const username = String(request.body?.username ?? '').trim().toLowerCase() || null
     const password = String(request.body?.password ?? '')
     const role = ['staff', 'league_admin', 'super_admin'].includes(String(request.body?.role)) ? String(request.body.role) : 'staff'
-    if (fullName.length < 2 || !/^09\d{9}$/.test(phone) || password.length < 8) return void response.status(400).json({ error: 'invalid_user_data' })
+    if (fullName.length < 2 || !/^09\d{9}$/.test(phone) || !strongPassword(password)) return void response.status(400).json({ error: 'invalid_user_data' })
     try {
       const profile = await db.transaction(async (transaction) => {
         const id = randomUUID()
@@ -510,7 +514,7 @@ export function registerAuthRoutes(router: Router): void {
     if (fullName.length < 2 || (!/^09\d{9}$/.test(phone) && !/^\+[1-9]\d{7,14}$/.test(phone))) return void response.status(400).json({ error: 'invalid_user_data' })
     if (email && !/^\S+@\S+\.\S+$/.test(email)) return void response.status(400).json({ error: 'invalid_email' })
     if (username && username.length < 3) return void response.status(400).json({ error: 'invalid_username' })
-    if (password && password.length < 8) return void response.status(400).json({ error: 'password_too_short' })
+    if (password && !strongPassword(password)) return void response.status(400).json({ error: 'password_too_weak' })
 
     try {
       const profile = await db.transaction(async (transaction) => {

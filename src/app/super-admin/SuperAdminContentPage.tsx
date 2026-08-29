@@ -94,12 +94,15 @@ export function SuperAdminContentPage() {
   const [galCategoryId, setGalCategoryId] = useState('')
   const [galYear, setGalYear] = useState(String(new Date().getFullYear()))
   const [galType, setGalType] = useState('image')
-  const [galFile, setGalFile] = useState<File | null>(null)
+  const [galFiles, setGalFiles] = useState<File[]>([])
   const [catId, setCatId] = useState<string | null>(null)
   const [catNameFa, setCatNameFa] = useState('')
   const [catNameEn, setCatNameEn] = useState('')
   const [catSort, setCatSort] = useState('0')
   const [catActive, setCatActive] = useState(true)
+  const [catCover, setCatCover] = useState<string | null>(null)
+  const [catDescriptionFa, setCatDescriptionFa] = useState('')
+  const [catDescriptionEn, setCatDescriptionEn] = useState('')
 
   const resetCatForm = () => {
     setCatId(null)
@@ -107,6 +110,9 @@ export function SuperAdminContentPage() {
     setCatNameEn('')
     setCatSort('0')
     setCatActive(true)
+    setCatCover(null)
+    setCatDescriptionFa('')
+    setCatDescriptionEn('')
   }
 
   const reload = async () => {
@@ -271,24 +277,19 @@ export function SuperAdminContentPage() {
 
   const saveGallery = async (event: FormEvent) => {
     event.preventDefault()
-    if (!user || !galFile) {
+    if (!user || !galFiles.length) {
       setError(t('auth.required'))
       return
     }
     setBusy(true)
     setError(null)
     try {
-      const url = await uploadContentMedia(user.id, galFile)
-      await createGalleryItem({
-        media_url: url,
-        media_type: galType,
-        league_id: galLeagueId || null,
-        category_id: galCategoryId || null,
-        season_year: galYear ? Number(galYear) : null,
-        caption: galCaption || null,
-      })
+      for (const file of galFiles) {
+        const url = await uploadContentMedia(user.id, file)
+        await createGalleryItem({ media_url: url, media_type: galType, league_id: galLeagueId || null, category_id: galCategoryId || null, season_year: galYear ? Number(galYear) : null, caption: galCaption || null })
+      }
       setGalCaption('')
-      setGalFile(null)
+      setGalFiles([])
       await reload()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'error'
@@ -313,6 +314,9 @@ export function SuperAdminContentPage() {
         name_en: catNameEn,
         sort_order: Number(catSort) || 0,
         is_active: catActive,
+        cover_url: catCover,
+        description_fa: catDescriptionFa,
+        description_en: catDescriptionEn,
       })
       resetCatForm()
       await reload()
@@ -613,6 +617,9 @@ export function SuperAdminContentPage() {
                 onChange={(e) => setCatNameEn(e.target.value)}
                 dir="ltr"
               />
+              <Textarea label="توضیحات آلبوم (فارسی)" value={catDescriptionFa} onChange={(e) => setCatDescriptionFa(e.target.value)} className="min-h-20" />
+              <Textarea label="Album description (English)" value={catDescriptionEn} onChange={(e) => setCatDescriptionEn(e.target.value)} className="min-h-20" dir="ltr" />
+              <div className="md:col-span-2"><ImageUploadField label="عکس شاخص آلبوم" value={catCover} onChange={setCatCover} /></div>
               <Input
                 label={t('content.categorySort')}
                 type="number"
@@ -659,6 +666,9 @@ export function SuperAdminContentPage() {
                         setCatNameEn(cat.name_en)
                         setCatSort(String(cat.sort_order))
                         setCatActive(cat.is_active)
+                        setCatCover(cat.cover_url)
+                        setCatDescriptionFa(cat.description_fa ?? '')
+                        setCatDescriptionEn(cat.description_en ?? '')
                       }}
                     >
                       {t('common.edit')}
@@ -736,8 +746,10 @@ export function SuperAdminContentPage() {
                     type="file"
                     accept="image/*,video/mp4,video/webm"
                     className="block w-full text-sm text-rc-muted file:me-3 file:rounded-md file:border-0 file:bg-rc-blue/15 file:px-3 file:py-2 file:text-rc-blue"
-                    onChange={(e) => setGalFile(e.target.files?.[0] ?? null)}
+                    multiple
+                    onChange={(e) => setGalFiles(Array.from(e.target.files ?? []))}
                   />
+                  {galFiles.length ? <span className="mt-2 block text-xs font-bold text-emerald-700">{galFiles.length.toLocaleString('fa-IR')} فایل انتخاب شد</span> : null}
                 </label>
               </div>
               <Button type="submit" disabled={busy}>

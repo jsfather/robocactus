@@ -11,6 +11,7 @@ import { uploadProfileDocument } from '@/features/content/api'
 import { normalizeIranMobile, participantErrors } from '@/features/participants/identity'
 import type { AccountType, ParticipantFieldRule, Profile } from '@/types/database'
 import { useTranslation } from 'react-i18next'
+import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 
 const baseRequired = ['first_name_fa', 'last_name_fa', 'first_name_en', 'last_name_en', 'birth_date', 'gender', 'email', 'province', 'city', 'country_code', 'nationality', 'residence', 'postal_code', 'address']
 const fallbackRules = baseRequired.map((field_key) => ({ field_key, label_fa: field_key, label_en: field_key, is_required: true, is_locked: false, applies_to: (field_key === 'birth_date' || field_key === 'gender' ? 'individual' : 'both') as ParticipantFieldRule['applies_to'], updated_at: '' }))
@@ -94,7 +95,7 @@ export function AccountProfilePage() {
 
   const changePassword = async (event: FormEvent) => {
     event.preventDefault()
-    if (passwords.next.length < 8) return void toast.error('رمز جدید باید حداقل ۸ کاراکتر باشد.')
+    if (!isStrongPassword(passwords.next)) return void toast.error('رمز جدید باید حداقل ۸ کاراکتر و شامل حرف بزرگ، حرف کوچک و عدد باشد.')
     if (passwords.next !== passwords.repeat) return void toast.error('تکرار رمز عبور با رمز جدید یکسان نیست.')
     setBusy(true); const { error } = await backend.auth.changePassword(passwords.current, passwords.next); setBusy(false)
     if (error) return void toast.error(error.message === 'current_password_invalid' ? 'رمز عبور فعلی صحیح نیست.' : error.message)
@@ -145,6 +146,6 @@ export function AccountProfilePage() {
       <PanelCard title="مدارک احراز هویت"><div data-form-error={Boolean(errors.documents)} className={`grid gap-3 md:grid-cols-2 ${errors.documents ? 'rounded-2xl ring-2 ring-rose-300' : ''}`}>{docs.map((doc) => <label key={doc.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><span className="block text-sm font-bold">{doc.label_fa}{doc.is_required ? <b className="ms-1 text-rose-500">*</b> : null}</span><input className="mt-3 text-xs" type="file" accept="image/*,application/pdf" onChange={(e) => void uploadDoc(doc, e.target.files?.[0])} />{uploaded.has(doc.id) ? <p className="mt-2 text-xs font-bold text-emerald-600">بارگذاری شده</p> : null}</label>)}</div></PanelCard>
       <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره و تکمیل پرونده'}</Button>
     </form>
-    <PanelCard title="امنیت حساب" description="رمز عبور هرگز در پنل نمایش داده نمی‌شود."><form className="grid gap-4 md:grid-cols-3" onSubmit={(e) => void changePassword(e)}><Input label="رمز فعلی" required type="password" autoComplete="current-password" value={passwords.current} onChange={(e) => setPasswords((p) => ({ ...p, current: e.target.value }))} /><Input label="رمز جدید" required type="password" autoComplete="new-password" value={passwords.next} onChange={(e) => setPasswords((p) => ({ ...p, next: e.target.value }))} /><Input label="تکرار رمز جدید" required type="password" autoComplete="new-password" value={passwords.repeat} onChange={(e) => setPasswords((p) => ({ ...p, repeat: e.target.value }))} /><Button type="submit" disabled={busy}>تغییر امن رمز عبور</Button></form></PanelCard>
+    <PanelCard title="امنیت حساب" description="قدرت رمز را بررسی کنید؛ رمز عبور هرگز در پنل نمایش دائمی داده نمی‌شود."><form className="grid gap-4 md:grid-cols-3" onSubmit={(e) => void changePassword(e)}><PasswordField label="رمز فعلی" value={passwords.current} onChange={(value) => setPasswords((p) => ({ ...p, current: value }))} autoComplete="current-password" /><PasswordField label="رمز جدید" value={passwords.next} onChange={(value) => setPasswords((p) => ({ ...p, next: value }))} /><PasswordField label="تکرار رمز جدید" value={passwords.repeat} onChange={(value) => setPasswords((p) => ({ ...p, repeat: value }))} confirmValue={passwords.next} /><Button type="submit" disabled={busy || !isStrongPassword(passwords.next) || passwords.next !== passwords.repeat}>تغییر امن رمز عبور</Button></form></PanelCard>
   </PanelPage>
 }

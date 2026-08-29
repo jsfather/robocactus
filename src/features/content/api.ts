@@ -14,32 +14,33 @@ import type {
 export async function fetchPublishedPosts(): Promise<BlogPost[]> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*, category:content_categories(*)')
+    .select('*')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return (data ?? []) as BlogPost[]
+  return attachPostCategories((data ?? []) as BlogPost[])
 }
 
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPost | null> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*, category:content_categories(*)')
+    .select('*')
     .eq('slug', slug)
     .eq('status', 'published')
     .maybeSingle()
   if (error) throw new Error(error.message)
-  return data as BlogPost | null
+  if (!data) return null
+  return (await attachPostCategories([data as BlogPost]))[0] ?? null
 }
 
 /** Admin: all posts including drafts */
 export async function fetchAllPosts(): Promise<BlogPost[]> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*, category:content_categories(*)')
+    .select('*')
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return (data ?? []) as BlogPost[]
+  return attachPostCategories((data ?? []) as BlogPost[])
 }
 
 export async function upsertBlogPost(input: {
@@ -114,20 +115,20 @@ export async function deleteBlogPost(id: string): Promise<void> {
 export async function fetchPublishedAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await backend
     .from('announcements')
-    .select('*, category:content_categories(*)')
+    .select('*')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return (data ?? []) as Announcement[]
+  return attachAnnouncementCategories((data ?? []) as Announcement[])
 }
 
 export async function fetchAllAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await backend
     .from('announcements')
-    .select('*, category:content_categories(*)')
+    .select('*')
     .order('published_at', { ascending: false, nullsFirst: false })
   if (error) throw new Error(error.message)
-  return (data ?? []) as Announcement[]
+  return attachAnnouncementCategories((data ?? []) as Announcement[])
 }
 
 export async function upsertAnnouncement(input: {
@@ -201,9 +202,28 @@ export async function deleteAnnouncement(id: string): Promise<void> {
 }
 
 export async function fetchPublishedAnnouncementBySlug(slug: string): Promise<Announcement | null> {
-  const { data, error } = await backend.from('announcements').select('*, category:content_categories(*)').eq('slug', slug).eq('status', 'published').maybeSingle()
+  const { data, error } = await backend.from('announcements').select('*').eq('slug', slug).eq('status', 'published').maybeSingle()
   if (error) throw new Error(error.message)
-  return data as Announcement | null
+  if (!data) return null
+  return (await attachAnnouncementCategories([data as Announcement]))[0] ?? null
+}
+
+async function categoryMap() {
+  const { data, error } = await backend.from('content_categories').select('*').order('name_fa')
+  if (error) throw new Error(error.message)
+  return new Map(((data ?? []) as ContentCategory[]).map((category) => [category.id, category]))
+}
+
+async function attachPostCategories(rows: BlogPost[]): Promise<BlogPost[]> {
+  if (!rows.some((row) => row.category_id)) return rows
+  const categories = await categoryMap()
+  return rows.map((row) => ({ ...row, category: row.category_id ? categories.get(row.category_id) ?? null : null }))
+}
+
+async function attachAnnouncementCategories(rows: Announcement[]): Promise<Announcement[]> {
+  if (!rows.some((row) => row.category_id)) return rows
+  const categories = await categoryMap()
+  return rows.map((row) => ({ ...row, category: row.category_id ? categories.get(row.category_id) ?? null : null }))
 }
 
 export async function fetchContentCategories(): Promise<ContentCategory[]> {
@@ -247,6 +267,8 @@ export async function upsertGalleryCategory(input: {
   cover_url?: string | null
   sort_order?: number
   is_active?: boolean
+  description_fa?: string | null
+  description_en?: string | null
 }): Promise<GalleryCategory> {
   const payload = {
     name_fa: input.name_fa.trim(),
@@ -254,6 +276,8 @@ export async function upsertGalleryCategory(input: {
     cover_url: input.cover_url ?? null,
     sort_order: input.sort_order ?? 0,
     is_active: input.is_active ?? true,
+    description_fa: input.description_fa?.trim() || null,
+    description_en: input.description_en?.trim() || null,
   }
   if (input.id) {
     const { data, error } = await backend

@@ -66,6 +66,8 @@ export type GalleryCategory = {
   name_fa: string
   name_en: string
   cover_url: string | null
+  description_fa?: string | null
+  description_en?: string | null
   sort_order: number
   is_active: boolean
   created_at: string

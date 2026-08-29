@@ -171,8 +171,10 @@ export function SuperAdminHomeContentPage() {
           title={t('home.statsTab')}
           items={stats.map((s) => ({
             id: s.id,
-            label: `${s.label_fa} / ${s.value_num}`,
+            label: `${s.label_fa} / ${s.value_num} · ${s.is_active ? 'فعال' : 'غیرفعال'}`,
             onDelete: () => deleteStatCard(s.id).then(reload),
+            actionLabel: s.is_active ? 'غیرفعال کردن' : 'فعال کردن',
+            onAction: () => upsertStatCard({ ...s, is_active: !s.is_active }).then(reload),
           }))}
         >
           <StatForm
@@ -295,7 +297,7 @@ function SimpleCrud({
   children,
 }: {
   title: string
-  items: Array<{ id: string; label: string; onDelete: () => Promise<unknown> }>
+  items: Array<{ id: string; label: string; onDelete: () => Promise<unknown>; actionLabel?: string; onAction?: () => Promise<unknown> }>
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -310,9 +312,7 @@ function SimpleCrud({
             items.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span>{item.label}</span>
-                <Button type="button" variant="danger" onClick={() => void item.onDelete()}>
-                  {t('common.delete')}
-                </Button>
+                <div className="flex gap-2">{item.onAction ? <Button type="button" variant="secondary" onClick={() => void item.onAction?.()}>{item.actionLabel}</Button> : null}<Button type="button" variant="danger" onClick={() => void item.onDelete()}>{t('common.delete')}</Button></div>
               </li>
             ))
           )}
@@ -478,6 +478,7 @@ function StatForm({
   const [labelFa, setLabelFa] = useState('')
   const [labelEn, setLabelEn] = useState('')
   const [value, setValue] = useState('0')
+  const [active, setActive] = useState(true)
   return (
     <form
       className="space-y-3"
@@ -488,6 +489,7 @@ function StatForm({
           label_fa: labelFa,
           label_en: labelEn,
           value_num: Number(value) || 0,
+          is_active: active,
         })
           .then(onSaved)
           .then(() => {
@@ -501,6 +503,7 @@ function StatForm({
       <Input label="FA" value={labelFa} onChange={(e) => setLabelFa(e.target.value)} required />
       <Input label="EN" value={labelEn} onChange={(e) => setLabelEn(e.target.value)} required />
       <Input label={t('home.statValue')} type="number" value={value} onChange={(e) => setValue(e.target.value)} />
+      <label className="flex items-center gap-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />نمایش در صفحه اصلی</label>
       <Button type="submit" disabled={busy}>
         {t('common.save')}
       </Button>

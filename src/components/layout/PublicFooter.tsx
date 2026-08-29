@@ -54,9 +54,9 @@ export function PublicFooter() {
       <span className="pointer-events-none absolute -bottom-36 -start-32 size-96 rounded-full bg-emerald-400/[0.05] blur-3xl" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-7xl px-4 pt-10 sm:px-8 sm:pt-14">
-        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-white/15 bg-gradient-to-l from-sky-500/25 via-white/10 to-emerald-400/20 p-6 shadow-[0_24px_70px_rgb(0_0_0/0.18)] backdrop-blur md:grid-cols-[1fr_auto] md:items-center md:p-8">
-          <div><p className="text-xs font-black tracking-widest text-emerald-200">{brand}</p><h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight sm:text-3xl">{t('footer.ctaTitle')}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-sky-100/70">{t('footer.ctaSubtitle')}</p></div>
-          <Link to="/contact" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-6 font-black text-sky-800 shadow-xl transition duration-300 hover:-translate-y-1 hover:bg-emerald-50">{t('nav.contact')} <span aria-hidden>←</span></Link>
+        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-sky-100 bg-white p-6 text-slate-950 shadow-[0_24px_70px_rgb(0_0_0/0.18)] md:grid-cols-[1fr_auto] md:items-center md:p-8">
+          <div><p className="text-xs font-black tracking-widest text-emerald-700">{brand}</p><h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{t('footer.ctaTitle')}</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{t('footer.ctaSubtitle')}</p></div>
+          <Link to="/contact" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-sky-700 to-emerald-600 px-6 font-black text-white shadow-xl transition duration-300 hover:-translate-y-1">{t('nav.contact')} <span aria-hidden>←</span></Link>
         </section>
       </div>
 
@@ -64,7 +64,7 @@ export function PublicFooter() {
         <section>
           <div className="flex items-center gap-4">{settings?.logo_url ? <span className="grid size-16 place-items-center rounded-2xl bg-white p-2 shadow-lg"><img src={settings.logo_url} alt={brand} className="max-h-12 max-w-full object-contain" /></span> : <span className="grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-emerald-400 text-lg font-black shadow-lg">TC</span>}<div><h2 className="text-2xl font-black">{brand}</h2><p className="mt-1 text-xs font-bold tracking-wide text-emerald-200">Tabarestan Cup · Amol</p></div></div>
           <p className="mt-5 max-w-lg text-sm leading-8 text-sky-100/65">{about}</p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-emerald-100"><span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgb(110_231_183/0.1)]" />{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</div>
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white bg-white px-3 py-2 text-xs font-black text-slate-800 shadow-lg"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgb(16_185_129/0.14)]" />{isEn ? 'From Mazandaran toward the future' : 'از مازندران تا آینده'}</div>
         </section>
 
         <section className="rounded-2xl border border-sky-100 bg-white p-5 text-slate-900 shadow-[0_18px_45px_rgb(1_24_38/0.18)]"><h3 className="text-sm font-black text-slate-950">{t('footer.usefulLinks')}</h3><div className="mt-3 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent" /><ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-xs font-bold text-slate-700">{useful.map((item) => <li key={item.id}><Link to={item.href} className="inline-flex min-h-8 items-center gap-2 rounded-lg px-1 transition hover:bg-sky-50 hover:text-sky-800"><span className="size-1.5 rounded-full bg-emerald-500" />{isEn ? item.label_en : item.label_fa}</Link></li>)}</ul></section>

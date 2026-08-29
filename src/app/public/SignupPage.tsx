@@ -18,6 +18,7 @@ import type { BackendAuthOptions } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
+import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 
 type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs'
 type AuthChannel = 'phone' | 'email'
@@ -135,7 +136,7 @@ export function SignupPage() {
         z.object({
           fullName: z.string().min(2), username: z.string().min(3),
           email: z.string().email(),
-          password: z.string().min(8),
+          password: z.string().refine(isStrongPassword),
         }).parse({ fullName, username, email, password })
         if (accountType === 'individual') {
           z.object({ nationalId: z.string().min(5) }).parse({ nationalId })
@@ -546,22 +547,8 @@ export function SignupPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 dir="ltr"
               />
-              <Input
-                label={t('auth.password')}
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                dir="ltr"
-              />
-              <Input
-                label={t('auth.confirmPassword')}
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                dir="ltr"
-              />
+              <PasswordField label={t('auth.password')} value={password} onChange={setPassword} />
+              <PasswordField label={t('auth.confirmPassword')} value={confirmPassword} onChange={setConfirmPassword} confirmValue={password} />
               <Input
                 label={t('auth.phoneOptional')}
                 value={phone}
