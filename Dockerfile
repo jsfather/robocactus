@@ -19,7 +19,8 @@ COPY --from=build /app/dist-server ./dist-server
 COPY db ./db
 COPY scripts ./scripts
 
-RUN mkdir -p /app/data/uploads && chown -R node:node /app
+# Only uploads need write access; avoid chown -R /app (node_modules has 10k+ files and stalls builds).
+RUN mkdir -p /app/data/uploads && chown node:node /app/data/uploads
 USER node
 
 EXPOSE 3000
