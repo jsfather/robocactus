@@ -7011,6 +7011,298 @@ alter table public.profiles
 comment on column public.profiles.staff_department is
   'Internal organizational unit for collaborators, e.g. support, finance, operations or content.';
 
+-- ===== 0055_participant_organizations.sql =====
+-- Participant account owns an organization ("majmooe") and organizations own teams.
+-- Keep the existing companies table name for backward compatibility with APIs and reports.
+alter table public.companies
+  add column if not exists entity_type text not null default 'company';
+
+alter table public.companies drop constraint if exists companies_entity_type_check;
+alter table public.companies add constraint companies_entity_type_check check (
+  entity_type in ('individual','company','institute','school','university','academy','club','other')
+);
+
+comment on table public.companies is 'Participant organizations/accounts. May represent an individual or an organization; teams are children through teams.company_id.';
+comment on column public.companies.entity_type is 'individual, company, institute, school, university, academy, club, or other';
+
+update public.companies c set entity_type = 'individual'
+where exists (
+  select 1 from public.company_members cm
+  join public.profiles p on p.id = cm.user_id
+  where cm.company_id = c.id and cm.is_owner = true and p.account_type = 'individual'
+);
+
+create or replace view public.participant_organizations as
+select c.*, cm.user_id as owner_user_id
+from public.companies c
+left join public.company_members cm on cm.company_id = c.id and cm.is_owner = true;
+
+-- ===== 0056_ticket_departments_team_name_guard.sql =====
+-- Participant-selected ticket department and race-safe team-name validation.
+-- An organization may register multiple teams in one league; only their names
+-- must be distinct for the same league season.
+alter table public.teams drop constraint if exists teams_company_league_unique;
+
+create or replace function public.create_ticket_with_department(
+  p_team_id uuid,
+  p_subject text,
+  p_body text,
+  p_league_id uuid default null,
+  p_department_id uuid default null
+)
+returns public.tickets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team public.teams%rowtype;
+  v_ticket public.tickets%rowtype;
+begin
+  if v_uid is null then raise exception 'not authenticated'; end if;
+  select * into v_team from public.teams where id = p_team_id;
+  if not found then raise exception 'team not found'; end if;
+  if not (public.is_super_admin() or v_team.captain_id = v_uid or exists (
+    select 1 from public.company_members cm where cm.company_id = v_team.company_id and cm.user_id = v_uid
+  )) then raise exception 'forbidden'; end if;
+  if p_department_id is null or not exists (
+    select 1 from public.ticket_departments d where d.id = p_department_id and d.is_active = true
+  ) then raise exception 'invalid_department'; end if;
+
+  insert into public.tickets (team_id, league_id, department_id, subject, status)
+  values (p_team_id, p_league_id, p_department_id, trim(p_subject), 'open')
+  returning * into v_ticket;
+  insert into public.ticket_messages (ticket_id, sender_id, body)
+  values (v_ticket.id, v_uid, trim(p_body));
+  return v_ticket;
+end;
+$$;
+
+revoke all on function public.create_ticket_with_department(uuid,text,text,uuid,uuid) from public;
+grant execute on function public.create_ticket_with_department(uuid,text,text,uuid,uuid) to authenticated;
+
+create or replace function public.team_name_available(
+  p_league_id uuid,
+  p_season_year integer,
+  p_name text,
+  p_exclude_team_id uuid default null
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1 from public.teams t
+    where t.league_id = p_league_id
+      and coalesce(t.season_year, 0) = coalesce(p_season_year, 0)
+      and lower(btrim(t.name)) = lower(btrim(p_name))
+      and (p_exclude_team_id is null or t.id <> p_exclude_team_id)
+  );
+$$;
+
+revoke all on function public.team_name_available(uuid,integer,text,uuid) from public;
+grant execute on function public.team_name_available(uuid,integer,text,uuid) to authenticated;
+
+create or replace function public.guard_unique_team_name_in_league()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.name is null or btrim(new.name) = '' then return new; end if;
+  perform pg_advisory_xact_lock(hashtextextended(new.league_id::text || ':' || coalesce(new.season_year, 0)::text || ':' || lower(btrim(new.name)), 0));
+  if exists (
+    select 1 from public.teams t
+    where t.league_id = new.league_id
+      and coalesce(t.season_year, 0) = coalesce(new.season_year, 0)
+      and lower(btrim(t.name)) = lower(btrim(new.name))
+      and t.id <> new.id
+  ) then raise exception 'team_name_already_exists' using errcode = '23505'; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists teams_unique_name_per_league_guard on public.teams;
+create trigger teams_unique_name_per_league_guard
+before insert or update of name, league_id, season_year on public.teams
+for each row execute function public.guard_unique_team_name_in_league();
+
+-- ===== 0057_invoice_registration_guard.sql =====
+-- Invoice numbers must never collide, and invoices may only be generated after
+-- team people and their required identity documents are complete.
+create sequence if not exists public.invoice_number_seq;
+
+create or replace function public._next_invoice_number()
+returns text language sql security definer set search_path = public as $$
+  select 'TC-' || to_char(timezone('Asia/Tehran', now()), 'YYYYMMDD') || '-' || lpad(nextval('public.invoice_number_seq')::text, 8, '0');
+$$;
+
+create or replace function public.create_invoice_for_team(p_team_id uuid)
+returns public.invoices language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid();
+  v_team public.teams%rowtype;
+  v_league public.leagues%rowtype;
+  v_fee numeric;
+  v_member_count integer;
+  v_coach_count integer;
+  v_total_count integer;
+  v_captain_count integer;
+  v_incomplete_count integer;
+  v_invoice public.invoices%rowtype;
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  select * into v_team from public.teams where id = p_team_id;
+  if not found then raise exception 'team_not_found'; end if;
+  if v_team.status <> 'draft' then raise exception 'team_not_payable'; end if;
+  if not public.is_super_admin()
+    and not exists (select 1 from public.company_members cm where cm.company_id = v_team.company_id and cm.user_id = v_uid)
+    and v_team.captain_id <> v_uid then raise exception 'forbidden'; end if;
+
+  select * into v_league from public.leagues where id = v_team.league_id;
+  if not found then raise exception 'league_not_found'; end if;
+  select count(*), count(*) filter (where role = 'captain'), count(*) filter (where role = 'member'),
+    count(*) filter (where role = 'coach'),
+    count(*) filter (where coalesce(first_name_fa,'') = '' or coalesce(last_name_fa,'') = '' or birth_date is null or coalesce(photo_url,'') = '' or coalesce(national_id_doc_path,'') = '')
+  into v_total_count, v_captain_count, v_member_count, v_coach_count, v_incomplete_count
+  from public.team_members where team_id = p_team_id;
+
+  if v_captain_count < 1 then raise exception 'registration_incomplete:captain'; end if;
+  if v_incomplete_count > 0 then raise exception 'registration_incomplete:people'; end if;
+  if v_league.team_size_min is not null and v_total_count < v_league.team_size_min then raise exception 'registration_incomplete:min_members'; end if;
+  if v_league.team_size_max is not null and v_total_count > v_league.team_size_max then raise exception 'registration_incomplete:max_members'; end if;
+  if coalesce(v_team.registration_stage, '') not in ('invoice','payment','completed') and coalesce(v_team.lifecycle_status, '') <> 'awaiting_payment' then
+    raise exception 'registration_incomplete:stage';
+  end if;
+
+  v_fee := coalesce(v_league.registration_fee,0) + coalesce(v_league.captain_fee,0)
+    + coalesce(v_league.member_fee,0) * v_member_count + coalesce(v_league.coach_fee,0) * v_coach_count;
+  select * into v_invoice from public.invoices where team_id = p_team_id and status in ('pending','failed') order by created_at desc limit 1;
+  if found then
+    update public.invoices set amount = v_fee, company_id = v_team.company_id,
+      status = case when receipt_status = 'pending_review' then status else 'pending'::public.payment_status end,
+      archived_at = null, updated_at = now()
+    where id = v_invoice.id returning * into v_invoice;
+    return v_invoice;
+  end if;
+  insert into public.invoices(team_id,company_id,amount,status,invoice_number)
+  values(v_team.id,v_team.company_id,v_fee,'pending',public._next_invoice_number()) returning * into v_invoice;
+  return v_invoice;
+end;
+$$;
+
+revoke all on function public.create_invoice_for_team(uuid) from public;
+grant execute on function public.create_invoice_for_team(uuid) to authenticated;
+
+-- ===== 0058_account_deletion_relations.sql =====
+-- Account deletion follows the participant domain: the account owns its teams.
+-- Financial/result/ticket rows belonging to those teams are removed only when a
+-- super administrator explicitly deletes the owning account.
+alter table public.teams drop constraint if exists teams_captain_id_fkey;
+alter table public.teams add constraint teams_captain_id_fkey foreign key (captain_id) references public.profiles(id) on delete cascade;
+
+alter table public.teams drop constraint if exists teams_reviewed_by_fkey;
+alter table public.teams add constraint teams_reviewed_by_fkey foreign key (reviewed_by) references public.profiles(id) on delete set null;
+
+alter table public.invoices drop constraint if exists invoices_team_id_fkey;
+alter table public.invoices add constraint invoices_team_id_fkey foreign key (team_id) references public.teams(id) on delete cascade;
+alter table public.invoices drop constraint if exists invoices_company_id_fkey;
+alter table public.invoices add constraint invoices_company_id_fkey foreign key (company_id) references public.companies(id) on delete cascade;
+
+alter table public.results drop constraint if exists results_team_id_fkey;
+alter table public.results add constraint results_team_id_fkey foreign key (team_id) references public.teams(id) on delete cascade;
+alter table public.results drop constraint if exists results_company_id_fkey;
+alter table public.results add constraint results_company_id_fkey foreign key (company_id) references public.companies(id) on delete cascade;
+
+alter table public.tickets drop constraint if exists tickets_team_id_fkey;
+alter table public.tickets add constraint tickets_team_id_fkey foreign key (team_id) references public.teams(id) on delete cascade;
+alter table public.tickets drop constraint if exists tickets_assigned_to_fkey;
+alter table public.tickets add constraint tickets_assigned_to_fkey foreign key (assigned_to) references public.profiles(id) on delete set null;
+
+alter table public.notification_log drop constraint if exists notification_log_team_id_fkey;
+alter table public.notification_log add constraint notification_log_team_id_fkey foreign key (team_id) references public.teams(id) on delete set null;
+
+alter table public.announcements drop constraint if exists announcements_created_by_fkey;
+alter table public.announcements add constraint announcements_created_by_fkey foreign key (created_by) references public.profiles(id) on delete set null;
+alter table public.blog_posts drop constraint if exists blog_posts_author_id_fkey;
+alter table public.blog_posts add constraint blog_posts_author_id_fkey foreign key (author_id) references public.profiles(id) on delete set null;
+
+alter table public.invoices drop constraint if exists invoices_receipt_reviewed_by_fkey;
+alter table public.invoices add constraint invoices_receipt_reviewed_by_fkey foreign key (receipt_reviewed_by) references public.profiles(id) on delete set null;
+
+alter table public.account_issues drop constraint if exists account_issues_created_by_fkey;
+alter table public.account_issues add constraint account_issues_created_by_fkey foreign key (created_by) references public.profiles(id) on delete set null;
+alter table public.system_notifications drop constraint if exists system_notifications_created_by_fkey;
+alter table public.system_notifications add constraint system_notifications_created_by_fkey foreign key (created_by) references public.profiles(id) on delete set null;
+
+alter table public.captain_invites drop constraint if exists captain_invites_invited_by_fkey;
+alter table public.captain_invites add constraint captain_invites_invited_by_fkey foreign key (invited_by) references public.profiles(id) on delete cascade;
+
+alter table public.ticket_messages alter column sender_id drop not null;
+alter table public.ticket_messages drop constraint if exists ticket_messages_sender_id_fkey;
+alter table public.ticket_messages add constraint ticket_messages_sender_id_fkey foreign key (sender_id) references public.profiles(id) on delete set null;
+
+alter table public.invoices drop constraint if exists invoices_registration_id_fkey;
+alter table public.invoices add constraint invoices_registration_id_fkey foreign key (registration_id) references public.teams(id) on delete cascade;
+
+-- ===== 0059_persistent_storage_content.sql =====
+-- Dokploy containers are replaceable. Keep the canonical file bytes in
+-- PostgreSQL so uploads survive deployments; disk_path remains a read cache.
+alter table app_private.storage_objects
+  add column if not exists content bytea;
+
+comment on column app_private.storage_objects.content is
+  'Canonical persisted file bytes. disk_path is only a local cache/fallback.';
+
+-- ===== 0060_fix_team_member_photos_storage_policy.sql =====
+drop policy if exists team_member_photos_manage
+on storage.objects;
+
+create policy team_member_photos_manage
+on storage.objects
+for all
+to authenticated
+using (
+  bucket_id = 'team-member-photos'
+  and (
+    public.is_super_admin()
+    or exists (
+      select 1
+      from public.teams t
+      where t.id::text = (storage.foldername(name))[1]
+      and (
+        t.captain_id = auth.uid()
+        or exists (
+          select 1
+          from public.company_members cm
+          where cm.company_id = t.company_id
+            and cm.user_id = auth.uid()
+        )
+      )
+    )
+  )
+)
+with check (
+  bucket_id = 'team-member-photos'
+  and (
+    public.is_super_admin()
+    or exists (
+      select 1
+      from public.teams t
+      where t.id::text = (storage.foldername(name))[1]
+      and (
+        t.captain_id = auth.uid()
+        or exists (
+          select 1
+          from public.company_members cm
+          where cm.company_id = t.company_id
+            and cm.user_id = auth.uid()
+        )
+      )
+    )
+  )
+);
+
 -- ===== 9999_application_runtime.sql =====
 -- Runtime privileges and database-backed realtime event capture.
 
