@@ -83,13 +83,14 @@ export function AuthCallbackPage() {
           patch.birth_date = draft.birthDate || null
           patch.postal_code = draft.postalCode?.trim() || null
           patch.legal_representative_national_id = draft.accountType === 'legal' ? draft.representativeNationalId?.trim() || null : null
-          patch.identity_completed_at = new Date().toISOString()
+          patch.identity_completed_at = null
           if (draft.fullName?.trim()) patch.full_name = draft.fullName.trim()
         } else if (email) {
           patch.auth_channel = 'email'
         }
 
-        await backend.from('profiles').update(patch).eq('id', user.id)
+        const { error: profileUpdateError } = await backend.from('profiles').update(patch).eq('id', user.id)
+        if (profileUpdateError) throw new Error(profileUpdateError.message)
         await refreshProfile()
         clearSignupDraft()
 

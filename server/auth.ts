@@ -481,8 +481,29 @@ export function registerAuthRoutes(router: Router): void {
     if (targetId === actor.id) return void response.status(400).json({ error: 'cannot_delete_self' })
     const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
     if (!target) return void response.status(404).json({ error: 'user_not_found' })
-    await db.delete(users).where(eq(users.id, targetId))
-    response.json({ ok: true })
+    try {
+      await db.transaction(async (transaction) => {
+        // Empty organizations created during an abandoned signup have no
+        // business value and otherwise remain orphaned after membership cascade.
+        await transaction.execute(sql`
+          delete from public.companies c
+          where exists (
+            select 1 from public.company_members cm
+            where cm.company_id = c.id and cm.user_id = ${targetId}::uuid and cm.is_owner = true
+          )
+          and not exists (select 1 from public.teams t where t.company_id = c.id)
+        `)
+        await transaction.delete(users).where(eq(users.id, targetId))
+      })
+      response.json({ ok: true })
+    } catch (error) {
+      const pgError = error as { code?: string; constraint?: string; message?: string }
+      console.error('[auth] admin user deletion failed', { targetId, code: pgError.code, constraint: pgError.constraint, message: pgError.message })
+      if (pgError.code === '23503') {
+        return void response.status(409).json({ error: 'user_has_related_records' })
+      }
+      response.status(500).json({ error: 'user_delete_failed' })
+    }
   })
 
   router.post('/auth/admin/collaborators', async (request, response) => {

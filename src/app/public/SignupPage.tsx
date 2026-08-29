@@ -208,7 +208,9 @@ export function SignupPage() {
         birth_date: birthDate ? latinDigits(birthDate).slice(0, 10) : null,
         postal_code: postalCode.trim(),
         legal_representative_national_id: accountType === 'legal' ? representativeNationalId.trim() : null,
-        identity_completed_at: new Date().toISOString(),
+        // Signup only creates the participant shell. The profile becomes
+        // complete after the dedicated identity flow collects every required field.
+        identity_completed_at: null,
       })
       .eq('id', uid)
     if (profileError) throw new Error(profileError.message)

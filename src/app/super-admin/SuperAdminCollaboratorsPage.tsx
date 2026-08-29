@@ -58,7 +58,7 @@ export function SuperAdminCollaboratorsPage() {
   const deleteCollaborator = async (profile: Profile) => {
     if (!window.confirm(`حساب همکار «${profile.full_name}» برای همیشه حذف شود؟`)) return
     setBusy(true); const result = await backend.auth.adminDeleteUser(profile.id); setBusy(false)
-    if (result.error) return void toast.error(result.error.message)
+    if (result.error) return void toast.error(result.error.message === 'user_has_related_records' ? 'این همکار دارای سابقه عملیاتی، داوری یا پاسخ‌گویی است و برای حفظ سوابق قابل حذف نیست؛ دسترسی او را غیرفعال کنید.' : result.error.message === 'user_delete_failed' ? 'حذف حساب انجام نشد. جزئیات در گزارش سرور ثبت شد.' : result.error.message)
     await reload(); toast.success('حساب همکار حذف شد.')
   }
 
