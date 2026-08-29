@@ -5,9 +5,10 @@ import type { Request, Response, Router } from 'express'
 import multer from 'multer'
 import { sql } from 'drizzle-orm'
 import { config } from './config.js'
-import { db, userFromRequest, withRequestRole } from './db.js'
+import { db, type AuthUser, userFromRequest, withRequestRole } from './db.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } })
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function cleanObjectPath(value: unknown): string {
   const objectPath = String(value ?? '').replace(/^\/+/, '')
@@ -49,6 +50,109 @@ function pathFromRegex(request: Request, group: number): string {
   return cleanObjectPath(decodeURIComponent(request.params[group] ?? ''))
 }
 
+function teamIdFromMemberPhotoPath(objectPath: string): string {
+  const teamId = objectPath.split('/')[0] ?? ''
+  if (!UUID_RE.test(teamId)) throw new Error('invalid_path')
+  return teamId
+}
+
+async function assertTeamMemberPhotoAccess(user: AuthUser, teamId: string): Promise<void> {
+  const result = await withRequestRole(user, (transaction) => transaction.execute(sql`
+    select 1
+    from public.teams t
+    where t.id = ${teamId}::uuid
+      and (
+        public.is_super_admin()
+        or t.captain_id = auth.uid()
+        or exists (
+          select 1
+          from public.company_members cm
+          where cm.company_id = t.company_id
+            and cm.user_id = auth.uid()
+        )
+      )
+    limit 1
+  `))
+  if (!result.rows.length) throw new Error('forbidden')
+}
+
+async function insertStorageObjectRow(
+  bucket: string,
+  objectPath: string,
+  ownerId: string,
+  metadata: { mimetype: string; size: number },
+  upsert: boolean,
+): Promise<void> {
+  const metadataJson = JSON.stringify(metadata)
+  if (upsert) {
+    await db.execute(sql`
+      insert into storage.objects(bucket_id, name, owner, metadata)
+      values (${bucket}, ${objectPath}, ${ownerId}::uuid, ${metadataJson}::jsonb)
+      on conflict (bucket_id, name) do update
+      set owner = excluded.owner, metadata = excluded.metadata, updated_at = now()
+    `)
+    return
+  }
+  await db.execute(sql`
+    insert into storage.objects(bucket_id, name, owner, metadata)
+    values (${bucket}, ${objectPath}, ${ownerId}::uuid, ${metadataJson}::jsonb)
+  `)
+}
+
+async function registerStorageObject(
+  user: AuthUser,
+  bucket: string,
+  objectPath: string,
+  metadata: { mimetype: string; size: number },
+  upsert: boolean,
+): Promise<void> {
+  if (bucket === 'team-member-photos') {
+    await assertTeamMemberPhotoAccess(user, teamIdFromMemberPhotoPath(objectPath))
+    // Validate as the authenticated user, then insert as the table owner (bypasses broken RLS).
+    await insertStorageObjectRow(bucket, objectPath, user.id, metadata, upsert)
+    return
+  }
+
+  const metadataJson = JSON.stringify(metadata)
+  await withRequestRole(user, async (transaction) => {
+    if (upsert) {
+      await transaction.execute(sql`
+        insert into storage.objects(bucket_id, name, owner, metadata)
+        values (${bucket}, ${objectPath}, ${user.id}::uuid, ${metadataJson}::jsonb)
+        on conflict (bucket_id, name) do update
+        set owner = excluded.owner, metadata = excluded.metadata, updated_at = now()
+      `)
+      return
+    }
+    await transaction.execute(sql`
+      insert into storage.objects(bucket_id, name, owner, metadata)
+      values (${bucket}, ${objectPath}, ${user.id}::uuid, ${metadataJson}::jsonb)
+    `)
+  })
+}
+
+async function removeStorageObject(
+  user: AuthUser,
+  bucket: string,
+  objectPath: string,
+): Promise<void> {
+  if (bucket === 'team-member-photos') {
+    await assertTeamMemberPhotoAccess(user, teamIdFromMemberPhotoPath(objectPath))
+    const deleted = await db.execute(sql`
+      delete from storage.objects where bucket_id = ${bucket} and name = ${objectPath} returning id
+    `)
+    if (!deleted.rows.length) throw new Error('object_not_found')
+    return
+  }
+
+  await withRequestRole(user, async (transaction) => {
+    const deleted = await transaction.execute(sql`
+      delete from storage.objects where bucket_id = ${bucket} and name = ${objectPath} returning id
+    `)
+    if (!deleted.rows.length) throw new Error('object_not_found')
+  })
+}
+
 export function registerStorageRoutes(router: Router): void {
   router.post('/storage/:bucket', upload.single('file'), async (request, response) => {
     const user = await userFromRequest(request)
@@ -77,21 +181,13 @@ export function registerStorageRoutes(router: Router): void {
         throw new Error('invalid_file_type')
       }
 
-      await withRequestRole(user, async (transaction) => {
-        if (upsert) {
-          await transaction.execute(sql`
-            insert into storage.objects(bucket_id, name, owner, metadata)
-            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${JSON.stringify({ mimetype: request.file!.mimetype, size: request.file!.size })}::jsonb)
-            on conflict (bucket_id, name) do update
-            set owner = excluded.owner, metadata = excluded.metadata, updated_at = now()
-          `)
-        } else {
-          await transaction.execute(sql`
-            insert into storage.objects(bucket_id, name, owner, metadata)
-            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${JSON.stringify({ mimetype: request.file!.mimetype, size: request.file!.size })}::jsonb)
-          `)
-        }
-      })
+      await registerStorageObject(
+        user,
+        bucket,
+        objectPath,
+        { mimetype: request.file.mimetype, size: request.file.size },
+        upsert,
+      )
 
       const previous = await lookupObject(bucket, objectPath)
       await fs.writeFile(diskPath, request.file.buffer)
@@ -114,7 +210,9 @@ export function registerStorageRoutes(router: Router): void {
       response.status(201).json({ path: objectPath })
     } catch (error) {
       await fs.unlink(diskPath).catch(() => undefined)
-      response.status(400).json({ error: error instanceof Error ? error.message : String(error) })
+      const message = error instanceof Error ? error.message : String(error)
+      const status = message === 'forbidden' ? 403 : 400
+      response.status(status).json({ error: message })
     }
   })
 
@@ -146,12 +244,7 @@ export function registerStorageRoutes(router: Router): void {
       const bucket = String(request.params.bucket)
       const paths = (Array.isArray(request.body?.paths) ? request.body.paths : []).map(cleanObjectPath)
       for (const objectPath of paths) {
-        await withRequestRole(user, async (transaction) => {
-          const deleted = await transaction.execute(sql`
-            delete from storage.objects where bucket_id = ${bucket} and name = ${objectPath} returning id
-          `)
-          if (!deleted.rows.length) throw new Error('object_not_found')
-        })
+        await removeStorageObject(user, bucket, objectPath)
         const object = await lookupObject(bucket, objectPath)
         await db.execute(sql`delete from app_private.storage_objects where bucket = ${bucket} and object_path = ${objectPath}`)
         if (object?.disk_path) await fs.unlink(object.disk_path).catch(() => undefined)
