@@ -45,5 +45,5 @@ alter table public.ticket_messages alter column sender_id drop not null;
 alter table public.ticket_messages drop constraint if exists ticket_messages_sender_id_fkey;
 alter table public.ticket_messages add constraint ticket_messages_sender_id_fkey foreign key (sender_id) references public.profiles(id) on delete set null;
 
-alter table public.system_notifications drop constraint if exists system_notifications_registration_id_fkey;
-alter table public.system_notifications add constraint system_notifications_registration_id_fkey foreign key (registration_id) references public.teams(id) on delete set null;
+alter table public.invoices drop constraint if exists invoices_registration_id_fkey;
+alter table public.invoices add constraint invoices_registration_id_fkey foreign key (registration_id) references public.teams(id) on delete cascade;
