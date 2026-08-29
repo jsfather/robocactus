@@ -81,14 +81,14 @@ export function registerStorageRoutes(router: Router): void {
         if (upsert) {
           await transaction.execute(sql`
             insert into storage.objects(bucket_id, name, owner, metadata)
-            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${{ mimetype: request.file!.mimetype, size: request.file!.size }})
+            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${JSON.stringify({ mimetype: request.file!.mimetype, size: request.file!.size })}::jsonb)
             on conflict (bucket_id, name) do update
             set owner = excluded.owner, metadata = excluded.metadata, updated_at = now()
           `)
         } else {
           await transaction.execute(sql`
             insert into storage.objects(bucket_id, name, owner, metadata)
-            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${{ mimetype: request.file!.mimetype, size: request.file!.size }})
+            values (${bucket}, ${objectPath}, ${user.id}::uuid, ${JSON.stringify({ mimetype: request.file!.mimetype, size: request.file!.size })}::jsonb)
           `)
         }
       })
@@ -98,7 +98,7 @@ export function registerStorageRoutes(router: Router): void {
       await db.execute(sql`
         insert into app_private.storage_objects(id, bucket, object_path, disk_path, owner_id, mime_type, size, is_public, metadata, content)
         values (${randomUUID()}::uuid, ${bucket}, ${objectPath}, ${diskPath}, ${user.id}::uuid,
-                ${request.file.mimetype}, ${request.file.size}, ${Boolean(bucketRow.public)}, ${{ originalName: request.file.originalname }},
+              ${request.file.mimetype}, ${request.file.size}, ${Boolean(bucketRow.public)}, ${JSON.stringify({ originalName: request.file.originalname })}::jsonb,
                 decode(${request.file.buffer.toString('base64')}, 'base64'))
         on conflict (bucket, object_path) do update set
           disk_path = excluded.disk_path,
