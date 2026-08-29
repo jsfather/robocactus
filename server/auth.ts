@@ -483,6 +483,10 @@ export function registerAuthRoutes(router: Router): void {
     if (!target) return void response.status(404).json({ error: 'user_not_found' })
     try {
       await db.transaction(async (transaction) => {
+        const ownedCompanies = await transaction.execute(sql`
+          select company_id from public.company_members
+          where user_id = ${targetId}::uuid and is_owner = true
+        `)
         // Empty organizations created during an abandoned signup have no
         // business value and otherwise remain orphaned after membership cascade.
         await transaction.execute(sql`
@@ -494,10 +498,19 @@ export function registerAuthRoutes(router: Router): void {
           and not exists (select 1 from public.teams t where t.company_id = c.id)
         `)
         await transaction.delete(users).where(eq(users.id, targetId))
+        for (const row of ownedCompanies.rows as Array<{ company_id: string }>) {
+          await transaction.execute(sql`
+            delete from public.companies
+            where id = ${row.company_id}::uuid
+              and not exists (select 1 from public.company_members where company_id = ${row.company_id}::uuid)
+              and not exists (select 1 from public.teams where company_id = ${row.company_id}::uuid)
+          `)
+        }
       })
       response.json({ ok: true })
     } catch (error) {
-      const pgError = error as { code?: string; constraint?: string; message?: string }
+      const drizzleError = error as { code?: string; constraint?: string; message?: string; cause?: { code?: string; constraint?: string; message?: string } }
+      const pgError = drizzleError.cause ?? drizzleError
       console.error('[auth] admin user deletion failed', { targetId, code: pgError.code, constraint: pgError.constraint, message: pgError.message })
       if (pgError.code === '23503') {
         return void response.status(409).json({ error: 'user_has_related_records' })
