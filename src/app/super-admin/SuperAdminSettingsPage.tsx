@@ -339,6 +339,11 @@ export function SuperAdminSettingsPage() {
               value={form.contact_address_en ?? ''}
               onChange={(e) => patch({ contact_address_en: e.target.value })}
             />
+            <Input label={t('settings.contactMap')} value={form.contact_map_embed_url ?? ''} onChange={(e) => patch({ contact_map_embed_url: e.target.value })} dir="ltr" placeholder="https://www.google.com/maps/embed?..." />
+            <Input label="Instagram" value={form.instagram_url ?? ''} onChange={(e) => patch({ instagram_url: e.target.value })} dir="ltr" placeholder="https://instagram.com/..." />
+            <Input label="Telegram" value={form.telegram_url ?? ''} onChange={(e) => patch({ telegram_url: e.target.value })} dir="ltr" placeholder="https://t.me/..." />
+            <Input label="LinkedIn" value={form.linkedin_url ?? ''} onChange={(e) => patch({ linkedin_url: e.target.value })} dir="ltr" placeholder="https://linkedin.com/..." />
+            <Input label="WhatsApp" value={form.whatsapp_url ?? ''} onChange={(e) => patch({ whatsapp_url: e.target.value })} dir="ltr" placeholder="https://wa.me/..." />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <ImageUploadField
@@ -353,6 +358,8 @@ export function SuperAdminSettingsPage() {
               dir="ltr"
               placeholder="https://trustseal.enamad.ir/..."
             />
+            <Textarea label={t('settings.trustSealHtml')} className="min-h-32 md:col-span-2" value={form.trust_seal_html ?? ''} onChange={(e) => patch({ trust_seal_html: e.target.value })} dir="ltr" placeholder={'<a href="..."><img src="..." alt="نماد اعتماد" /></a>'} />
+            <p className="text-xs leading-6 text-slate-500 md:col-span-2">{t('settings.trustSealHtmlHint')}</p>
           </div>
         </HudFrame>
 

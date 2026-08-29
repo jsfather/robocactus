@@ -1,67 +1,15 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchPublishedPosts } from '@/features/content/api'
+import { ArticleCard } from '@/components/content/ArticleCard'
 import type { BlogPost } from '@/types/database'
-import { formatAppDate } from '@/lib/dates'
 
 export function BlogListPage() {
-  const { t, i18n } = useTranslation()
-  const [posts, setPosts] = useState<BlogPost[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    void fetchPublishedPosts()
-      .then(setPosts)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-12">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('content.blogTitle')}</h1>
-        <p className="mt-1 text-rc-muted">{t('content.blogSubtitle')}</p>
-      </div>
-
-      {loading ? <p className="text-rc-muted">{t('app.loading')}</p> : null}
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
-
-      {!loading && posts.length === 0 ? (
-        <p className="text-rc-muted">{t('content.blogEmpty')}</p>
-      ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <li key={post.id}>
-              <Link
-                to={`/blog/${post.slug}`}
-                className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-rc-blue/40"
-              >
-                {post.cover_image ? (
-                  <img
-                    src={post.cover_image}
-                    alt=""
-                    className="h-40 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-40 items-center justify-center bg-rc-navy font-mono text-rc-blue">
-                    NEWS
-                  </div>
-                )}
-                <div className="flex flex-1 flex-col p-4">
-                  <h2 className="text-lg font-semibold text-rc-text">{post.title}</h2>
-                  {post.published_at ? (
-                    <p className="mt-2 font-mono text-xs text-rc-muted">
-                      {formatAppDate(post.published_at, i18n.language)}
-                    </p>
-                  ) : null}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
+  const { t, i18n } = useTranslation(); const isEn = i18n.language.startsWith('en'); const [posts, setPosts] = useState<BlogPost[]>([]); const [category, setCategory] = useState('all'); const [error, setError] = useState<string | null>(null); const [loading, setLoading] = useState(true)
+  useEffect(() => { void fetchPublishedPosts().then(setPosts).catch((err: Error) => setError(err.message)).finally(() => setLoading(false)) }, [])
+  const categories = useMemo(() => Array.from(new Map(posts.filter((p) => p.category).map((p) => [p.category!.id, p.category!])).values()), [posts])
+  const visible = category === 'all' ? posts : posts.filter((post) => post.category_id === category)
+  return <main className="mx-auto max-w-7xl px-4 py-14 sm:px-8"><header className="relative overflow-hidden rounded-[2.25rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-7 text-white shadow-[0_24px_70px_rgb(8_126_184/0.18)] sm:p-10"><span className="absolute -end-24 -top-28 size-80 rounded-full border-[54px] border-white/10" aria-hidden="true" /><p className="relative text-xs font-black tracking-[0.18em] text-emerald-200">EDITORIAL</p><h1 className="relative mt-3 text-3xl font-black sm:text-5xl">{t('content.blogTitle')}</h1><p className="relative mt-3 max-w-2xl text-sm leading-7 text-sky-50/85">{t('content.blogSubtitle')}</p></header>
+  {categories.length ? <nav className="my-7 flex gap-2 overflow-x-auto pb-2"><button onClick={() => setCategory('all')} className={`shrink-0 rounded-full px-4 py-2 text-xs font-black ${category === 'all' ? 'bg-sky-700 text-white' : 'bg-white text-slate-600 ring-1 ring-sky-100'}`}>{isEn ? 'All' : 'همه مطالب'}</button>{categories.map((item) => <button key={item.id} onClick={() => setCategory(item.id)} className={`shrink-0 rounded-full px-4 py-2 text-xs font-black ${category === item.id ? 'bg-sky-700 text-white' : 'bg-white text-slate-600 ring-1 ring-sky-100'}`}>{isEn ? item.name_en : item.name_fa}</button>)}</nav> : <div className="h-7" />}
+  {loading ? <p className="py-16 text-center text-slate-500">{t('app.loading')}</p> : null}{error ? <p className="py-10 text-center text-red-600">{error}</p> : null}{!loading && !visible.length ? <p className="rounded-2xl border border-dashed border-sky-200 bg-sky-50 p-12 text-center text-slate-600">{t('content.blogEmpty')}</p> : <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">{visible.map((post, index) => <div key={post.id} className={index === 0 && category === 'all' ? 'md:col-span-2 lg:col-span-2' : ''}><ArticleCard to={`/blog/${post.slug}`} title={post.title} excerpt={post.excerpt} image={post.cover_image} imageAlt={post.cover_alt} publishedAt={post.published_at} category={isEn ? post.category?.name_en : post.category?.name_fa} featured={index === 0 && category === 'all'} /></div>)}</div>}</main>
 }

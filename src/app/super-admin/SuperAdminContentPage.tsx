@@ -15,12 +15,14 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import {
   createGalleryItem,
+  createContentCategory,
   deleteAnnouncement,
   deleteBlogPost,
   deleteGalleryCategory,
   deleteGalleryItem,
   fetchAllAnnouncements,
   fetchAllPosts,
+  fetchContentCategories,
   fetchGalleryCategories,
   fetchGalleryItems,
   fetchLeaguesForContent,
@@ -34,6 +36,7 @@ import type {
   Announcement,
   BlogPost,
   ContentStatus,
+  ContentCategory,
   GalleryCategory,
   GalleryItem,
   League,
@@ -50,6 +53,9 @@ export function SuperAdminContentPage() {
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [galCategories, setGalCategories] = useState<GalleryCategory[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
+  const [contentCategories, setContentCategories] = useState<ContentCategory[]>([])
+  const [newCategoryFa, setNewCategoryFa] = useState('')
+  const [newCategoryEn, setNewCategoryEn] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -64,6 +70,9 @@ export function SuperAdminContentPage() {
   const [postSeoTitle, setPostSeoTitle] = useState('')
   const [postMeta, setPostMeta] = useState('')
   const [postEditorKey, setPostEditorKey] = useState(0)
+  const [postCategoryId, setPostCategoryId] = useState('')
+  const [postAuthor, setPostAuthor] = useState('')
+  const [postCoverAlt, setPostCoverAlt] = useState('')
 
   const [annId, setAnnId] = useState<string | null>(null)
   const [annTitle, setAnnTitle] = useState('')
@@ -75,6 +84,10 @@ export function SuperAdminContentPage() {
   const [annMeta, setAnnMeta] = useState('')
   const [annCover, setAnnCover] = useState<string | null>(null)
   const [annEditorKey, setAnnEditorKey] = useState(0)
+  const [annSlug, setAnnSlug] = useState('')
+  const [annCategoryId, setAnnCategoryId] = useState('')
+  const [annAuthor, setAnnAuthor] = useState('')
+  const [annCoverAlt, setAnnCoverAlt] = useState('')
 
   const [galCaption, setGalCaption] = useState('')
   const [galLeagueId, setGalLeagueId] = useState('')
@@ -100,18 +113,20 @@ export function SuperAdminContentPage() {
     setLoading(true)
     setError(null)
     try {
-      const [p, a, g, cats, l] = await Promise.all([
+      const [p, a, g, cats, l, editorialCategories] = await Promise.all([
         fetchAllPosts(),
         fetchAllAnnouncements(),
         fetchGalleryItems(),
         fetchGalleryCategories(true),
         fetchLeaguesForContent(),
+        fetchContentCategories(),
       ])
       setPosts(p)
       setAnnouncements(a)
       setGallery(g)
       setGalCategories(cats)
       setLeagues(l)
+      setContentCategories(editorialCategories)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -133,6 +148,9 @@ export function SuperAdminContentPage() {
     setPostExcerpt('')
     setPostSeoTitle('')
     setPostMeta('')
+    setPostCategoryId('')
+    setPostAuthor('')
+    setPostCoverAlt('')
     setPostEditorKey((k) => k + 1)
   }
 
@@ -146,6 +164,9 @@ export function SuperAdminContentPage() {
     setPostExcerpt(post.excerpt ?? '')
     setPostSeoTitle(post.seo_title ?? '')
     setPostMeta(post.meta_description ?? '')
+    setPostCategoryId(post.category_id ?? '')
+    setPostAuthor(post.author_name ?? '')
+    setPostCoverAlt(post.cover_alt ?? '')
     setPostEditorKey((k) => k + 1)
     setTab('blog')
   }
@@ -168,6 +189,9 @@ export function SuperAdminContentPage() {
         seo_title: postSeoTitle,
         meta_description: postMeta,
         og_image: postCover,
+        category_id: postCategoryId || null,
+        author_name: postAuthor,
+        cover_alt: postCoverAlt,
       })
       resetPostForm()
       await reload()
@@ -188,6 +212,10 @@ export function SuperAdminContentPage() {
     setAnnSeoTitle('')
     setAnnMeta('')
     setAnnCover(null)
+    setAnnSlug('')
+    setAnnCategoryId('')
+    setAnnAuthor('')
+    setAnnCoverAlt('')
     setAnnEditorKey((k) => k + 1)
   }
 
@@ -201,6 +229,10 @@ export function SuperAdminContentPage() {
     setAnnSeoTitle(item.seo_title ?? '')
     setAnnMeta(item.meta_description ?? '')
     setAnnCover(item.cover_image ?? null)
+    setAnnSlug(item.slug ?? '')
+    setAnnCategoryId(item.category_id ?? '')
+    setAnnAuthor(item.author_name ?? '')
+    setAnnCoverAlt(item.cover_alt ?? '')
     setAnnEditorKey((k) => k + 1)
     setTab('announcements')
   }
@@ -222,6 +254,11 @@ export function SuperAdminContentPage() {
         seo_title: annSeoTitle,
         meta_description: annMeta,
         cover_image: annCover,
+        slug: annSlug,
+        category_id: annCategoryId || null,
+        author_name: annAuthor,
+        cover_alt: annCoverAlt,
+        og_image: annCover,
       })
       resetAnnForm()
       await reload()
@@ -288,6 +325,18 @@ export function SuperAdminContentPage() {
 
   const catLabel = (cat: GalleryCategory) => (i18n.language?.startsWith('fa') ? cat.name_fa : cat.name_en)
 
+  const addEditorialCategory = async () => {
+    if (!newCategoryFa.trim() || !newCategoryEn.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const created = await createContentCategory({ name_fa: newCategoryFa, name_en: newCategoryEn })
+      setContentCategories((items) => [...items, created])
+      setNewCategoryFa('')
+      setNewCategoryEn('')
+    } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) } finally { setBusy(false) }
+  }
+
   return (
     <PanelPage index="CMS.01" title={t('content.cmsTitle')} description={t('content.cmsSubtitle')}>
 
@@ -309,6 +358,9 @@ export function SuperAdminContentPage() {
 
       {tab === 'blog' ? (
         <div className="space-y-4">
+          <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white shadow-[0_20px_60px_rgb(8_126_184/0.16)] sm:p-8"><p className="text-xs font-black tracking-widest text-emerald-200">EDITORIAL WORKSPACE</p><h2 className="mt-2 text-2xl font-black">{i18n.language.startsWith('en') ? 'Create structured, searchable and SEO-ready stories' : 'تولید محتوای منظم، خوانا و آماده برای موتورهای جست‌وجو'}</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-white/80">{i18n.language.startsWith('en') ? 'Complete the editorial information, media accessibility, article body and search preview before publishing.' : 'پیش از انتشار، اطلاعات تحریریه، دسترس‌پذیری تصویر، ساختار مطلب و پیش‌نمایش سئو را کامل کنید.'}</p></section>
+
+          <PanelCard title={i18n.language.startsWith('en') ? 'Article categories' : 'دسته‌بندی مطالب'} description={i18n.language.startsWith('en') ? 'Categories help readers filter stories and clarify the subject for search engines.' : 'دسته‌بندی به یافتن سریع‌تر مطالب و درک بهتر موضوع توسط موتور جست‌وجو کمک می‌کند.'}><div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"><Input label="نام فارسی" value={newCategoryFa} onChange={(e) => setNewCategoryFa(e.target.value)} /><Input label="English name" value={newCategoryEn} onChange={(e) => setNewCategoryEn(e.target.value)} dir="ltr" /><Button type="button" disabled={busy || !newCategoryFa.trim() || !newCategoryEn.trim()} onClick={() => void addEditorialCategory()}>{i18n.language.startsWith('en') ? 'Add category' : 'افزودن دسته‌بندی'}</Button></div>{contentCategories.length ? <div className="mt-4 flex flex-wrap gap-2">{contentCategories.map((item) => <span key={item.id} className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800 ring-1 ring-sky-100">{i18n.language.startsWith('en') ? item.name_en : item.name_fa}</span>)}</div> : null}</PanelCard>
           <PanelCard
             title={postId ? t('content.editPost') : t('content.newPost')}
             actions={
@@ -344,11 +396,13 @@ export function SuperAdminContentPage() {
                 <option value="draft">{t('content.statusDraft')}</option>
                 <option value="published">{t('content.statusPublished')}</option>
               </Select>
+              <div className="grid gap-3 md:grid-cols-2"><Select label={i18n.language.startsWith('en') ? 'Category' : 'دسته‌بندی'} value={postCategoryId} onChange={(e) => setPostCategoryId(e.target.value)}><option value="">{i18n.language.startsWith('en') ? 'Uncategorized' : 'بدون دسته‌بندی'}</option>{contentCategories.map((item) => <option key={item.id} value={item.id}>{i18n.language.startsWith('en') ? item.name_en : item.name_fa}</option>)}</Select><Input label={i18n.language.startsWith('en') ? 'Author display name' : 'نام نمایشی نویسنده'} value={postAuthor} onChange={(e) => setPostAuthor(e.target.value)} /></div>
               <ImageUploadField
                 label={t('content.cover')}
                 value={postCover}
                 onChange={setPostCover}
               />
+              <Input label={i18n.language.startsWith('en') ? 'Cover image alternative text' : 'متن جایگزین تصویر شاخص'} value={postCoverAlt} onChange={(e) => setPostCoverAlt(e.target.value)} placeholder={postTitle} />
               <Textarea
                 label={t('content.excerpt')}
                 className="min-h-20"
@@ -395,11 +449,11 @@ export function SuperAdminContentPage() {
           </PanelCard>
 
           <PanelCard title={t('content.postsList')}>
-            <ul className="divide-y divide-white/5">
+            <ul className="grid gap-3 md:grid-cols-2">
               {posts.map((post) => (
-                <li key={post.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <li key={post.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/60 p-4 shadow-sm">
                   <div>
-                    <p className="font-medium">{post.title}</p>
+                    <p className="font-black text-slate-900">{post.title}</p>
                     <p className="font-mono text-xs text-rc-muted">
                       {post.slug} · {post.status}
                     </p>
@@ -429,6 +483,7 @@ export function SuperAdminContentPage() {
 
       {tab === 'announcements' ? (
         <div className="space-y-4">
+          <section className="rounded-[2rem] border border-amber-100 bg-gradient-to-l from-amber-50 via-white to-sky-50 p-6 sm:p-8"><p className="text-xs font-black tracking-widest text-amber-700">OFFICIAL NOTICE DESK</p><h2 className="mt-2 text-2xl font-black text-slate-950">{i18n.language.startsWith('en') ? 'Publish clear, traceable official notices' : 'انتشار اطلاعیه‌های رسمی، روشن و قابل پیگیری'}</h2><p className="mt-2 text-sm leading-7 text-slate-600">{i18n.language.startsWith('en') ? 'Every notice receives its own shareable and search-friendly detail page.' : 'هر اطلاعیه صفحه مستقل، قابل اشتراک‌گذاری و بهینه برای جست‌وجو خواهد داشت.'}</p></section>
           <PanelCard
             title={annId ? t('content.editAnnouncement') : t('content.newAnnouncement')}
             actions={
@@ -446,6 +501,7 @@ export function SuperAdminContentPage() {
                 value={annTitle}
                 onChange={(e) => setAnnTitle(e.target.value)}
               />
+              <Input label={t('content.slug')} value={annSlug} onChange={(e) => setAnnSlug(slugify(e.target.value))} dir="ltr" placeholder={slugify(annTitle)} />
               <Select
                 label={t('team.league')}
                 value={annLeagueId}
@@ -458,6 +514,7 @@ export function SuperAdminContentPage() {
                   </option>
                 ))}
               </Select>
+              <div className="grid gap-3 md:grid-cols-2"><Select label={i18n.language.startsWith('en') ? 'Category' : 'دسته‌بندی'} value={annCategoryId} onChange={(e) => setAnnCategoryId(e.target.value)}><option value="">{i18n.language.startsWith('en') ? 'Uncategorized' : 'بدون دسته‌بندی'}</option>{contentCategories.map((item) => <option key={item.id} value={item.id}>{i18n.language.startsWith('en') ? item.name_en : item.name_fa}</option>)}</Select><Input label={i18n.language.startsWith('en') ? 'Author display name' : 'نام نمایشی نویسنده'} value={annAuthor} onChange={(e) => setAnnAuthor(e.target.value)} /></div>
               <Select
                 label={t('content.status')}
                 value={annStatus}
@@ -471,6 +528,7 @@ export function SuperAdminContentPage() {
                 value={annCover}
                 onChange={setAnnCover}
               />
+              <Input label={i18n.language.startsWith('en') ? 'Cover image alternative text' : 'متن جایگزین تصویر شاخص'} value={annCoverAlt} onChange={(e) => setAnnCoverAlt(e.target.value)} placeholder={annTitle} />
               <Textarea
                 label={t('content.excerpt')}
                 className="min-h-20"
@@ -508,11 +566,11 @@ export function SuperAdminContentPage() {
           </PanelCard>
 
           <PanelCard title={t('content.announcementsList')}>
-            <ul className="divide-y divide-white/5">
+            <ul className="grid gap-3 md:grid-cols-2">
               {announcements.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-gradient-to-br from-white to-amber-50/60 p-4 shadow-sm">
                   <div>
-                    <p className="font-medium">{item.title}</p>
+                    <p className="font-black text-slate-900">{item.title}</p>
                     <p className="font-mono text-xs text-rc-muted">{item.status}</p>
                   </div>
                   <div className="flex gap-2">

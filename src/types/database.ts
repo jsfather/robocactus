@@ -32,7 +32,13 @@ export type BlogPost = {
   meta_description?: string | null
   og_image?: string | null
   updated_at?: string | null
+  category_id?: string | null
+  author_name?: string | null
+  cover_alt?: string | null
+  category?: ContentCategory | null
 }
+
+export type ContentCategory = { id: string; name_fa: string; name_en: string; slug: string; created_at: string }
 
 export type Announcement = {
   id: string
@@ -47,6 +53,12 @@ export type Announcement = {
   meta_description?: string | null
   cover_image?: string | null
   updated_at?: string | null
+  slug?: string | null
+  category_id?: string | null
+  author_name?: string | null
+  cover_alt?: string | null
+  og_image?: string | null
+  category?: ContentCategory | null
 }
 
 export type GalleryCategory = {
@@ -561,8 +573,14 @@ export type SiteSettings = {
   contact_email?: string | null
   contact_address_fa?: string | null
   contact_address_en?: string | null
+  contact_map_embed_url?: string | null
+  instagram_url?: string | null
+  telegram_url?: string | null
+  linkedin_url?: string | null
+  whatsapp_url?: string | null
   trust_seal_url?: string | null
   trust_seal_href?: string | null
+  trust_seal_html?: string | null
   login_logo_url?: string | null
   login_cover_url?: string | null
   login_welcome_title_fa?: string | null

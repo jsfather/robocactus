@@ -25,6 +25,7 @@ import { BlogListPage } from '@/app/public/BlogListPage'
 import { BlogPostPage } from '@/app/public/BlogPostPage'
 import { GalleryPage } from '@/app/public/GalleryPage'
 import { NewsPage } from '@/app/public/NewsPage'
+import { AnnouncementPage } from '@/app/public/AnnouncementPage'
 import { ContactPage } from '@/app/public/ContactPage'
 import { FaqPage } from '@/app/public/FaqPage'
 import { LeagueDetailPage } from '@/app/public/LeagueDetailPage'
@@ -90,6 +91,7 @@ export default function App() {
                 <Route path="blog" element={<BlogListPage />} />
                 <Route path="blog/:slug" element={<BlogPostPage />} />
                 <Route path="news" element={<NewsPage />} />
+                <Route path="news/:slug" element={<AnnouncementPage />} />
                 <Route path="gallery" element={<GalleryPage />} />
                 <Route path="about" element={<AboutPage />} />
                 <Route path="contact" element={<ContactPage />} />

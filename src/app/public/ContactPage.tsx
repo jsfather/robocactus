@@ -23,6 +23,12 @@ export function ContactPage() {
   const supportPhone = settings?.support_phone?.trim()
   const telephoneHref = supportPhone ? `tel:${supportPhone.replace(/[^\d+]/g, '')}` : null
   const contactAddress = i18n.language.startsWith('en') ? settings?.contact_address_en : settings?.contact_address_fa
+  const mapEmbedUrl = settings?.contact_map_embed_url?.trim()
+  const safeMapEmbedUrl = mapEmbedUrl && /^https:\/\/(www\.)?(google\.[^/]+|maps\.googleapis\.com)\//i.test(mapEmbedUrl) ? mapEmbedUrl : null
+  const socialLinks = [
+    ['Instagram', settings?.instagram_url], ['Telegram', settings?.telegram_url],
+    ['LinkedIn', settings?.linkedin_url], ['WhatsApp', settings?.whatsapp_url],
+  ].filter((item): item is [string, string] => Boolean(item[1]?.trim() && /^https:\/\//i.test(item[1])))
 
   useEffect(() => {
     void fetchStaticPage('contact')
@@ -84,6 +90,8 @@ export function ContactPage() {
         </section>
       ) : null}
 
+      {socialLinks.length ? <section className="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-[0_16px_45px_rgb(8_126_184/0.07)] sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-slate-900">{i18n.language.startsWith('en') ? 'Follow us' : 'ما را در شبکه‌های اجتماعی دنبال کنید'}</h2><p className="mt-1 text-xs text-slate-500">{i18n.language.startsWith('en') ? 'Official Tabarestan Cup communication channels' : 'کانال‌های رسمی ارتباطی جام تبرستان'}</p></div><div className="flex flex-wrap gap-2">{socialLinks.map(([name, href]) => <a key={name} href={href} target="_blank" rel="noreferrer noopener" className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-2.5 text-sm font-black text-sky-800 transition hover:-translate-y-0.5 hover:bg-sky-700 hover:text-white">{name}</a>)}</div></div></section> : null}
+
       <div className="grid gap-8 lg:grid-cols-2">
         <PanelCard title={t('home.contactForm')}>
           <form className="space-y-3" onSubmit={(e) => void onSubmit(e)}>
@@ -131,16 +139,17 @@ export function ContactPage() {
 
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">{t('home.contactMap')}</h2>
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          {safeMapEmbedUrl ? <div className="overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white p-2 shadow-[0_16px_45px_rgb(8_126_184/0.09)]">
             <iframe
               title={t('home.contactMap')}
-              src="https://www.openstreetmap.org/export/embed.html?bbox=51.35%2C35.68%2C51.45%2C35.74&layer=mapnik&marker=35.71%2C51.40"
-              className="h-80 w-full bg-rc-navy"
+              src={safeMapEmbedUrl}
+              className="h-80 w-full rounded-2xl bg-slate-100"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
             />
-          </div>
-          <p className="text-sm text-rc-muted">{t('home.contactMapHint')}</p>
+          </div> : <div className="grid h-80 place-items-center rounded-[1.75rem] border border-dashed border-sky-200 bg-sky-50/50 p-8 text-center"><div><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-sky-700 shadow-sm">⌖</span><p className="mt-3 text-sm font-bold text-slate-600">{contactAddress || t('home.contactMapHint')}</p></div></div>}
+          {contactAddress ? <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-600">{contactAddress}</p> : null}
         </div>
       </div>
     </div>

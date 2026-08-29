@@ -27,6 +27,14 @@ export function sanitizeHtml(dirty: string): string {
       'span',
       'div',
     ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'style'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'style', 'id', 'title', 'width', 'height', 'referrerpolicy', 'loading'],
+  })
+}
+
+/** Restricted sanitizer for third-party trust badges. Scripts and event handlers stay blocked. */
+export function sanitizeTrustSealHtml(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: ['a', 'img', 'div', 'span', 'p', 'br'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'style', 'id', 'title', 'width', 'height', 'referrerpolicy', 'loading'],
   })
 }

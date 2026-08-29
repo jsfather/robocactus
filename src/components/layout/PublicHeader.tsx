@@ -6,6 +6,8 @@ import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sortedNavItems, ensureLiveResultsNavItem } from '@/features/settings/api'
 import { HeaderSearch } from '@/components/layout/HeaderSearch'
 import type { AppLocale } from '@/i18n'
+import { fetchActiveLeagues } from '@/features/companies/api'
+import type { League } from '@/types/database'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -19,6 +21,8 @@ export function PublicHeader() {
   const { settings, loading: settingsLoading } = useSiteSettings()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [megaOpen, setMegaOpen] = useState(false)
+  const [activeLeagues, setActiveLeagues] = useState<League[]>([])
   const headerRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const locale = (i18n.language === 'en' ? 'en' : 'fa') as AppLocale
@@ -58,6 +62,8 @@ export function PublicHeader() {
 
   useEffect(() => setMobileOpen(false), [location.pathname])
 
+  useEffect(() => { void fetchActiveLeagues().then(setActiveLeagues).catch(() => setActiveLeagues([])) }, [])
+
   useEffect(() => {
     if (!mobileOpen) return
     const closeOutside = (event: PointerEvent) => {
@@ -88,7 +94,7 @@ export function PublicHeader() {
       <header
         ref={headerRef}
         className={[
-          'pointer-events-auto relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border ring-1 ring-white/70 transition-all duration-300',
+          'pointer-events-auto relative mx-auto max-w-7xl overflow-visible rounded-[2rem] border ring-1 ring-white/70 transition-all duration-300',
           scrolled
             ? 'border-white bg-white/95 shadow-[0_18px_60px_rgb(16_75_96/0.14)] backdrop-blur-xl'
             : 'border-white/80 bg-white/88 shadow-[0_14px_50px_rgb(16_75_96/0.10)] backdrop-blur-xl',
@@ -115,7 +121,14 @@ export function PublicHeader() {
           </Link>
 
           <nav className="hidden items-center gap-0.5 rounded-2xl border border-sky-100/80 bg-sky-50/70 p-1 lg:flex">
-            {links.map((item) => (
+            {links.map((item) => item.href === '/leagues' ? (
+              <div key={item.key} className="group/mega relative" onMouseEnter={() => setMegaOpen(true)} onMouseLeave={() => setMegaOpen(false)} onFocus={() => setMegaOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setMegaOpen(false) }}>
+                <NavLink to={item.href} end={item.end} className={navClass}>{({ isActive }) => <>{item.label}<span className="ms-1 text-[10px]">⌄</span><span className={['absolute inset-x-3 -bottom-0.5 h-px origin-center bg-rc-blue transition duration-300', isActive ? 'scale-x-100' : 'scale-x-0'].join(' ')} /></>}</NavLink>
+                <div className={`absolute start-1/2 top-[calc(100%+1rem)] w-[min(46rem,calc(100vw-3rem))] -translate-x-1/2 pt-2 transition duration-200 ${megaOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-2 opacity-0'}`}>
+                  <section className="overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-[0_28px_80px_rgb(15_56_79/0.22)]"><div className="grid grid-cols-[13rem_1fr]"><aside className="bg-gradient-to-br from-[#063d59] to-[#087b61] p-6 text-white"><p className="text-xs font-black tracking-widest text-emerald-200">{locale === 'en' ? 'COMPETITIONS' : 'مسابقات جام تبرستان'}</p><h2 className="mt-3 text-xl font-black">{locale === 'en' ? 'Find your league' : 'لیگ مناسب خود را پیدا کنید'}</h2><p className="mt-3 text-xs leading-6 text-white/75">{locale === 'en' ? 'Review active competitions, requirements and registration status.' : 'مسابقات فعال، شرایط و وضعیت ثبت‌نام را سریع بررسی کنید.'}</p><Link to="/leagues" onClick={() => setMegaOpen(false)} className="mt-5 inline-flex rounded-xl bg-white px-3 py-2 text-xs font-black text-sky-800">{locale === 'en' ? 'All leagues' : 'مشاهده همه لیگ‌ها'}</Link></aside><div className="grid max-h-[24rem] grid-cols-2 gap-2 overflow-y-auto p-4">{activeLeagues.slice(0, 8).map((league) => <Link key={league.id} to={`/leagues/${league.slug}`} onClick={() => setMegaOpen(false)} className="group/item flex items-center gap-3 rounded-2xl border border-transparent bg-slate-50 p-3 transition hover:border-sky-100 hover:bg-sky-50"><span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-sky-700 shadow-sm">{league.cover_image_url ? <img src={league.cover_image_url} alt="" className="size-full object-cover" /> : '🏆'}</span><span className="min-w-0"><strong className="block truncate text-sm text-slate-900 group-hover/item:text-sky-700">{locale === 'en' ? league.name_en || league.name : league.name}</strong><small className="mt-1 block text-[10px] font-bold text-emerald-700">{league.registration_cycle_status === 'open' ? (locale === 'en' ? 'Registration open' : 'ثبت‌نام فعال') : (locale === 'en' ? 'View details' : 'مشاهده جزئیات')}</small></span></Link>)}{!activeLeagues.length ? <p className="col-span-2 p-8 text-center text-sm text-slate-500">{locale === 'en' ? 'No active leagues are available.' : 'در حال حاضر لیگ فعالی برای نمایش وجود ندارد.'}</p> : null}</div></div></section>
+                </div>
+              </div>
+            ) : (
               <NavLink key={item.key} to={item.href} end={item.end} className={navClass}>
                 {({ isActive }) => (
                   <>

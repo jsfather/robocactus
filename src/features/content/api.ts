@@ -4,6 +4,7 @@ import { slugify } from '@/lib/validation'
 import type {
   Announcement,
   BlogPost,
+  ContentCategory,
   ContentStatus,
   GalleryCategory,
   GalleryItem,
@@ -13,7 +14,7 @@ import type {
 export async function fetchPublishedPosts(): Promise<BlogPost[]> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*')
+    .select('*, category:content_categories(*)')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
@@ -23,7 +24,7 @@ export async function fetchPublishedPosts(): Promise<BlogPost[]> {
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPost | null> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*')
+    .select('*, category:content_categories(*)')
     .eq('slug', slug)
     .eq('status', 'published')
     .maybeSingle()
@@ -35,7 +36,7 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPost |
 export async function fetchAllPosts(): Promise<BlogPost[]> {
   const { data, error } = await backend
     .from('blog_posts')
-    .select('*')
+    .select('*, category:content_categories(*)')
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as BlogPost[]
@@ -53,6 +54,9 @@ export async function upsertBlogPost(input: {
   seo_title?: string | null
   meta_description?: string | null
   og_image?: string | null
+  category_id?: string | null
+  author_name?: string | null
+  cover_alt?: string | null
 }): Promise<BlogPost> {
   const slug = slugify(input.slug || input.title)
   let publishedAt: string | null = null
@@ -80,6 +84,9 @@ export async function upsertBlogPost(input: {
     seo_title: input.seo_title?.trim() || null,
     meta_description: input.meta_description?.trim() || null,
     og_image: input.og_image?.trim() || input.cover_image || null,
+    category_id: input.category_id || null,
+    author_name: input.author_name?.trim() || null,
+    cover_alt: input.cover_alt?.trim() || null,
     updated_at: new Date().toISOString(),
   }
 
@@ -107,7 +114,7 @@ export async function deleteBlogPost(id: string): Promise<void> {
 export async function fetchPublishedAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await backend
     .from('announcements')
-    .select('*')
+    .select('*, category:content_categories(*)')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
@@ -117,7 +124,7 @@ export async function fetchPublishedAnnouncements(): Promise<Announcement[]> {
 export async function fetchAllAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await backend
     .from('announcements')
-    .select('*')
+    .select('*, category:content_categories(*)')
     .order('published_at', { ascending: false, nullsFirst: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as Announcement[]
@@ -134,6 +141,11 @@ export async function upsertAnnouncement(input: {
   seo_title?: string | null
   meta_description?: string | null
   cover_image?: string | null
+  slug?: string
+  category_id?: string | null
+  author_name?: string | null
+  cover_alt?: string | null
+  og_image?: string | null
 }): Promise<Announcement> {
   let publishedAt: string | null = null
   if (input.status === 'published') {
@@ -159,6 +171,11 @@ export async function upsertAnnouncement(input: {
     seo_title: input.seo_title?.trim() || null,
     meta_description: input.meta_description?.trim() || null,
     cover_image: input.cover_image ?? null,
+    slug: slugify(input.slug || input.title),
+    category_id: input.category_id || null,
+    author_name: input.author_name?.trim() || null,
+    cover_alt: input.cover_alt?.trim() || null,
+    og_image: input.og_image?.trim() || input.cover_image || null,
     updated_at: new Date().toISOString(),
   }
 
@@ -181,6 +198,24 @@ export async function upsertAnnouncement(input: {
 export async function deleteAnnouncement(id: string): Promise<void> {
   const { error } = await backend.from('announcements').delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+export async function fetchPublishedAnnouncementBySlug(slug: string): Promise<Announcement | null> {
+  const { data, error } = await backend.from('announcements').select('*, category:content_categories(*)').eq('slug', slug).eq('status', 'published').maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as Announcement | null
+}
+
+export async function fetchContentCategories(): Promise<ContentCategory[]> {
+  const { data, error } = await backend.from('content_categories').select('*').order('name_fa')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ContentCategory[]
+}
+
+export async function createContentCategory(input: { name_fa: string; name_en: string }): Promise<ContentCategory> {
+  const { data, error } = await backend.from('content_categories').insert({ ...input, slug: slugify(input.name_en || input.name_fa) }).select('*').single()
+  if (error) throw new Error(error.message)
+  return data as ContentCategory
 }
 
 export async function fetchGalleryItems(filters?: {

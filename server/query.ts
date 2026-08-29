@@ -23,7 +23,7 @@ type QuerySpec = {
 }
 
 const TABLES = new Set([
-  'account_issues', 'announcements', 'blog_posts', 'captain_invites',
+  'account_issues', 'announcements', 'blog_posts', 'content_categories', 'captain_invites',
   'companies', 'company_achievements', 'company_members', 'contact_messages', 'documents',
   'gallery_categories', 'gallery_items', 'home_banners', 'home_events', 'home_faqs',
   'home_partners', 'home_sponsors', 'home_stat_cards', 'home_why_cards', 'invoice_finance_view', 'finance_deposit_view',
