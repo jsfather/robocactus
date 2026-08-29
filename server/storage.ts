@@ -21,16 +21,20 @@ function signedValue(bucket: string, objectPath: string, expires: number): strin
 
 async function lookupObject(bucket: string, objectPath: string) {
   const result = await db.execute(sql`
-    select disk_path, mime_type, is_public
+    select disk_path, mime_type, is_public, content
     from app_private.storage_objects
     where bucket = ${bucket} and object_path = ${objectPath}
     limit 1
   `)
-  return result.rows[0] as { disk_path: string; mime_type: string | null; is_public: boolean } | undefined
+  return result.rows[0] as { disk_path: string; mime_type: string | null; is_public: boolean; content: Buffer | null } | undefined
 }
 
-async function sendStoredObject(response: Response, object: { disk_path: string; mime_type: string | null } | undefined) {
+async function sendStoredObject(response: Response, object: { disk_path: string; mime_type: string | null; content: Buffer | null } | undefined) {
   if (!object) { response.sendStatus(404); return }
+  if (object.content?.length) {
+    response.type(object.mime_type ?? 'application/octet-stream').send(object.content)
+    return
+  }
   try {
     const body = await fs.readFile(object.disk_path)
     response.type(object.mime_type ?? 'application/octet-stream').send(body)
@@ -92,9 +96,10 @@ export function registerStorageRoutes(router: Router): void {
       const previous = await lookupObject(bucket, objectPath)
       await fs.writeFile(diskPath, request.file.buffer)
       await db.execute(sql`
-        insert into app_private.storage_objects(id, bucket, object_path, disk_path, owner_id, mime_type, size, is_public, metadata)
+        insert into app_private.storage_objects(id, bucket, object_path, disk_path, owner_id, mime_type, size, is_public, metadata, content)
         values (${randomUUID()}::uuid, ${bucket}, ${objectPath}, ${diskPath}, ${user.id}::uuid,
-                ${request.file.mimetype}, ${request.file.size}, ${Boolean(bucketRow.public)}, ${{ originalName: request.file.originalname }})
+                ${request.file.mimetype}, ${request.file.size}, ${Boolean(bucketRow.public)}, ${{ originalName: request.file.originalname }},
+                decode(${request.file.buffer.toString('base64')}, 'base64'))
         on conflict (bucket, object_path) do update set
           disk_path = excluded.disk_path,
           owner_id = excluded.owner_id,
@@ -102,6 +107,7 @@ export function registerStorageRoutes(router: Router): void {
           size = excluded.size,
           is_public = excluded.is_public,
           metadata = excluded.metadata,
+          content = excluded.content,
           created_at = now()
       `)
       if (previous?.disk_path && previous.disk_path !== diskPath) await fs.unlink(previous.disk_path).catch(() => undefined)
