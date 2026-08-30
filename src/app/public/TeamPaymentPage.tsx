@@ -10,6 +10,7 @@ import {
   acceptInvoiceTerms,
   fetchLatestInvoiceForTeam,
   formatAmountToman,
+  reconcileOnlinePayment,
   submitCardReceipt,
   startTeamPayment,
 } from '@/features/payments/api'
@@ -134,6 +135,27 @@ export function TeamPaymentPage() {
     }
   }
 
+  const reconcilePayment = async () => {
+    if (!invoice) return
+    setBusy(true); setError(null)
+    try {
+      const result = await reconcileOnlinePayment(invoice.id)
+      const refreshed = await fetchLatestInvoiceForTeam(invoice.team_id)
+      if (refreshed) setInvoice(refreshed)
+      if (!result.success) {
+        const messages: Record<string, string> = {
+          cancelled: 'پرداخت قبلی تکمیل نشده است؛ می‌توانید دوباره وارد درگاه شوید.',
+          failed: 'تراکنش قبلی توسط زرین‌پال تأیید نشد. اگر مبلغ کسر شده است با پشتیبانی تماس بگیرید.',
+          error: 'ارتباط با زرین‌پال کامل نشد؛ چند دقیقه دیگر دوباره استعلام بگیرید.',
+          manual_review: 'پرداخت برای بررسی به واحد مالی ارجاع شد و نیازی به پرداخت مجدد نیست.',
+          not_started: 'هنوز تلاشی برای پرداخت این صورتحساب ثبت نشده است.',
+        }
+        setError(messages[result.state] ?? result.error ?? 'وضعیت پرداخت قطعی نشد.')
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) }
+    finally { setBusy(false) }
+  }
+
   if (authLoading || loading) {
     return <div className="px-4 py-12 text-center text-rc-muted">{t('app.loading')}</div>
   }
@@ -229,6 +251,12 @@ export function TeamPaymentPage() {
         {!isPaid && invoice?.status !== 'paid' && options?.online_payment_enabled !== false ? (
           <Button type="button" className="w-full" onClick={() => void pay()} disabled={busy || !invoice || !termsAccepted}>
             {busy ? t('app.loading') : t('payment.payCta')}
+          </Button>
+        ) : null}
+
+        {!isPaid && invoice?.status === 'pending' && invoice.gateway_ref && getConfiguredGatewayKind() === 'zarinpal' ? (
+          <Button type="button" className="w-full" variant="secondary" onClick={() => void reconcilePayment()} disabled={busy}>
+            {busy ? t('app.loading') : 'بررسی وضعیت پرداخت قبلی'}
           </Button>
         ) : null}
 

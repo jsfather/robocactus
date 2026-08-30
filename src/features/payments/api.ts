@@ -146,6 +146,37 @@ export function paymentCallbackUrl(invoiceId: string): string {
   return `${origin}/payments/callback?invoice=${encodeURIComponent(invoiceId)}`
 }
 
+export type OnlinePaymentState = 'paid' | 'cancelled' | 'failed' | 'error' | 'manual_review' | 'invalid' | 'not_started'
+export type OnlinePaymentVerification = {
+  success: boolean
+  state: OnlinePaymentState
+  invoiceId?: string
+  teamId?: string
+  invoiceNumber?: string | null
+  invoiceStatus?: string
+  refId?: string | null
+  recoverable?: boolean
+  error?: string
+  code?: number | null
+}
+
+async function paymentStatusRequest(path: string, body: Record<string, unknown>): Promise<OnlinePaymentVerification> {
+  const response = await fetch(`/api/payment/${path}`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  })
+  const result = await response.json().catch(() => ({ state: 'error', error: 'invalid_server_response' })) as OnlinePaymentVerification
+  if (!response.ok && !result.state) throw new Error(result.error ?? 'payment_verification_failed')
+  return result
+}
+
+export function verifyOnlinePayment(input: { invoiceId: string; authority: string; gatewayStatusOk: boolean }) {
+  return paymentStatusRequest('verify', input)
+}
+
+export function reconcileOnlinePayment(invoiceId: string) {
+  return paymentStatusRequest('reconcile', { invoiceId })
+}
+
 export async function startTeamPayment(input: {
   team: Team
   league: League

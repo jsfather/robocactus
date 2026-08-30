@@ -161,6 +161,12 @@ function returningClause(select: string | undefined): SQL {
 
 async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   if (!TABLES.has(spec.table)) throw new Error('table_not_allowed')
+  const sectionByTable: Record<string, string> = {
+    invoice_finance_view: 'finance', finance_deposit_view: 'finance', finance_transactions: 'finance',
+    live_chat_messages: 'chat', live_chat_sessions: 'chat',
+    ticket_departments: 'tickets', ticket_messages: 'tickets', ticket_reads: 'tickets', tickets: 'tickets',
+  }
+  if (sectionByTable[spec.table]) await enforceCollaboratorPermission(transaction, sectionByTable[spec.table]!)
   const table = sql`public.${identifier(spec.table)}`
 
   if (spec.action === 'select') {
@@ -232,6 +238,15 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
 
 async function executeRpc(transaction: Transaction, name: string, args: Record<string, unknown>) {
   if (!RPCS.has(name)) throw new Error('rpc_not_allowed')
+  const financeRpcs = new Set(['admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'review_card_receipt'])
+  const ticketRpcs = new Set(['create_ticket_with_department', 'ticket_status_counts', 'list_unread_ticket_ids', 'mark_ticket_read', 'refer_ticket', 'reply_ticket'])
+  const chatRpcs = new Set(['close_live_chat_session', 'reply_live_chat_agent'])
+  const teamReviewRpcs = new Set(['review_team_member', 'save_judge_score', 'publish_official_team_result', 'set_league_results_status'])
+  if (financeRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'finance')
+  if (ticketRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'tickets')
+  if (chatRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'chat')
+  if (teamReviewRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'team_review')
+  if (name === 'review_team') await enforceTeamReviewPermission(transaction)
   const entries = Object.entries(args)
   const argumentsSql = sql.join(entries.map(([key, value]) => sql`${identifier(key)} => ${value}`), sql`, `)
   const metadata = await db.execute(sql`
@@ -244,6 +259,23 @@ async function executeRpc(transaction: Transaction, name: string, args: Record<s
   const result = await transaction.execute(sql`select to_jsonb(public.${identifier(name)}(${argumentsSql})) as result`)
   if (returnsSet) return result.rows.map((row: Record<string, unknown>) => row.result)
   return result.rows[0]?.result ?? null
+}
+
+async function enforceCollaboratorPermission(transaction: Transaction, section: string): Promise<void> {
+  const result = await transaction.execute(sql`select public.current_user_role()::text as role, public.has_panel_permission(${section}) as allowed`)
+  const row = result.rows[0] as { role?: string; allowed?: boolean } | undefined
+  if ((row?.role === 'staff' || row?.role === 'league_admin') && !row.allowed) throw new Error('forbidden')
+}
+
+async function enforceTeamReviewPermission(transaction: Transaction): Promise<void> {
+  const result = await transaction.execute(sql`
+    select public.current_user_role()::text as role,
+      public.has_panel_permission(
+        case when public.current_user_role()::text = 'staff' then 'triage' else 'team_review' end
+      ) as allowed
+  `)
+  const row = result.rows[0] as { role?: string; allowed?: boolean } | undefined
+  if ((row?.role === 'staff' || row?.role === 'league_admin') && !row.allowed) throw new Error('forbidden')
 }
 
 function sendError(response: Response, error: unknown): void {

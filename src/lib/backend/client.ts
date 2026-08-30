@@ -26,6 +26,7 @@ export type BackendAuthOptions = {
   bank_card_number: string | null
   bank_iban: string | null
   bank_account_owner: string | null
+  payment_provider: 'mock' | 'zarinpal' | null
 }
 
 type BackendError = { message: string }

@@ -95,7 +95,7 @@ function SidebarNav({
   const { profile } = useAuth()
   const { count } = useUnreadTicketCount()
   const groups = useMemo(() => panelsForRole(role), [role])
-  const [enabledPermissions, setEnabledPermissions] = useState<Set<string> | null>(null)
+  const [enabledPermissions, setEnabledPermissions] = useState<Set<string> | null>(() => role === 'super_admin' || role === 'company_admin' || role === 'team_captain' ? null : new Set())
   useEffect(() => {
     if (role === 'super_admin' || role === 'company_admin' || role === 'team_captain') { setEnabledPermissions(null); return }
     const roleKey = role === 'league_admin' ? 'judge' : profile?.staff_department ?? 'operations'
@@ -110,7 +110,7 @@ function SidebarNav({
             {t(group.titleKey)}
           </p>
           <ul className="space-y-1">
-            {group.items.filter((item) => !item.permissionKey || enabledPermissions === null || enabledPermissions.has(item.permissionKey)).map((item) => (
+            {group.items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

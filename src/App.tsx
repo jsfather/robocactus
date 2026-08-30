@@ -108,6 +108,7 @@ export default function App() {
                 <Route path="reset-password" element={<ResetPasswordPage />} />
                 <Route path="signup" element={<SignupPage />} />
                 <Route path="auth/callback" element={<AuthCallbackPage />} />
+                <Route path="payments/callback" element={<PaymentCallbackPage />} />
               </Route>
 
               <Route
@@ -153,18 +154,15 @@ export default function App() {
                 </Route>
 
                 {/* Legacy paths kept for league_admin / staff roles; SA is redirected in PanelShell */}
-                <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} />}>
-                  <Route path="league-admin" element={<LeagueAdminHomePage />} />
-                  <Route path="league-admin/review" element={<LeagueAdminPage section="review" />} />
-                  <Route path="league-admin/tickets" element={<LeagueAdminPage section="tickets" />} />
-                </Route>
+                <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} />}><Route path="league-admin" element={<LeagueAdminHomePage />} /></Route>
+                <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} permission="team_review" />}><Route path="league-admin/review" element={<LeagueAdminPage section="review" />} /></Route>
+                <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} permission="tickets" />}><Route path="league-admin/tickets" element={<LeagueAdminPage section="tickets" />} /></Route>
 
-                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} />}>
-                  <Route path="staff" element={<StaffHomePage />} />
-                  <Route path="staff/tickets" element={<StaffPage section="tickets" />} />
-                  <Route path="staff/chat" element={<LiveChatInboxPage />} />
-                  <Route path="staff/triage" element={<StaffPage section="triage" />} />
-                </Route>
+                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} />}><Route path="staff" element={<StaffHomePage />} /></Route>
+                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} permission="tickets" />}><Route path="staff/tickets" element={<StaffPage section="tickets" />} /></Route>
+                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} permission="chat" />}><Route path="staff/chat" element={<LiveChatInboxPage />} /></Route>
+                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} permission="triage|account_activation" />}><Route path="staff/triage" element={<StaffPage section="triage" />} /></Route>
+                <Route element={<ProtectedRoute roles={['staff', 'super_admin']} permission="finance" />}><Route path="staff/finance" element={<SuperAdminFinancePage />} /></Route>
 
                 <Route element={<ProtectedRoute roles={['company_admin', 'team_captain', 'super_admin']} />}>
                   <Route path="company" element={<CompanyPanelPage section="overview" />} />
@@ -172,7 +170,6 @@ export default function App() {
                   <Route path="company/teams" element={<CompanyPanelPage section="teams" />} />
                   <Route path="account/tickets" element={<ParticipantTicketsPage />} />
                   <Route path="payments/teams/:teamId" element={<TeamPaymentPage />} />
-                  <Route path="payments/callback" element={<PaymentCallbackPage />} />
                 </Route>
 
                 <Route

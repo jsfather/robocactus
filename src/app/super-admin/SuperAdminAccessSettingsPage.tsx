@@ -67,6 +67,10 @@ export function SuperAdminAccessSettingsPage() {
       setError('حداقل یک روش ثبت‌نام باید فعال بماند.')
       return
     }
+    if (form.online_payment_enabled && form.payment_provider === 'zarinpal' && !form.zarinpal_merchant_id?.trim()) {
+      setError('برای فعال‌سازی زرین‌پال، وارد کردن Merchant ID الزامی است.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -167,9 +171,15 @@ export function SuperAdminAccessSettingsPage() {
               <Input label="نام صاحب حساب" value={form.bank_account_owner ?? ''} onChange={(event) => patch({ bank_account_owner: event.target.value })} />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
+              <Select label="درگاه پرداخت فعال" value={form.payment_provider ?? ''} onChange={(event) => patch({ payment_provider: (event.target.value || null) as AccessSettings['payment_provider'] })}>
+                <option value="">تنظیم پیش‌فرض سرور</option>
+                <option value="zarinpal">زرین‌پال</option>
+                <option value="mock">درگاه آزمایشی داخلی</option>
+              </Select>
               <Input label="Merchant ID زرین‌پال" type="password" value={form.zarinpal_merchant_id ?? ''} onChange={(event) => patch({ zarinpal_merchant_id: event.target.value })} dir="ltr" autoComplete="new-password" />
               <Toggle checked={form.zarinpal_sandbox ?? false} label="حالت آزمایشی زرین‌پال" hint="برای تست پرداخت بدون تراکنش واقعی فعال کنید" onChange={(value) => patch({ zarinpal_sandbox: value })} />
             </div>
+            <p className="rounded-xl border border-sky-100 bg-sky-50 p-3 text-xs leading-6 text-sky-800">«درگاه آزمایشی داخلی» کاملاً داخل سامانه شبیه‌سازی می‌شود. گزینه «حالت آزمایشی زرین‌پال» فقط وقتی درگاه فعال روی زرین‌پال باشد، Request، StartPay و Verify را به Sandbox زرین‌پال هدایت می‌کند.</p>
           </HudFrame>
 
           <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره همه تنظیمات'}</Button>

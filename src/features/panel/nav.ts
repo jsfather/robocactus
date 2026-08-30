@@ -89,7 +89,8 @@ export const STAFF_NAV: PanelNavGroup = {
     { to: '/staff', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.staff.overview' },
     { to: '/staff/tickets', labelKey: 'staff.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets', permissionKey: 'tickets' },
     { to: '/staff/chat', labelKey: 'chat.inboxTitle', helpKey: 'panel.help.sa.chat', permissionKey: 'chat' },
-    { to: '/staff/triage', labelKey: 'staff.tabTriage', helpKey: 'panel.help.sa.triage', permissionKey: 'triage' },
+    { to: '/staff/triage', labelKey: 'staff.tabTriage', helpKey: 'panel.help.sa.triage', permissionKey: 'triage|account_activation' },
+    { to: '/staff/finance', labelKey: 'finance.title', helpKey: 'panel.help.sa.finance', permissionKey: 'finance' },
   ],
 }
 

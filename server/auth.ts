@@ -119,6 +119,7 @@ export type AuthSettings = {
   sms_patterns?: Record<string, string> | null
   zarinpal_merchant_id?: string | null
   zarinpal_sandbox?: boolean
+  payment_provider?: 'mock' | 'zarinpal' | null
 }
 
 const defaultAuthSettings: AuthSettings = {

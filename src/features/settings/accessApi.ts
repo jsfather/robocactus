@@ -27,13 +27,18 @@ export type AccessSettings = BackendAuthOptions & {
   sms_patterns: Record<string, string>
   zarinpal_merchant_id: string | null
   zarinpal_sandbox: boolean
+  payment_provider: 'mock' | 'zarinpal' | null
   updated_at: string
 }
 
 export async function fetchAccessSettings(): Promise<AccessSettings> {
   const { data, error } = await backend.from('auth_settings').select('*').eq('id', 1).single()
   if (error) throw new Error(error.message)
-  return data as AccessSettings
+  const saved = data as AccessSettings
+  if (typeof window !== 'undefined' && saved.payment_provider) {
+    window.__APP_CONFIG__ = { ...(window.__APP_CONFIG__ ?? {}), VITE_PAYMENT_PROVIDER: saved.payment_provider }
+  }
+  return saved
 }
 
 export async function updateAccessSettings(
@@ -46,5 +51,9 @@ export async function updateAccessSettings(
     .select('*')
     .single()
   if (error) throw new Error(error.message)
-  return data as AccessSettings
+  const saved = data as AccessSettings
+  if (typeof window !== 'undefined' && saved.payment_provider) {
+    window.__APP_CONFIG__ = { ...(window.__APP_CONFIG__ ?? {}), VITE_PAYMENT_PROVIDER: saved.payment_provider }
+  }
+  return saved
 }

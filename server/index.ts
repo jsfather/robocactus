@@ -5,7 +5,7 @@ import express from 'express'
 import { sql } from 'drizzle-orm'
 import { config } from './config.js'
 import { db, pool, purgeExpiredSessions } from './db.js'
-import { registerAuthRoutes } from './auth.js'
+import { getAuthSettings, registerAuthRoutes } from './auth.js'
 import { dispatchNotifications, registerNotificationRoutes } from './notifications.js'
 import { registerOtpRoutes } from './otp.js'
 import { checkRequestOrigin } from './origin.js'
@@ -64,11 +64,16 @@ registerKavenegarRoutes(api)
 registerCaptchaRoutes(api)
 app.use('/api', api)
 
-app.get('/env.js', (_request, response) => {
+app.get('/env.js', async (_request, response) => {
+  const settings = await getAuthSettings().catch(() => null)
+  const paymentProvider = settings?.payment_provider
+    ?? process.env.PAYMENT_PROVIDER
+    ?? process.env.VITE_PAYMENT_PROVIDER
+    ?? 'mock'
   response.type('application/javascript').setHeader('Cache-Control', 'no-store')
   response.send(`window.__APP_CONFIG__ = ${JSON.stringify({
     VITE_API_URL: process.env.VITE_API_URL ?? '',
-    VITE_PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER ?? process.env.VITE_PAYMENT_PROVIDER ?? 'mock',
+    VITE_PAYMENT_PROVIDER: paymentProvider,
   })};\n`)
 })
 
