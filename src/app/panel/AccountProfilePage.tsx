@@ -8,11 +8,12 @@ import { useToast } from '@/components/ui/Toast'
 import { backend } from '@/lib/backend'
 import { fetchRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 import { uploadProfileDocument } from '@/features/content/api'
-import { normalizeIranMobile, participantErrors } from '@/features/participants/identity'
+import { normalizeIranMobile, participantErrors, profileCompletionPercent } from '@/features/participants/identity'
 import type { AccountType, ParticipantFieldRule, Profile } from '@/types/database'
 import { useTranslation } from 'react-i18next'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
+import { mapSignupError } from '@/features/auth/signupProgress'
 
 const baseRequired = ['first_name_fa', 'last_name_fa', 'first_name_en', 'last_name_en', 'birth_date', 'gender', 'email', 'province', 'city', 'country_code', 'nationality', 'residence', 'postal_code', 'address']
 const fallbackRules = baseRequired.map((field_key) => ({ field_key, label_fa: field_key, label_en: field_key, is_required: true, is_locked: false, applies_to: (field_key === 'birth_date' || field_key === 'gender' ? 'individual' : 'both') as ParticipantFieldRule['applies_to'], updated_at: '' }))
@@ -53,7 +54,12 @@ export function AccountProfilePage() {
   const patch = (value: Partial<Profile>) => setForm((current) => current ? { ...current, ...value } : current)
   const required = (key: string) => rules.some((rule) => rule.field_key === key && rule.is_required && (rule.applies_to === 'both' || rule.applies_to === form?.account_type))
   const field = (key: string) => ({ name: key, required: required(key), error: errors[key] })
-  const completion = useMemo(() => form ? Math.max(0, Math.round((1 - Object.keys(participantErrors(form, rules)).length / Math.max(1, rules.filter((r) => r.is_required).length + 3)) * 100)) : 0, [form, rules])
+  const completion = useMemo(() => {
+    if (!form) return 0
+    const requiredDocs = docs.filter((doc) => doc.is_required).length
+    const uploadedRequiredDocs = docs.filter((doc) => doc.is_required && uploaded[doc.id]).length
+    return profileCompletionPercent(form, rules, uploadedRequiredDocs, requiredDocs)
+  }, [docs, form, rules, uploaded])
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
@@ -69,7 +75,7 @@ export function AccountProfilePage() {
     const { id: _id, role: _role, created_at: _created, ...payload } = form
     const { error } = await backend.from('profiles').update({ ...payload, birth_date: form.birth_date ? latinDigits(form.birth_date).slice(0, 10) : null, phone: normalizeIranMobile(form.phone), full_name: `${form.first_name_fa} ${form.last_name_fa}`.trim(), identity_completed_at: new Date().toISOString() }).eq('id', user.id)
     setBusy(false)
-    if (error) return void toast.error(error.message)
+    if (error) return void toast.error(mapSignupError(error.message, t) ?? error.message)
     setErrors({}); await refreshProfile(); toast.success('اطلاعات هویتی با موفقیت ذخیره شد.')
   }
 

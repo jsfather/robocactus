@@ -11,6 +11,7 @@ import { formatAppDate } from '@/lib/dates'
 import { useAuth } from '@/hooks/useAuth'
 import { useUnreadTicketCount } from '@/hooks/useUnreadTickets'
 import { roleHomePath } from '@/features/panel/nav'
+import { isSignupIncomplete } from '@/features/auth/signupProgress'
 import { Navigate } from 'react-router-dom'
 
 type FeedUser = { id: string; full_name: string; phone: string; role: string; created_at: string }
@@ -350,6 +351,9 @@ export function DashboardRedirectPage() {
         </button>
       </div>
     )
+  }
+  if (isSignupIncomplete(profile)) {
+    return <Navigate to="/signup" replace />
   }
   return <Navigate to={roleHomePath(profile.role)} replace />
 }

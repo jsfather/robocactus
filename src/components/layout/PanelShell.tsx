@@ -17,6 +17,7 @@ import { SmsBalancePill } from '@/components/panel/SmsBalancePill'
 import { AccountPendingBanner } from '@/components/layout/AccountPendingBanner'
 import { AccountIssuesPanel } from '@/features/account-issues/AccountIssuesPanel'
 import { enqueueIncompleteProfileSms } from '@/features/notifications/api'
+import { isSignupIncomplete } from '@/features/auth/signupProgress'
 import { formatAppDate } from '@/lib/dates'
 import { fetchMyCompanies } from '@/features/companies/api'
 import type { UserRole } from '@/types/database'
@@ -212,6 +213,9 @@ export function PanelShell() {
 
   const role = profile.role
   const identityRequired = role === 'company_admin' || role === 'team_captain'
+  if (identityRequired && isSignupIncomplete(profile) && location.pathname !== '/signup') {
+    return <Navigate to="/signup" replace />
+  }
   if (identityRequired && profileLooksIncomplete(profile) && location.pathname !== '/account/profile') {
     return <Navigate to="/account/profile" replace />
   }

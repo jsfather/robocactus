@@ -118,6 +118,11 @@
     "finishSignup": "Finish signup",
     "phoneVerified": "Phone verified",
     "signupPendingDone": "Signup done — account stays inactive until activation",
+    "duplicateEmail": "This email is already registered.",
+    "duplicateNationalId": "This national ID is already registered.",
+    "duplicateUsername": "This username is already taken.",
+    "duplicatePhone": "This phone number is already registered.",
+    "resumeSignup": "Continue signup from where you left off",
     "accountPending": "Account pending activation",
     "accountPendingDefault": "Your account is not active yet.",
     "supportPhone": "Support"

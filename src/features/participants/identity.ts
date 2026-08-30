@@ -43,3 +43,24 @@ export function isParticipantProfileComplete(profile: Profile, rules: Participan
   if (!profile.identity_completed_at) return false
   return Object.keys(participantErrors(profile, rules)).length === 0
 }
+
+export function profileCompletionPercent(
+  profile: Profile,
+  rules: ParticipantFieldRule[] = [],
+  uploadedDocCount = 0,
+  requiredDocCount = 0,
+): number {
+  const required = rules.filter((rule) => rule.is_required && (rule.applies_to === 'both' || rule.applies_to === profile.account_type))
+  const checks: boolean[] = required.map((rule) => Boolean(String((profile as unknown as Record<string, unknown>)[rule.field_key] ?? '').trim()))
+  if (!profile.is_foreign) checks.push(Boolean(profile.phone_verified_at))
+  if (profile.is_foreign) checks.push(Boolean(profile.passport_number?.trim()))
+  else if (profile.account_type === 'individual') checks.push(/^\d{10}$/.test(profile.national_id ?? ''))
+  if (profile.account_type === 'legal') {
+    checks.push(Boolean(profile.company_name?.trim()), Boolean(profile.company_national_id?.trim()), Boolean(profile.legal_representative_national_id?.trim()))
+  }
+  if (requiredDocCount > 0) checks.push(uploadedDocCount >= requiredDocCount)
+  const total = checks.length
+  if (!total) return profile.identity_completed_at ? 100 : 0
+  const filled = checks.filter(Boolean).length
+  return Math.max(0, Math.min(100, Math.round((filled / total) * 100)))
+}

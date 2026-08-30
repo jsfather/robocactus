@@ -118,6 +118,11 @@
     "finishSignup": "اتمام ثبت‌نام",
     "phoneVerified": "شماره تأیید شد",
     "signupPendingDone": "ثبت‌نام کامل شد — حساب تا تأیید پیامکی/ایمیلی غیرفعال است",
+    "duplicateEmail": "این ایمیل قبلاً ثبت شده است.",
+    "duplicateNationalId": "این کد ملی قبلاً ثبت شده است.",
+    "duplicateUsername": "این نام کاربری قبلاً انتخاب شده است.",
+    "duplicatePhone": "این شماره موبایل قبلاً ثبت شده است.",
+    "resumeSignup": "ادامه ثبت‌نام از مرحله قبلی",
     "accountPending": "حساب در انتظار فعال‌سازی",
     "accountPendingDefault": "حساب شما هنوز فعال نشده است.",
     "supportPhone": "پشتیبانی"

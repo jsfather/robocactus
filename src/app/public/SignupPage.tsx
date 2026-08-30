@@ -20,15 +20,24 @@ import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/Arcaptch
 import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
+import {
+  checkProfileDuplicates,
+  duplicateFieldMessage,
+  hydrateSignupFormFromProfile,
+  inferSignupStep,
+  isSignupIncomplete,
+  mapSignupError,
+  type SignupStep,
+} from '@/features/auth/signupProgress'
 
-type Step = 'type' | 'channel' | 'identity' | 'verify' | 'docs' | 'review'
+type Step = SignupStep
 type AuthChannel = 'phone' | 'email'
 type OtpState = 'idle' | 'verifying' | 'success' | 'error'
 
 export function SignupPage() {
   const { t } = useTranslation()
   const toast = useToast()
-  const { requestPhoneOtp, verifyPhoneOtp, signUp, user, configured, refreshProfile } = useAuth()
+  const { requestPhoneOtp, verifyPhoneOtp, signUp, user, profile, configured, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const phoneOnboardingRequested = params.get('onboarding') === 'phone'
@@ -74,6 +83,7 @@ export function SignupPage() {
   const [otpState, setOtpState] = useState<OtpState>('idle')
   const [confirmAccuracy, setConfirmAccuracy] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [resumeReady, setResumeReady] = useState(false)
   const verifyInFlight = useRef(false)
 
   useEffect(() => {
@@ -115,9 +125,63 @@ export function SignupPage() {
     })
   }, [step, user?.id, userId])
 
-  const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
+  const applyHydratedForm = (hydrated: ReturnType<typeof hydrateSignupFormFromProfile>) => {
+    setAccountType(hydrated.accountType)
+    setAuthChannel(hydrated.authChannel)
+    setFullName(hydrated.fullName)
+    setUsername(hydrated.username)
+    setFirstNameFa(hydrated.firstNameFa)
+    setLastNameFa(hydrated.lastNameFa)
+    setFirstNameEn(hydrated.firstNameEn)
+    setLastNameEn(hydrated.lastNameEn)
+    setBirthDate(hydrated.birthDate)
+    setPostalCode(hydrated.postalCode)
+    setRepresentativeNationalId(hydrated.representativeNationalId)
+    setNationalId(hydrated.nationalId)
+    setCompanyName(hydrated.companyName)
+    setCompanyNationalId(hydrated.companyNationalId)
+    setEconomicCode(hydrated.economicCode)
+    setAddress(hydrated.address)
+    setPhone(hydrated.phone)
+    setEmail(hydrated.email)
+  }
 
-  if (user && step === 'type' && !isPhoneOnboarding) {
+  useEffect(() => {
+    if (!user || !profile || params.get('resume') === 'docs') {
+      setResumeReady(true)
+      return
+    }
+    if (!isSignupIncomplete(profile)) {
+      setResumeReady(true)
+      return
+    }
+
+    const uid = user.id
+    setUserId(uid)
+    applyHydratedForm(hydrateSignupFormFromProfile(profile))
+
+    void backend.from('profile_documents').select('doc_type_id,file_url').eq('user_id', uid).then(({ data }) => {
+      const restoredUploads = data?.length
+        ? Object.fromEntries(data.map((row: { doc_type_id: string; file_url: string }) => [row.doc_type_id, row.file_url]))
+        : {}
+      if (Object.keys(restoredUploads).length) setUploads(restoredUploads)
+      const resumedStep = inferSignupStep(profile, Object.keys(restoredUploads).length)
+      setStep(resumedStep)
+      if (resumedStep === 'verify' && profile.auth_channel === 'email' && profile.email_verified_at) {
+        setEmailCheckInbox(true)
+      }
+      if (resumedStep === 'verify' && profile.auth_channel === 'phone' && profile.phone_verified_at) {
+        setStep('docs')
+      }
+      setResumeReady(true)
+      toast.info(t('auth.resumeSignup'))
+    })
+  }, [user, profile, params, toast, t])
+
+  const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
+  const shouldResumeSignup = Boolean(user && profile && isSignupIncomplete(profile))
+
+  if (user && step === 'type' && !isPhoneOnboarding && !shouldResumeSignup && resumeReady) {
     return <Navigate to="/dashboard" replace />
   }
 
@@ -187,6 +251,14 @@ export function SignupPage() {
   }
 
   const persistProfileFields = async (uid: string) => {
+    const duplicate = await checkProfileDuplicates(uid, {
+      email: email.trim().toLowerCase(),
+      nationalId: accountType === 'individual' ? nationalId.trim() : undefined,
+      username: username.trim().toLowerCase() || undefined,
+      accountType,
+    })
+    if (duplicate) throw new Error(duplicateFieldMessage(duplicate, t))
+
     const { error: profileError } = await backend
       .from('profiles')
       .update({
@@ -208,12 +280,20 @@ export function SignupPage() {
         birth_date: birthDate ? latinDigits(birthDate).slice(0, 10) : null,
         postal_code: postalCode.trim(),
         legal_representative_national_id: accountType === 'legal' ? representativeNationalId.trim() : null,
+        signup_step: step,
         // Signup only creates the participant shell. The profile becomes
         // complete after the dedicated identity flow collects every required field.
         identity_completed_at: null,
       })
       .eq('id', uid)
-    if (profileError) throw new Error(profileError.message)
+    if (profileError) throw new Error(mapSignupError(profileError.message, t) ?? profileError.message)
+  }
+
+  const saveSignupStep = async (nextStep: Step) => {
+    setStep(nextStep)
+    const uid = userId ?? user?.id
+    if (!uid) return
+    await backend.from('profiles').update({ signup_step: nextStep }).eq('id', uid)
   }
 
   const onRequestOtp = async (event: FormEvent) => {
@@ -270,10 +350,10 @@ export function SignupPage() {
       setOtpState('success')
       toast.success(t('auth.phoneVerified'))
       await new Promise((resolve) => window.setTimeout(resolve, 5000))
-      setStep('docs')
+      void saveSignupStep('docs')
     } catch (err) {
       setOtpState('error')
-      setError(err instanceof Error ? err.message : t('common.error'))
+      setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
       window.setTimeout(() => setOtpState('idle'), 650)
     } finally {
       verifyInFlight.current = false
@@ -290,10 +370,10 @@ export function SignupPage() {
       setUserId(user.id)
       await refreshProfile()
       clearSignupDraft()
-      setStep('docs')
+      void saveSignupStep('docs')
       toast.success(t('auth.identitySaved'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
     } finally {
       setSubmitting(false)
     }
@@ -350,13 +430,19 @@ export function SignupPage() {
     setCaptchaReset((value) => value + 1)
 
     if (result.error) {
-      setError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error.startsWith('captcha_') ? captchaErrorMessage(result.error) : result.error)
+      setError(
+        result.error === 'backend_missing'
+          ? t('auth.backendMissing')
+          : result.error.startsWith('captcha_')
+            ? captchaErrorMessage(result.error)
+            : mapSignupError(result.error, t) ?? result.error,
+      )
       return
     }
 
     if (result.needsEmailConfirm) {
       setEmailCheckInbox(true)
-      setStep('verify')
+      void saveSignupStep('verify')
       toast.info(t('auth.checkEmail'))
       return
     }
@@ -369,10 +455,10 @@ export function SignupPage() {
       setUserId(uid)
       await refreshProfile()
       clearSignupDraft()
-      setStep('docs')
+      void saveSignupStep('docs')
       toast.success(t('auth.emailVerified'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
     }
   }
 
@@ -417,6 +503,19 @@ export function SignupPage() {
       return
     }
     if (!confirmAccuracy || !acceptTerms) { setError('تأیید صحت اطلاعات و پذیرش قوانین برای ثبت نهایی الزامی است.'); return }
+    const uid = userId ?? user?.id
+    if (!uid) return
+    setSubmitting(true)
+    const { error: finishError } = await backend.from('profiles').update({
+      signup_step: 'review',
+      signup_completed_at: new Date().toISOString(),
+    }).eq('id', uid)
+    setSubmitting(false)
+    if (finishError) {
+      setError(mapSignupError(finishError.message, t))
+      return
+    }
+    await refreshProfile()
     toast.success(t('auth.signupPendingDone'))
     void navigate('/dashboard')
   }
@@ -453,7 +552,7 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAccountType('individual')
-              setStep(isPhoneOnboarding ? 'identity' : 'channel')
+              void saveSignupStep(isPhoneOnboarding ? 'identity' : 'channel')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
@@ -464,7 +563,7 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAccountType('legal')
-              setStep(isPhoneOnboarding ? 'identity' : 'channel')
+              void saveSignupStep(isPhoneOnboarding ? 'identity' : 'channel')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
@@ -487,7 +586,7 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAuthChannel('phone')
-              setStep('identity')
+              void saveSignupStep('identity')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
@@ -498,14 +597,14 @@ export function SignupPage() {
             type="button"
             onClick={() => {
               setAuthChannel('email')
-              setStep('identity')
+              void saveSignupStep('identity')
             }}
             className="border border-rc-line bg-rc-surface p-4 text-start hover:border-rc-blue/50"
           >
             <p className="font-semibold">{t('auth.channelAbroad')}</p>
             <p className="mt-1 text-sm text-rc-muted">{t('auth.channelAbroadHint')}</p>
           </button> : null}
-          <Button type="button" variant="ghost" onClick={() => setStep('type')}>
+          <Button type="button" variant="ghost" onClick={() => void saveSignupStep('type')}>
             {t('team.back')}
           </Button>
         </div>
@@ -525,7 +624,7 @@ export function SignupPage() {
               void onEmailRegister(e)
               return
             }
-            setStep('verify')
+            void saveSignupStep('verify')
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -594,7 +693,7 @@ export function SignupPage() {
 
           {authChannel === 'email' ? <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => setStep(isPhoneOnboarding ? 'type' : 'channel')}>
+            <Button type="button" variant="ghost" onClick={() => void saveSignupStep(isPhoneOnboarding ? 'type' : 'channel')}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -616,7 +715,7 @@ export function SignupPage() {
               <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
               <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} />
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={() => setStep('identity')}>
+                <Button type="button" variant="ghost" onClick={() => void saveSignupStep('identity')}>
                   {t('team.back')}
                 </Button>
                 <Button type="submit" disabled={submitting}>
@@ -648,7 +747,7 @@ export function SignupPage() {
           </p>
           <p className="text-xs text-rc-muted">{t('auth.checkEmailHint')}</p>
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => setStep('identity')}>
+            <Button type="button" variant="ghost" onClick={() => void saveSignupStep('identity')}>
               {t('team.back')}
             </Button>
             <Link to="/login" className="inline-flex items-center text-sm text-rc-blue hover:underline">
@@ -668,14 +767,14 @@ export function SignupPage() {
               <DocumentUploadField key={d.id} label={d.label_fa} required={d.is_required} value={uploads[d.id]} busy={submitting} onSelect={(file) => void onUploadDoc(d.id, file)} onRemove={() => void removeUpload(d.id)} />
             ))
           )}
-          <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setStep(isPhoneOnboarding ? 'identity' : 'verify')}>{t('team.back')}</Button><Button type="button" disabled={submitting} onClick={() => { const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id]); if (missing) { setError(t('auth.docsRequired')); return } setError(null); setStep('review') }}>{t('team.next')}</Button></div>
+          <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep(isPhoneOnboarding ? 'identity' : 'verify')}>{t('team.back')}</Button><Button type="button" disabled={submitting} onClick={() => { const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id]); if (missing) { setError(t('auth.docsRequired')); return } setError(null); void saveSignupStep('review') }}>{t('team.next')}</Button></div>
         </div>
       ) : null}
 
       {step === 'review' ? <div className="mt-6 space-y-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black text-slate-900">بررسی نهایی اطلاعات</h2><p className="mt-2 text-sm leading-7 text-slate-500">پیش از ثبت نهایی، مشخصات و مدارک خود را مرور کنید. در صورت نیاز با دکمه بازگشت اطلاعات را اصلاح کنید.</p><dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نوع حساب</dt><dd className="mt-1 font-black">{accountType === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام</dt><dd className="mt-1 font-black">{firstNameFa} {lastNameFa}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام انگلیسی</dt><dd className="mt-1 font-black" dir="ltr">{firstNameEn} {lastNameEn}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-black" dir="ltr">{birthDate}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">شماره تماس</dt><dd className="mt-1 font-black" dir="ltr">{phone}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تعداد مدارک</dt><dd className="mt-1 font-black">{Object.keys(uploads).length.toLocaleString('fa-IR')}</dd></div></dl></div>
         <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={confirmAccuracy} onChange={(event) => setConfirmAccuracy(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span>تأیید می‌کنم اطلاعات واردشده صحیح و متعلق به این حساب است.</span></label><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span><Link to="/terms" target="_blank" className="text-rc-blue underline">قوانین و مقررات</Link> را مطالعه کرده‌ام و می‌پذیرم.</span></label></div>
-        <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => setStep('docs')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
+        <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep('docs')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
       </div> : null}
     </div>
   )
