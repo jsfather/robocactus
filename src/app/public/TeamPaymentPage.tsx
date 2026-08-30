@@ -153,7 +153,8 @@ export function TeamPaymentPage() {
     return <div className="mx-auto max-w-2xl px-4 py-12"><section className="rounded-3xl border border-amber-200 bg-white p-6 shadow-lg sm:p-8"><span className="grid size-12 place-items-center rounded-2xl bg-amber-100 text-xl font-black text-amber-700">!</span><h1 className="mt-5 text-2xl font-black text-slate-900">ثبت‌نام برای پرداخت آماده نیست</h1><p className="mt-3 text-sm leading-7 text-slate-600">{registrationBlock} ابتدا ثبت‌نام تیم را تکمیل و اطلاعات را تأیید کنید؛ پس از آن مبلغ نهایی براساس سرپرست، مربی و اعضا محاسبه می‌شود.</p><Link to="/company/competitions" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-sky-600 to-emerald-600 px-5 py-2.5 text-sm font-bold text-white">ادامه و تکمیل ثبت‌نام</Link></section></div>
   }
 
-  const isPaid = invoice?.status === 'paid' || team.status !== 'draft'
+  const isPaid = invoice?.status === 'paid' || team.lifecycle_status === 'completed'
+  const paymentStatusLabel: Record<string, string> = { pending: 'در انتظار پرداخت', paid: 'پرداخت‌شده', failed: 'ناموفق', refunded: 'بازپرداخت‌شده', cancelled: 'لغوشده' }
   const amount = Number(invoice?.amount ?? league.registration_fee ?? 0)
 
   return (
@@ -180,11 +181,11 @@ export function TeamPaymentPage() {
               </p>
               <p>
                 <span className="text-rc-muted">{t('payment.invoiceStatus')}: </span>
-                <span className="font-mono">{invoice.status}</span>
+                <span className="font-bold text-slate-800">{paymentStatusLabel[invoice.status] ?? 'در انتظار بررسی'}</span>
               </p>
             </>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">شرکت‌کننده</span><strong className="mt-1 block text-slate-800">{company?.name ?? '—'}</strong></div><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">تیم</span><strong className="mt-1 block text-slate-800">{team.name}</strong></div><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">لیگ</span><strong className="mt-1 block text-slate-800">{league.name}</strong></div></div>
+          <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">مجموعه</span><strong className="mt-1 block text-slate-800">{company?.name ?? '—'}</strong></div><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">تیم ۱</span><strong className="mt-1 block text-slate-800">{team.name}</strong></div><div className="rounded-2xl bg-slate-50 p-4"><span className="text-xs text-slate-400">لیگ</span><strong className="mt-1 block text-slate-800">{league.name}</strong></div></div>
         </div>
       </PanelCard>
 

@@ -38,7 +38,7 @@ const TABLES = new Set([
 ])
 
 const RPCS = new Set([
-  'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'analytics_export_teams', 'analytics_snapshot',
+  'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'admin_delete_team', 'analytics_export_teams', 'analytics_snapshot',
   'apply_payment_result', 'close_live_chat_session', 'count_unread_tickets', 'create_company',
   'create_invoice_for_team', 'create_ticket', 'create_ticket_with_department', 'enqueue_broadcast_sms', 'enqueue_incomplete_profile_sms',
   'fetch_live_chat_guest_messages', 'home_stats', 'issue_mock_payment_authority',

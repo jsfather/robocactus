@@ -26,6 +26,8 @@ export function SuperAdminRegistrationSettingsPage() {
   const [labelEn, setLabelEn] = useState('')
   const [code, setCode] = useState('')
   const [accountType, setAccountType] = useState<'individual' | 'legal' | 'both'>('both')
+  const [docScope, setDocScope] = useState<'profile' | 'team'>('profile')
+  const [docRequired, setDocRequired] = useState(false)
   const [msgFa, setMsgFa] = useState('')
   const [msgEn, setMsgEn] = useState('')
   const [supportPhone, setSupportPhone] = useState('')
@@ -79,6 +81,8 @@ export function SuperAdminRegistrationSettingsPage() {
         label_fa: labelFa,
         label_en: labelEn,
         account_type: accountType,
+        scope: docScope,
+        is_required: docRequired,
       })
       setLabelFa('')
       setLabelEn('')
@@ -234,6 +238,8 @@ export function SuperAdminRegistrationSettingsPage() {
             <option value="individual">{t('registrationSettings.individual')}</option>
             <option value="legal">{t('registrationSettings.legal')}</option>
           </Select>
+          <Select label="محل استفاده" value={docScope} onChange={(e) => setDocScope(e.target.value as 'profile' | 'team')}><option value="profile">مدارک هویتی حساب</option><option value="team">مدارک تیم در ثبت‌نام لیگ</option></Select>
+          <label className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700"><input type="checkbox" checked={docRequired} onChange={(e) => setDocRequired(e.target.checked)} />این مدرک الزامی باشد</label>
           <Button type="submit" disabled={busy}>
             {t('common.save')}
           </Button>
@@ -246,10 +252,10 @@ export function SuperAdminRegistrationSettingsPage() {
                   {d.label_fa} / {d.label_en}
                 </p>
                 <p className="font-mono text-[10px] text-rc-muted">
-                  {d.code} · {d.account_type} · {d.is_required ? 'required' : 'optional'}
+                  {d.code} · {d.scope === 'team' ? 'مدرک تیم' : 'مدرک پروفایل'} · {d.is_required ? 'الزامی' : 'اختیاری'}
                 </p>
               </div>
-              <Button
+              <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void upsertRegistrationDocType({ ...d, is_required: !d.is_required }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_required ? 'اختیاری‌کردن' : 'الزامی‌کردن'}</Button><Button
                 type="button"
                 variant="secondary"
                 onClick={() =>
@@ -259,7 +265,7 @@ export function SuperAdminRegistrationSettingsPage() {
                 }
               >
                 {d.is_active ? t('common.delete') : t('content.statusPublished')}
-              </Button>
+              </Button></div>
             </li>
           ))}
         </ul>

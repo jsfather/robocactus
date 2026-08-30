@@ -229,7 +229,7 @@ export function PanelShell() {
     : t(`dashboard.roles.${role}`)
 
   return (
-    <div className="panel-shell panel-shell-v4 relative flex min-h-dvh text-rc-text">
+    <div className="panel-shell panel-shell-v4 relative flex min-h-dvh w-full max-w-full overflow-x-clip text-rc-text">
       <div
         className="pointer-events-none fixed inset-0 opacity-40"
         style={{
@@ -275,7 +275,7 @@ export function PanelShell() {
         </div>
       ) : null}
 
-      <div className="relative flex min-h-dvh w-full flex-1 flex-col lg:pr-[19.5rem]">
+      <div className="relative flex min-h-dvh min-w-0 w-full flex-1 flex-col lg:pr-[19.5rem]">
         <header className="panel-topbar panel-topbar-v5 sticky top-3 z-20 mx-3 mt-3 overflow-visible rounded-2xl border border-slate-200 lg:mx-5">
           <div className="flex min-h-[4.5rem] items-center gap-3 px-4 md:px-5">
             <button
@@ -310,7 +310,7 @@ export function PanelShell() {
           </div>
         </header>
 
-        <main data-panel-section={active?.id ?? 'account'} className="relative flex-1 px-3 py-6 sm:px-5 md:py-8 lg:px-7">
+        <main data-panel-section={active?.id ?? 'account'} className="relative min-w-0 max-w-full flex-1 overflow-x-clip px-3 py-6 sm:px-5 md:py-8 lg:px-7">
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />

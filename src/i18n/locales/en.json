@@ -1165,7 +1165,7 @@
     "resolved": "Issue resolved"
   },
   "accountProfile": { "title": "Identity profile", "help": "Complete identity details and verification documents." },
-  "participants": { "title": "League participants", "help": "Teams, members, and registration cycle statistics." },
+  "participants": { "title": "Organization records", "help": "Organizations, account owners, teams, and registration members." },
   "registrationLifecycle": { "title": "Incomplete registrations", "help": "Follow drafts, activity, and completion reminders." },
   "accessSettings": {
     "title": "Access, email & payments",

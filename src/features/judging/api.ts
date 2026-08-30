@@ -83,6 +83,11 @@ export async function reviewTeam(input: {
   return data as Team
 }
 
+export async function adminDeleteTeam(teamId: string): Promise<void> {
+  const { error } = await backend.rpc('admin_delete_team', { p_team_id: teamId })
+  if (error) throw new Error(error.message)
+}
+
 export async function getDocumentSignedUrl(filePath: string): Promise<string> {
   const { data, error } = await backend.storage
     .from('team-documents')

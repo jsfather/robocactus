@@ -94,6 +94,7 @@ export type RegistrationDocType = {
   is_required: boolean
   is_active: boolean
   sort_order: number
+  scope?: 'profile' | 'team'
 }
 
 export async function fetchSmsSettings(): Promise<SmsSettings | null> {
@@ -210,6 +211,7 @@ export async function fetchRegistrationDocTypes(
     .from('registration_doc_types')
     .select('*')
     .eq('is_active', true)
+    .eq('scope', 'profile')
     .order('sort_order')
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -227,6 +229,12 @@ export async function fetchAllRegistrationDocTypes(): Promise<RegistrationDocTyp
   return (data ?? []) as RegistrationDocType[]
 }
 
+export async function fetchTeamRegistrationDocTypes(): Promise<RegistrationDocType[]> {
+  const { data, error } = await backend.from('registration_doc_types').select('*').eq('scope', 'team').eq('is_active', true).order('sort_order')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as RegistrationDocType[]
+}
+
 export async function upsertRegistrationDocType(
   input: Partial<RegistrationDocType> & { label_fa: string; label_en: string; code: string },
 ): Promise<RegistrationDocType> {
@@ -238,6 +246,7 @@ export async function upsertRegistrationDocType(
         label_fa: input.label_fa,
         label_en: input.label_en,
         account_type: input.account_type ?? 'both',
+        scope: input.scope ?? 'profile',
         is_required: input.is_required ?? true,
         is_active: input.is_active ?? true,
         sort_order: input.sort_order ?? 0,
@@ -255,6 +264,7 @@ export async function upsertRegistrationDocType(
       label_fa: input.label_fa,
       label_en: input.label_en,
       account_type: input.account_type ?? 'both',
+      scope: input.scope ?? 'profile',
       is_required: input.is_required ?? true,
       is_active: input.is_active ?? true,
       sort_order: input.sort_order ?? 0,

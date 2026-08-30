@@ -33,6 +33,7 @@ import {
   type TeamWizardDraft,
 } from '@/features/registration/api'
 import { registrationLifecycleForStep } from '@/features/registration/lifecycle'
+import { fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 import type { DocumentRow, League, Team } from '@/types/database'
 
 function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { label: string; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
@@ -43,6 +44,14 @@ function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { labe
     return () => URL.revokeObjectURL(url)
   }, [file, storedUrl])
   return <DocumentUploadField label={label} required value={preview} busy={busy} onSelect={(next) => { const error = validateIdentityImage(next); if (!error) onChange(next) }} onRemove={() => onChange(null)} />
+}
+
+function PrivateImage({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { if (!path) { setUrl(''); return }; if (/^https?:/i.test(path)) { setUrl(path); return }; void backend.storage.from('team-documents').createSignedUrl(path, 600).then(({ data }) => setUrl(data.signedUrl)) }, [path])
+  if (!url) return <span className="grid aspect-[4/3] place-items-center bg-slate-100 text-xs font-bold text-slate-400">بدون تصویر</span>
+  if (/\.pdf(?:$|\?)/i.test(path ?? '')) return <button type="button" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="grid aspect-[4/3] w-full place-items-center bg-slate-50 text-sm font-black text-sky-700"><span><span className="mx-auto mb-2 grid size-10 place-items-center rounded-lg bg-red-50 text-red-600">PDF</span>بازکردن فایل</span></button>
+  return <button type="button" onClick={() => onOpen(url)} className="block w-full overflow-hidden bg-slate-100 focus-visible:ring-2 focus-visible:ring-sky-500"><img src={url} alt={alt} className="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-[1.03]" /></button>
 }
 
 const STEPS = ['info', 'members', 'documents', 'review', 'invoice', 'payment'] as const
@@ -82,6 +91,12 @@ export function TeamRegistrationWizard({
   const [photoFiles, setPhotoFiles] = useState<Record<number, File | null>>({})
   const [draftHydrated, setDraftHydrated] = useState(!initialTeamId)
   const [nameAvailability, setNameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle')
+  const [teamDocTypes, setTeamDocTypes] = useState<RegistrationDocType[]>([])
+  const [teamDocType, setTeamDocType] = useState('')
+  const [teamFile, setTeamFile] = useState<File | null>(null)
+  const [teamFilePreview, setTeamFilePreview] = useState('')
+  const [viewerUrl, setViewerUrl] = useState('')
+  const [companyName, setCompanyName] = useState('')
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -96,6 +111,9 @@ export function TeamRegistrationWizard({
       .then((rows) => setLeagues(rows.filter((league) => (league.registration_cycle_status ?? 'open') === 'open')))
       .catch((err: Error) => setError(err.message))
   }, [])
+
+  useEffect(() => { void fetchTeamRegistrationDocTypes().then((rows) => { setTeamDocTypes(rows); setTeamDocType((current) => current || rows[0]?.code || '') }).catch(() => setTeamDocTypes([])); void backend.from('companies').select('name').eq('id', companyId).maybeSingle().then(({ data }) => setCompanyName(data?.name ?? 'مجموعه شما')) }, [companyId])
+  useEffect(() => { if (!teamFile || !teamFile.type.startsWith('image/')) { setTeamFilePreview(''); return }; const url = URL.createObjectURL(teamFile); setTeamFilePreview(url); return () => URL.revokeObjectURL(url) }, [teamFile])
 
   useEffect(() => {
     saveTeamDraft(draft)
@@ -270,6 +288,7 @@ export function TeamRegistrationWizard({
         await saveMembersWithIdCards(teamId)
       }
       if (step === 2) {
+        if (requiredTeamDocsMissing.length) throw new Error(`مدارک الزامی بارگذاری نشده‌اند: ${requiredTeamDocsMissing.map((item) => i18n.language.startsWith('en') ? item.label_en : item.label_fa).join('، ')}`)
         persistedTeamId = await ensureTeamRecord()
       }
       const nextStep = Math.min(step + 1, EDITABLE_STEPS - 1)
@@ -297,10 +316,8 @@ export function TeamRegistrationWizard({
       return
     }
 
-    const form = event.currentTarget
-    const formData = new FormData(form)
-    const file = formData.get('file') as File | null
-    const docType = String(formData.get('docType') || 'other')
+    const file = teamFile
+    const docType = teamDocType
 
     if (!file || !file.size) {
       setError(t('auth.required'))
@@ -317,7 +334,7 @@ export function TeamRegistrationWizard({
         docType,
       })
       setDocs((prev) => [row, ...prev])
-      form.reset()
+      setTeamFile(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'error'
       if (message === 'invalid_type' || message === 'too_large') {
@@ -329,6 +346,10 @@ export function TeamRegistrationWizard({
       setFileBusy(false)
     }
   }
+
+  const teamOnlyDocs = docs.filter((doc) => !doc.team_member_id)
+  const roleLabel = (role?: string | null) => role === 'captain' ? 'سرپرست' : role === 'coach' ? 'مربی' : 'عضو تیم'
+  const requiredTeamDocsMissing = teamDocTypes.filter((type) => type.is_required && !teamOnlyDocs.some((doc) => doc.doc_type === type.code))
 
   const finish = async () => {
     setBusy(true)
@@ -507,81 +528,30 @@ export function TeamRegistrationWizard({
       ) : null}
 
       {step === 2 ? (
-        <div className="space-y-4">
-          <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={(e) => void onUpload(e)}>
-            <Select label={t('team.docType')} name="docType" defaultValue="team_photo">
-              <option value="team_photo">{t('team.docTypes.team_photo')}</option>
-              <option value="commitment">{t('team.docTypes.commitment')}</option>
-              <option value="id_card">{t('team.docTypes.id_card')}</option>
-              <option value="other">{t('team.docTypes.other')}</option>
-            </Select>
-            <label className="block space-y-1.5">
-              <span className="text-sm text-rc-muted">{t('team.docFile')}</span>
-              <input
-                type="file"
-                name="file"
-                accept=".pdf,image/jpeg,image/png,image/webp"
-                className="block w-full text-sm text-rc-muted file:me-3 file:rounded-md file:border-0 file:bg-rc-blue/15 file:px-3 file:py-2 file:text-rc-blue"
-              />
-            </label>
-            <Button type="submit" variant="secondary" disabled={fileBusy || !draft.teamId}>
-              {fileBusy ? t('app.loading') : t('team.upload')}
-            </Button>
-          </form>
-          <p className="text-xs text-rc-muted">{t('team.docHint')}</p>
-          <ul className="space-y-2">
-            {docs.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex items-center justify-between rounded-md border border-white/10 px-3 py-2 text-sm"
-              >
-                <span>{t(`team.docTypes.${doc.doc_type}`, { defaultValue: doc.doc_type })}</span>
-                <span className="font-mono text-xs text-rc-muted">{doc.file_path.split('/').pop()}</span>
-              </li>
-            ))}
-            {!docs.length ? <li className="text-sm text-rc-muted">{t('team.noDocs')}</li> : null}
-          </ul>
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-sky-100 bg-sky-50/40 p-5"><div className="mb-4"><h3 className="font-black text-slate-900">مدارک مربوط به تیم</h3><p className="mt-1 text-xs leading-6 text-slate-600">فقط مدارکی که مدیریت برای ثبت‌نام تیم فعال کرده است نمایش داده می‌شوند. لوگوی تیم می‌تواند اختیاری باشد یا از پنل کاملاً غیرفعال شود.</p></div>
+            {teamDocTypes.length ? <form className="grid gap-4 lg:grid-cols-[minmax(12rem,.65fr)_minmax(0,1fr)_auto] lg:items-end" onSubmit={(e) => void onUpload(e)}><Select label="نوع مدرک تیم" value={teamDocType} onChange={(e) => setTeamDocType(e.target.value)}>{teamDocTypes.map((type) => <option key={type.id} value={type.code}>{i18n.language.startsWith('en') ? type.label_en : type.label_fa}{type.is_required ? ' *' : ' (اختیاری)'}</option>)}</Select><DocumentUploadField label={teamDocTypes.find((type) => type.code === teamDocType)?.label_fa ?? 'فایل تیم'} required={teamDocTypes.find((type) => type.code === teamDocType)?.is_required} value={teamFilePreview} busy={fileBusy} onSelect={setTeamFile} onRemove={() => setTeamFile(null)} /><Button type="submit" disabled={fileBusy || !draft.teamId || !teamFile}>{fileBusy ? t('app.loading') : 'بارگذاری مدرک'}</Button></form> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">برای این لیگ مدرک اضافه‌ای از تیم درخواست نشده است؛ می‌توانید به مرحله بعد بروید.</div>}
+            {teamOnlyDocs.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{teamOnlyDocs.map((doc) => <article key={doc.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white"><PrivateImage path={doc.file_path} alt={doc.doc_type} onOpen={setViewerUrl} /><div className="p-3"><strong className="block text-sm text-slate-800">{teamDocTypes.find((type) => type.code === doc.doc_type)?.label_fa ?? doc.doc_type}</strong><span className="mt-1 block truncate font-mono text-[10px] text-slate-400" dir="ltr">{doc.file_path.split('/').pop()}</span></div></article>)}</div> : null}
+          </section>
+          <section><div className="mb-4"><h3 className="font-black text-slate-900">مدارک هویتی افراد تیم</h3><p className="mt-1 text-xs leading-6 text-slate-500">اطلاعاتی که در مرحله اعضا ثبت کردید اینجا برای کنترل نهایی نمایش داده می‌شود. برای بزرگ‌نمایی روی هر تصویر بزنید.</p></div><div className="grid gap-4 md:grid-cols-2">{draft.members.map((member, index) => <article key={`${member.full_name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-14 overflow-hidden rounded-xl bg-slate-100">{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)}><img src={member.photo_url} alt={member.full_name} className="size-14 object-cover" /></button> : <span className="grid size-full place-items-center text-lg font-black text-slate-400">{(member.first_name || member.full_name).slice(0, 1)}</span>}</div><div className="min-w-0"><strong className="block truncate text-slate-900">{member.first_name} {member.last_name}</strong><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{roleLabel(member.role)}</span></div></div><div className="grid grid-cols-2 gap-px bg-slate-100"><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر پرسنلی</span>{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)} className="w-full"><img src={member.photo_url} alt="تصویر پرسنلی" className="aspect-[4/3] w-full rounded-lg object-cover" /></button> : <span className="grid aspect-[4/3] place-items-center rounded-lg bg-slate-50 text-xs text-slate-400">ثبت نشده</span>}</div><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">کارت ملی / مدرک هویت</span><PrivateImage path={member.national_id_doc_path} alt="مدرک هویت" onOpen={setViewerUrl} /></div></div></article>)}</div></section>
         </div>
       ) : null}
 
       {step === 3 ? (
-        <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-rc-muted">{t('team.status')}:</span>
-            <StatusBadge status="draft" label={t('team.statuses.draft')} />
-          </div>
-          <p>
-            <span className="text-rc-muted">{t('team.name')}: </span>
-            {draft.name} / {draft.nameEn}
-          </p>
-          <p>
-            <span className="text-rc-muted">{t('team.league')}: </span>
-            {selectedLeague?.name ?? '—'}
-          </p>
-          <p>
-            <span className="text-rc-muted">{t('team.membersCount')}: </span>
-            {draft.members.filter((m) => (m.first_name || m.full_name).trim()).length}
-          </p>
-          <p>
-            <span className="text-rc-muted">{t('team.docsCount')}: </span>
-            {docs.length}
-          </p>
-          <div className="rounded-xl border border-rc-blue/20 bg-rc-blue/5 p-4">
-            <p className="font-bold">{t('team.costEstimate')}</p>
-            <div className="mt-2 grid gap-1 text-xs text-rc-muted">
+        <div className="space-y-5 text-sm">
+          <header className="rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-emerald-50 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black text-sky-700">بازبینی پیش از صدور صورتحساب</p><h3 className="mt-1 text-xl font-black text-slate-900">اطلاعات تیم را یک‌بار کنترل کنید</h3><p className="mt-2 text-xs leading-6 text-slate-600">پس از تأیید، صورتحساب بر اساس تعداد و نقش افراد ساخته می‌شود.</p></div><StatusBadge status="under_review" label="در انتظار اقدام شما" /></div></header>
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="border-b border-slate-100 p-5"><span className="text-xs font-bold text-slate-400">مجموعه</span><h4 className="mt-1 text-lg font-black text-slate-900">{companyName}</h4></div><div className="p-5"><div className="flex items-center justify-between gap-3"><div><span className="text-xs font-bold text-sky-700">تیم ۱</span><h4 className="mt-1 font-black text-slate-900">{draft.name} <span className="font-medium text-slate-400" dir="ltr">/ {draft.nameEn}</span></h4><p className="mt-1 text-xs text-slate-500">{selectedLeague?.name ?? '—'}</p></div><span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">{draft.members.length.toLocaleString('fa-IR')} نفر</span></div><div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">{draft.members.map((member, index) => <div key={index} className="flex items-center gap-3 p-3"><span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-sky-50 font-black text-sky-700">{member.photo_url ? <img src={member.photo_url} alt="" className="size-full object-cover" /> : (member.first_name || member.full_name).slice(0, 1)}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm text-slate-800">{member.first_name} {member.last_name}</strong><small className="text-slate-500">{roleLabel(member.role)}</small></span><span className="text-xs font-bold text-emerald-600">اطلاعات کامل ✓</span></div>)}</div></div></section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><div><p className="font-black text-slate-900">برآورد مبلغ ورودی لیگ</p><p className="mt-1 text-xs text-slate-500">مبلغ نهایی بر اساس نقش افراد محاسبه شده است.</p></div><span className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">وضعیت پرداخت: صورتحساب صادر نشده</span></div><div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
               <span>{t('team.entryFee')}: {Number(selectedLeague?.registration_fee ?? 0).toLocaleString('fa-IR')} {t('payment.rial', { defaultValue: 'ریال' })}</span>
               <span>{t('team.captainFee')}: {Number(selectedLeague?.captain_fee ?? 0).toLocaleString('fa-IR')} {t('payment.rial', { defaultValue: 'ریال' })}</span>
               <span>هزینه مربی: {draft.members.filter((m) => m.role === 'coach').length} × {Number(selectedLeague?.coach_fee ?? 0).toLocaleString('fa-IR')} ریال</span>
               <span>{t('team.memberFees')}: {draft.members.filter((m) => m.role === 'member').length} × {Number(selectedLeague?.member_fee ?? 0).toLocaleString('fa-IR')} {t('payment.rial', { defaultValue: 'ریال' })}</span>
-              <strong className="mt-2 text-sm text-rc-text">{t('team.finalAmount')}: {(Number(selectedLeague?.registration_fee ?? 0) + Number(selectedLeague?.captain_fee ?? 0) + draft.members.filter((m) => m.role === 'coach').length * Number(selectedLeague?.coach_fee ?? 0) + draft.members.filter((m) => m.role === 'member').length * Number(selectedLeague?.member_fee ?? 0)).toLocaleString('fa-IR')} ریال</strong>
-            </div>
-          </div>
-          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-100">
-            {t('team.paymentLater')}
-          </p>
-          <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-800">{t('team.invoiceAfterConfirm')}</p>
+              <strong className="mt-2 border-t border-slate-200 pt-3 text-base text-slate-900">مبلغ قابل پرداخت: {(Number(selectedLeague?.registration_fee ?? 0) + Number(selectedLeague?.captain_fee ?? 0) + draft.members.filter((m) => m.role === 'coach').length * Number(selectedLeague?.coach_fee ?? 0) + draft.members.filter((m) => m.role === 'member').length * Number(selectedLeague?.member_fee ?? 0)).toLocaleString('fa-IR')} ریال</strong></div></section>
+          <aside className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-400 font-black text-white" aria-hidden="true">!</span><div><strong className="block">ثبت‌نام هنوز قطعی نشده است</strong><p className="mt-1 text-xs leading-6 text-amber-900">با تأیید این مرحله فقط صورتحساب صادر می‌شود. ثبت‌نام تیم زمانی کامل و قطعی خواهد شد که مبلغ ورودی لیگ پرداخت و پرداخت شما تأیید شود.</p></div></aside>
         </div>
       ) : null}
+
+      {viewerUrl ? <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerUrl('') }}><div className="relative max-h-[90dvh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2 shadow-2xl"><button type="button" onClick={() => setViewerUrl('')} className="absolute end-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-slate-950/70 text-xl text-white">×</button><img src={viewerUrl} alt="نمایش بزرگ مدرک" className="max-h-[86dvh] max-w-full rounded-xl object-contain" /></div></div> : null}
 
       <FieldError message={error ?? undefined} />
 

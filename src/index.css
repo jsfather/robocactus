@@ -83,6 +83,8 @@ html.dark .public-layout :is(.border-slate-100,.border-slate-200,.border-sky-100
     font-family: var(--font-sans);
     background-color: var(--rc-bg);
     color: var(--rc-text);
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   body {
@@ -91,15 +93,27 @@ html.dark .public-layout :is(.border-slate-100,.border-slate-200,.border-sky-100
     min-height: 100dvh;
     background-color: var(--rc-bg);
     color: var(--rc-text);
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   #root {
     min-height: 100dvh;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   * {
     box-sizing: border-box;
   }
+}
+
+.public-layout,
+.panel-shell,
+.panel-shell > *,
+.panel-page {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Light-mode remap for legacy white/ opacity utilities used across pages */
