@@ -13,7 +13,8 @@ import {
 import { fetchTeamsForReview, reviewTeam } from '@/features/judging/api'
 import { useUnreadTicketCount } from '@/hooks/useUnreadTickets'
 import { useAuth } from '@/hooks/useAuth'
-import type { Team, TicketDepartment } from '@/types/database'
+import type { Profile, Team, TicketDepartment } from '@/types/database'
+import { backend } from '@/lib/backend'
 
 export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'triage' }) {
   const { t, i18n } = useTranslation()
@@ -33,6 +34,8 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const [departments, setDepartments] = useState<TicketDepartment[]>([])
   const [deptFilter, setDeptFilter] = useState('')
   const [showDeptSettings, setShowDeptSettings] = useState(false)
+  const [pendingAccounts, setPendingAccounts] = useState<Profile[]>([])
+  const [canActivateAccounts, setCanActivateAccounts] = useState(false)
   const tab = section
   const isSa = profile?.role === 'super_admin'
 
@@ -49,9 +52,30 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   }
 
   useEffect(() => {
-    if (tab === 'triage') void loadTriage()
+    if (tab === 'triage') {
+      void loadTriage()
+      const roleKey = profile?.role === 'super_admin' ? null : profile?.role === 'league_admin' ? 'judge' : profile?.staff_department ?? 'operations'
+      void (async () => {
+        const allowed = profile?.role === 'super_admin' || Boolean((await backend.from('role_section_permissions').select('section_key').eq('role_key', roleKey).eq('section_key', 'account_activation').eq('is_enabled', true).maybeSingle()).data)
+        setCanActivateAccounts(allowed)
+        if (!allowed) { setPendingAccounts([]); return }
+        const { data, error: profileError } = await backend.from('profiles').select('*').eq('account_status', 'pending').order('created_at', { ascending: true })
+        if (profileError) throw new Error(profileError.message)
+        setPendingAccounts((data ?? []) as Profile[])
+      })().catch((err: Error) => setError(err.message))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab])
+  }, [tab, profile])
+
+  const reviewAccount = async (account: Profile, approved: boolean) => {
+    const reason = approved ? null : window.prompt('دلیل رد حساب را بنویسید:')
+    if (!approved && !reason?.trim()) return
+    setBusy(true); setError(null)
+    const { error: reviewError } = await backend.rpc('review_user_account', { p_user_id: account.id, p_approved: approved, p_reason: reason })
+    setBusy(false)
+    if (reviewError) { setError(reviewError.message); return }
+    setPendingAccounts((current) => current.filter((item) => item.id !== account.id))
+  }
 
   useEffect(() => {
     if (tab !== 'tickets') return
@@ -141,6 +165,7 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         </>
       ) : (
         <div className="space-y-5">
+          {canActivateAccounts ? <PanelCard title="فعال‌سازی حساب شرکت‌کنندگان" description="این صف فقط مربوط به هویت صاحب حساب حقیقی یا حقوقی است؛ تیم، داوری و پرداخت در صف‌های جدا بررسی می‌شوند."><div className="space-y-3">{pendingAccounts.map((account) => <article key={account.id} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-slate-900">{account.full_name}</h3><span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">در انتظار فعال‌سازی</span></div><p className="mt-2 text-xs text-slate-500">{account.account_type === 'legal' ? `حقوقی · ${account.company_name || 'نام مجموعه ثبت نشده'}` : 'شخص حقیقی'} · <span dir="ltr">{account.phone}</span></p><p className="mt-1 text-xs text-slate-500">کد ملی/شناسه: {account.account_type === 'legal' ? account.company_national_id : account.national_id || '—'} · {account.city || 'شهر ثبت نشده'}</p></div><div className="flex gap-2"><Button type="button" disabled={busy} onClick={() => void reviewAccount(account, true)}>تأیید و فعال‌سازی</Button><Button type="button" variant="danger" disabled={busy} onClick={() => void reviewAccount(account, false)}>رد حساب</Button></div></article>)}{!pendingAccounts.length ? <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-8 text-center text-sm font-bold text-emerald-800">حسابی در انتظار بررسی نیست.</div> : null}</div></PanelCard> : null}
           <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-8">
             <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
               <div><p className="text-xs font-black tracking-widest text-emerald-200">{isEn ? 'INITIAL TRIAGE' : 'کنترل ورودی پرونده'}</p><h2 className="mt-2 text-2xl font-black">{isEn ? 'A quick completeness check before technical review' : 'بررسی سریع کامل‌بودن پرونده، پیش از ارزیابی تخصصی'}</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-sky-50/85">{isEn ? 'Check that the team has submitted the required identity details, people and documents. This stage does not approve technical eligibility and does not record scores.' : 'در این مرحله فقط وجود اطلاعات هویتی، اعضا و مدارک ضروری کنترل می‌شود. تأیید صلاحیت فنی، داوری و امتیازدهی در «بررسی تیم‌ها» انجام می‌شود.'}</p></div>

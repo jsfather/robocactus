@@ -7,6 +7,7 @@ export type PanelNavItem = {
   helpKey?: string
   end?: boolean
   badge?: 'tickets'
+  permissionKey?: string
 }
 
 export type PanelNavGroup = {
@@ -75,8 +76,8 @@ export const LEAGUE_ADMIN_NAV: PanelNavGroup = {
   matchPrefix: '/league-admin',
   items: [
     { to: '/league-admin', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.la.overview' },
-    { to: '/league-admin/review', labelKey: 'judging.tabReview', helpKey: 'panel.help.sa.review' },
-    { to: '/league-admin/tickets', labelKey: 'judging.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets' },
+    { to: '/league-admin/review', labelKey: 'judging.tabReview', helpKey: 'panel.help.sa.review', permissionKey: 'team_review' },
+    { to: '/league-admin/tickets', labelKey: 'judging.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets', permissionKey: 'tickets' },
   ],
 }
 
@@ -86,9 +87,9 @@ export const STAFF_NAV: PanelNavGroup = {
   matchPrefix: '/staff',
   items: [
     { to: '/staff', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.staff.overview' },
-    { to: '/staff/tickets', labelKey: 'staff.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets' },
-    { to: '/staff/chat', labelKey: 'chat.inboxTitle', helpKey: 'panel.help.sa.chat' },
-    { to: '/staff/triage', labelKey: 'staff.tabTriage', helpKey: 'panel.help.sa.triage' },
+    { to: '/staff/tickets', labelKey: 'staff.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets', permissionKey: 'tickets' },
+    { to: '/staff/chat', labelKey: 'chat.inboxTitle', helpKey: 'panel.help.sa.chat', permissionKey: 'chat' },
+    { to: '/staff/triage', labelKey: 'staff.tabTriage', helpKey: 'panel.help.sa.triage', permissionKey: 'triage' },
   ],
 }
 

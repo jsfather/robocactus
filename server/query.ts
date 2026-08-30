@@ -30,7 +30,7 @@ const TABLES = new Set([
   'invoices', 'league_admins', 'league_faqs', 'league_files', 'league_past_results',
   'league_people', 'league_sponsors', 'leagues', 'live_chat_messages', 'live_chat_sessions',
   'notification_log', 'profile_documents', 'profiles', 'public_companies', 'registration_doc_types',
-  'participant_field_rules', 'judge_scores', 'judge_submission_progress', 'registration_reminder_settings',
+  'participant_field_rules', 'judge_scores', 'judge_submission_progress', 'registration_reminder_settings', 'role_section_permissions',
   'public_team_people',
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
@@ -44,7 +44,7 @@ const RPCS = new Set([
   'fetch_live_chat_guest_messages', 'home_stats', 'issue_mock_payment_authority',
   'league_registered_count', 'list_unread_ticket_ids', 'mark_ticket_read', 'profile_exists_by_phone', 'team_name_available',
   'refer_ticket', 'reply_live_chat_agent', 'reply_ticket', 'resolve_account_issue',
-  'resolve_team_captain', 'respond_account_issue', 'review_team', 'review_team_member',
+  'resolve_team_captain', 'respond_account_issue', 'review_team', 'review_team_member', 'review_user_account',
   'send_live_chat_guest_message', 'set_league_results_status',
   'submit_card_receipt', 'review_card_receipt', 'ticket_status_counts', 'upsert_team_result',
   'save_judge_score', 'publish_official_team_result', 'accept_invoice_terms',
@@ -54,6 +54,7 @@ const CONFLICT_COLUMNS: Record<string, string[]> = {
   league_admins: ['league_id', 'user_id'],
   static_pages: ['slug'],
   system_notification_reads: ['notification_id', 'user_id'],
+  role_section_permissions: ['role_key', 'section_key'],
 }
 
 const RELATIONS: Record<string, Record<string, { table: string; local: string; foreign: string }>> = {

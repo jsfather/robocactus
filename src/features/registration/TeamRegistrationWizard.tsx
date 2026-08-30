@@ -39,7 +39,7 @@ import type { DocumentRow, League, Team } from '@/types/database'
 function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { label: string; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState(storedUrl ?? '')
   useEffect(() => {
-    if (!file) { setPreview(storedUrl ?? ''); return }
+    if (!file) { if (storedUrl && !/^https?:/i.test(storedUrl)) { void backend.storage.from('team-documents').createSignedUrl(storedUrl, 600).then(({ data }) => setPreview(data.signedUrl)); return }; setPreview(storedUrl ?? ''); return }
     const url = URL.createObjectURL(file); setPreview(url)
     return () => URL.revokeObjectURL(url)
   }, [file, storedUrl])
@@ -97,6 +97,7 @@ export function TeamRegistrationWizard({
   const [teamFilePreview, setTeamFilePreview] = useState('')
   const [viewerUrl, setViewerUrl] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [openMemberIndex, setOpenMemberIndex] = useState<number | null>(0)
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -170,6 +171,14 @@ export function TeamRegistrationWizard({
     }
     members[index] = next
     patchDraft({ members })
+  }
+
+  const removeMemberAt = (index: number) => {
+    patchDraft({ members: draft.members.filter((_, memberIndex) => memberIndex !== index) })
+    const reindex = (files: Record<number, File | null>) => Object.fromEntries(Object.entries(files).filter(([key]) => Number(key) !== index).map(([key, value]) => [Number(key) > index ? Number(key) - 1 : Number(key), value]))
+    setIdFiles(reindex)
+    setPhotoFiles(reindex)
+    setOpenMemberIndex(null)
   }
 
   const ensureTeamRecord = async (): Promise<string> => {
@@ -446,11 +455,12 @@ export function TeamRegistrationWizard({
           {draft.members.map((member, index) => {
             const age = ageFromBirthDate(member.birth_date)
             return (
-              <div
+              <article
                 key={index}
-                className="space-y-3 rounded-lg border border-white/10 p-3"
+                className={`overflow-hidden rounded-2xl border bg-white transition ${openMemberIndex === index ? 'border-sky-300 shadow-sm ring-4 ring-sky-50' : 'border-slate-200'}`}
               >
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex items-center gap-3 border-b border-slate-100 p-4"><button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-start" onClick={() => setOpenMemberIndex((current) => current === index ? null : index)} aria-expanded={openMemberIndex === index}><span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-sky-50 font-black text-sky-700">{member.photo_url ? <img src={member.photo_url} alt="" className="size-full object-cover" /> : index + 1}</span><span className="min-w-0"><strong className="block truncate text-slate-900">{member.first_name || member.last_name ? `${member.first_name} ${member.last_name}` : `فرد ${index + 1}`}</strong><small className="mt-1 block text-slate-500">{roleLabel(member.role)}{age != null ? ` · ${age.toLocaleString('fa-IR')} سال` : ' · سن وارد نشده'}</small></span><span className="ms-auto text-slate-400" aria-hidden="true">{openMemberIndex === index ? '▲' : '▼'}</span></button>{draft.members.length > 1 ? <button type="button" onClick={() => removeMemberAt(index)} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-black text-rose-700">حذف</button> : null}</div>
+                {openMemberIndex === index ? <div className="grid gap-3 p-4 md:grid-cols-2">
                   <Input
                     label={t('team.memberFirstNameFa')}
                     required
@@ -496,10 +506,10 @@ export function TeamRegistrationWizard({
                   ) : null}
                   <Select label={age != null && age < 18 ? 'مقطع تحصیلی فعلی' : 'آخرین مدرک تحصیلی'} required value={member.education_level} onChange={(e) => patchMember(index, { education_level: e.target.value })}><option value="">انتخاب کنید</option>{age != null && age < 18 ? <><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">متوسطه دوم</option></> : <><option value="high_school">دیپلم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></>}</Select>
                   <Input label="رشته تحصیلی" value={member.field_of_study} onChange={(e) => patchMember(index, { field_of_study: e.target.value })} />
-                  <label className="block space-y-1.5"><span className="text-sm font-bold text-slate-600">تصویر چهره <b className="text-rose-500">*</b></span><input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" onChange={(e) => setPhotoFiles((prev) => ({ ...prev, [index]: e.target.files?.[0] ?? null }))} />{(photoFiles[index] || member.photo_url) ? <span className="text-xs font-bold text-emerald-600">آماده بارگذاری</span> : null}</label>
+                  <MemberIdentityUpload label="تصویر چهره" file={photoFiles[index]} storedUrl={member.photo_url} busy={busy} onChange={(file) => setPhotoFiles((prev) => ({ ...prev, [index]: file }))} />
                   <MemberIdentityUpload label={t('team.memberNationalIdCard')} file={idFiles[index]} storedUrl={member.national_id_doc_path} busy={busy} onChange={(file) => setIdFiles((prev) => ({ ...prev, [index]: file }))} />
-                </div>
-              </div>
+                </div> : null}
+              </article>
             )
           })}
           <div className="flex gap-2">
@@ -507,22 +517,12 @@ export function TeamRegistrationWizard({
               type="button"
               variant="secondary"
               onClick={() =>
-                patchDraft({
-                  members: [...draft.members, emptyMemberDraft('member')],
-                })
+                { const nextIndex = draft.members.length; patchDraft({ members: [...draft.members, emptyMemberDraft('member')] }); setOpenMemberIndex(nextIndex) }
               }
             >
               {t('team.addMember')}
             </Button>
-            {draft.members.length > 1 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => patchDraft({ members: draft.members.slice(0, -1) })}
-              >
-                {t('team.removeMember')}
-              </Button>
-            ) : null}
+            <Button type="button" variant="ghost" onClick={() => setOpenMemberIndex(null)}>جمع‌کردن همه</Button>
           </div>
         </div>
       ) : null}

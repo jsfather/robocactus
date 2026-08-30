@@ -20,6 +20,7 @@ import { enqueueIncompleteProfileSms } from '@/features/notifications/api'
 import { formatAppDate } from '@/lib/dates'
 import { fetchMyCompanies } from '@/features/companies/api'
 import type { UserRole } from '@/types/database'
+import { backend } from '@/lib/backend'
 
 function profileLooksIncomplete(profile: {
   account_type?: string
@@ -90,8 +91,15 @@ function SidebarNav({
   onNavigate?: () => void
 }) {
   const { t } = useTranslation()
+  const { profile } = useAuth()
   const { count } = useUnreadTicketCount()
   const groups = useMemo(() => panelsForRole(role), [role])
+  const [enabledPermissions, setEnabledPermissions] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    if (role === 'super_admin' || role === 'company_admin' || role === 'team_captain') { setEnabledPermissions(null); return }
+    const roleKey = role === 'league_admin' ? 'judge' : profile?.staff_department ?? 'operations'
+    void backend.from('role_section_permissions').select('section_key').eq('role_key', roleKey).eq('is_enabled', true).then(({ data, error }) => { if (!error) setEnabledPermissions(new Set((data ?? []).map((row: { section_key: string }) => row.section_key))) })
+  }, [profile?.staff_department, role])
 
   return (
     <nav className="panel-nav-scroll flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
@@ -101,7 +109,7 @@ function SidebarNav({
             {t(group.titleKey)}
           </p>
           <ul className="space-y-1">
-            {group.items.map((item) => (
+            {group.items.filter((item) => !item.permissionKey || enabledPermissions === null || enabledPermissions.has(item.permissionKey)).map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

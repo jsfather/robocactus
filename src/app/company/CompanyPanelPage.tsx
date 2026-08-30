@@ -297,9 +297,9 @@ export function CompanyPanelPage({
                       {!['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ادامه ثبت‌نام</Button> : null}
                       <Link
                         to={`/team/${team.id}`}
-                        className="px-3 py-1.5 text-sm text-rc-blue hover:bg-rc-blue/10"
+                        className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-800 hover:bg-sky-100"
                       >
-                        {t('team.view')}
+                        پرونده تیم
                       </Link>
                     </div>
                   </li>
