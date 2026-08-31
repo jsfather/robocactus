@@ -52,8 +52,10 @@ export async function updateAccessSettings(
     .single()
   if (error) throw new Error(error.message)
   const saved = data as AccessSettings
-  if (typeof window !== 'undefined' && saved.payment_provider) {
-    window.__APP_CONFIG__ = { ...(window.__APP_CONFIG__ ?? {}), VITE_PAYMENT_PROVIDER: saved.payment_provider }
+  if (typeof window !== 'undefined') {
+    const options = await backend.auth.getOptions()
+    const effectiveProvider = saved.payment_provider ?? options.data?.payment_provider ?? 'mock'
+    window.__APP_CONFIG__ = { ...(window.__APP_CONFIG__ ?? {}), VITE_PAYMENT_PROVIDER: effectiveProvider }
   }
   return saved
 }

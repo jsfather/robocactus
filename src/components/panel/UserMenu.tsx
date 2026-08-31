@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserRole } from '@/types/database'
@@ -14,6 +14,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
 export function UserMenu({ role }: { role: UserRole }) {
   const { t, i18n } = useTranslation()
   const { profile, user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -75,7 +76,12 @@ export function UserMenu({ role }: { role: UserRole }) {
             ) : null}
             <button
               type="button"
-              onClick={() => void signOut()}
+              onClick={() => void (async () => {
+                setOpen(false)
+                const revokeSession = signOut()
+                navigate('/login', { replace: true, state: null })
+                await revokeSession
+              })()}
               className="w-full rounded-md bg-rc-surface px-2.5 py-2 text-start text-sm text-rc-muted hover:bg-rc-hover hover:text-rc-text"
             >
               {t('nav.logout')}

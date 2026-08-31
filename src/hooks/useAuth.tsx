@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -86,6 +87,22 @@ export function clearSignupDraft() {
   }
 }
 
+function clearSensitiveBrowserState() {
+  clearSignupDraft()
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('robocactus-team-draft:')) localStorage.removeItem(key)
+    }
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = sessionStorage.key(index)
+      if (key?.startsWith('rc-incomplete-sms:')) sessionStorage.removeItem(key)
+    }
+  } catch {
+    /* storage can be unavailable in hardened browsers */
+  }
+}
+
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await backend
     .from('profiles')
@@ -108,8 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const profileRequestUser = useRef<string | null>(null)
+  const sessionGeneration = useRef(0)
 
   const loadProfile = useCallback(async (userId: string, opts?: { replaceOnFail?: boolean }) => {
+    profileRequestUser.current = userId
     setProfileLoading(true)
     setProfileError(null)
     try {
@@ -120,17 +140,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await new Promise((resolve) => window.setTimeout(resolve, 450))
         next = await fetchProfile(userId)
       }
+      if (profileRequestUser.current !== userId) return null
       setProfile(next)
       if (!next) setProfileError('profile_missing')
       return next
     } catch (err) {
       const message = err instanceof Error ? err.message : 'profile_failed'
+      if (profileRequestUser.current !== userId) return null
       setProfileError(message)
       // Keep the last good profile so a transient Failed to fetch does not kick the user out.
       if (opts?.replaceOnFail) setProfile(null)
       return null
     } finally {
-      setProfileLoading(false)
+      if (profileRequestUser.current === userId) setProfileLoading(false)
     }
   }, [])
 
@@ -161,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let mounted = true
+    const restoreGeneration = sessionGeneration.current
 
     const restoreSession = async () => {
       let lastError: string | null = null
@@ -175,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void restoreSession()
       .then(async (restoredSession) => {
-        if (!mounted) return
+        if (!mounted || sessionGeneration.current !== restoreGeneration) return
         setSession(restoredSession)
         if (restoredSession?.user) {
           await loadProfile(restoredSession.user.id)
@@ -195,16 +218,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Defer follow-up requests until the authentication state update has settled.
       window.setTimeout(() => {
         if (!mounted) return
-        setSession(nextSession)
-
+        sessionGeneration.current += 1
         if (event === 'SIGNED_OUT') {
+          profileRequestUser.current = null
+          setSession(null)
           setProfile(null)
+          setProfileLoading(false)
           setProfileError(null)
           return
         }
 
         if (nextSession?.user) {
+          profileRequestUser.current = nextSession.user.id
+          setSession(nextSession)
+          setProfile((current) => current?.id === nextSession.user.id ? current : null)
           void loadProfile(nextSession.user.id)
+        } else {
+          setSession(null)
+          setProfile(null)
         }
       }, 0)
     })
@@ -323,9 +354,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
-    await backend.auth.signOut()
+    sessionGeneration.current += 1
+    profileRequestUser.current = null
+    setSession(null)
     setProfile(null)
+    setProfileLoading(false)
     setProfileError(null)
+    clearSensitiveBrowserState()
+    await backend.auth.signOut()
   }, [])
 
   const value = useMemo<AuthContextValue>(

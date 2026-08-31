@@ -141,6 +141,7 @@ export async function getAuthSettings(includeSecrets = false): Promise<AuthSetti
     .catch(() => ({ rows: [] as Record<string, unknown>[] }))
   const row = result.rows[0] as Partial<AuthSettings> | undefined
   const settings = { ...defaultAuthSettings, ...(row ?? {}) }
+  settings.payment_provider ??= (process.env.PAYMENT_PROVIDER ?? process.env.VITE_PAYMENT_PROVIDER ?? 'mock') as 'mock' | 'zarinpal'
   if (!includeSecrets) {
     delete settings.email_api_key
     delete settings.email_provider

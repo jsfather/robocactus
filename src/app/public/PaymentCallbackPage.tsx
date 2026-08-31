@@ -46,9 +46,9 @@ export function PaymentCallbackPage() {
       setResult({ success: false, state: 'error', recoverable: true, error: error instanceof Error ? error.message : 'payment_verification_failed' })
       setViewState('error')
     }
-  }, [authority, invoiceId, status, retry])
+  }, [authority, invoiceId, status])
 
-  useEffect(() => { void verify() }, [verify])
+  useEffect(() => { void verify() }, [verify, retry])
 
   const content = copyFor(viewState, fa)
   const tone = viewState === 'paid' ? 'emerald' : viewState === 'verifying' ? 'sky' : viewState === 'manual_review' ? 'amber' : 'rose'
