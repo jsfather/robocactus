@@ -24,9 +24,9 @@ import { backend } from '@/lib/backend'
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
   useEffect(() => { if (!path) { setUrl(''); return }; if (/^https?:/i.test(path)) { setUrl(path); return }; void backend.storage.from('team-documents').createSignedUrl(path, 600).then(({ data }) => setUrl(data.signedUrl)) }, [path])
-  if (!url) return <span className="grid aspect-[4/3] place-items-center rounded-xl bg-slate-100 text-xs text-slate-400">تصویری ثبت نشده</span>
-  if (/\.pdf(?:$|\?)/i.test(path ?? '')) return <button type="button" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="grid aspect-[4/3] w-full place-items-center rounded-xl bg-red-50 font-black text-red-700">PDF · بازکردن فایل</button>
-  return <button type="button" onClick={() => onOpen(url)} className="block w-full overflow-hidden rounded-xl bg-slate-100"><img src={url} alt={alt} className="aspect-[4/3] w-full object-cover transition hover:scale-[1.03]" /></button>
+  if (!url) return <span className="grid h-20 w-28 place-items-center rounded-xl bg-slate-100 px-2 text-center text-[10px] text-slate-400">تصویری ثبت نشده</span>
+  if (/\.pdf(?:$|\?)/i.test(path ?? '')) return <button type="button" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="grid h-20 w-28 place-items-center rounded-xl bg-red-50 text-xs font-black text-red-700">PDF · بازکردن</button>
+  return <button type="button" onClick={() => onOpen(url)} className="group relative block h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-slate-100"><img src={url} alt={alt} className="size-full object-cover transition group-hover:scale-[1.04]" /><span className="absolute inset-x-0 bottom-0 bg-slate-950/65 py-1 text-[9px] font-bold text-white">مشاهده</span></button>
 }
 
 function EditableMemberAsset({ label, file, stored, privateFile, busy, onChange }: { label: string; file?: File | null; stored?: string | null; privateFile?: boolean; busy: boolean; onChange: (file: File | null) => void }) {
@@ -232,7 +232,7 @@ export function TeamPanelPage() {
           {docs.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {docs.map((d) => (
-                <article key={d.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><TeamAsset path={d.file_path} alt={d.doc_type} onOpen={setViewerUrl} /><div className="p-4"><strong className="block text-sm text-slate-800">{d.team_member_id ? 'مدرک هویتی عضو' : d.doc_type === 'team_logo' ? 'لوگوی تیم' : d.doc_type}</strong><span className="mt-1 block truncate font-mono text-[10px] text-slate-400" dir="ltr">{d.file_path.split('/').pop()}</span></div></article>
+                <article key={d.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"><TeamAsset path={d.file_path} alt={d.doc_type} onOpen={setViewerUrl} /><div className="min-w-0"><strong className="block truncate text-sm text-slate-800">{d.team_member_id ? 'مدرک هویتی عضو' : d.doc_type === 'team_logo' ? 'لوگوی تیم' : d.doc_type}</strong><span className="mt-1 block truncate font-mono text-[10px] text-slate-400" dir="ltr">{d.file_path.split('/').pop()}</span></div></article>
               ))}
             </div>
           ) : (

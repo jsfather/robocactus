@@ -37,6 +37,13 @@ import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
 
+function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { void getDocumentSignedUrl(path).then(setUrl).catch(() => setUrl('')) }, [path])
+  if (/\.pdf(?:$|\?)/i.test(path)) return <button type="button" onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')} className="grid h-16 w-24 place-items-center rounded-xl bg-red-50 text-xs font-black text-red-700">PDF · مشاهده</button>
+  return <button type="button" disabled={!url} onClick={() => url && onOpen(url)} className="group relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">{url ? <img src={url} alt={label} className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[10px] text-slate-400">در حال بارگذاری</span>}<span className="absolute inset-x-0 bottom-0 bg-slate-950/65 py-0.5 text-[9px] text-white">مشاهده</span></button>
+}
+
 export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | 'tickets' }) {
   const { t, i18n } = useTranslation()
   const toast = useToast()
@@ -64,6 +71,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [loading, setLoading] = useState(true)
   const [queueLeague, setQueueLeague] = useState('all')
   const [queueStatus, setQueueStatus] = useState('all')
+  const [viewerUrl, setViewerUrl] = useState('')
   const tab = section
 
   const selected = useMemo(
@@ -362,19 +370,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     <li className="text-rc-muted">{t('team.noDocs')}</li>
                   ) : (
                     docs.map((doc) => (
-                      <li key={doc.id} className="flex items-center justify-between gap-2">
-                        <span>{doc.doc_type}</span>
-                        <button
-                          type="button"
-                          className="text-rc-blue hover:underline"
-                          onClick={() =>
-                            void getDocumentSignedUrl(doc.file_path).then((url) =>
-                              window.open(url, '_blank'),
-                            )
-                          }
-                        >
-                          {t('judging.openDoc')}
-                        </button>
+                      <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-2">
+                        <span className="min-w-0 truncate">{doc.doc_type}</span>
+                        <ReviewThumbnail path={doc.file_path} label={doc.doc_type} onOpen={setViewerUrl} />
                       </li>
                     ))
                   )}
@@ -421,17 +419,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {m.national_id_doc_path ? (
-                                <button
-                                  type="button"
-                                  className="text-xs text-rc-blue hover:underline"
-                                  onClick={() =>
-                                    void getDocumentSignedUrl(m.national_id_doc_path!).then((url) =>
-                                      window.open(url, '_blank'),
-                                    )
-                                  }
-                                >
-                                  {t('team.memberNationalIdCard')}
-                                </button>
+                                <ReviewThumbnail path={m.national_id_doc_path} label={t('team.memberNationalIdCard')} onOpen={setViewerUrl} />
                               ) : null}
                               <Button
                                 type="button"
@@ -546,6 +534,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           </div>
         </div>
       )}
+      {viewerUrl ? <div className="fixed inset-0 z-[190] grid place-items-center bg-slate-950/85 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerUrl('') }}><div className="relative max-h-[90dvh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2"><button type="button" onClick={() => setViewerUrl('')} className="absolute end-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-slate-950/75 text-xl text-white" aria-label="بستن">×</button><img src={viewerUrl} alt="نمایش مدرک" className="max-h-[86dvh] max-w-full rounded-xl object-contain" /></div></div> : null}
     </PanelPage>
   )
 }
