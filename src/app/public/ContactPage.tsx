@@ -5,6 +5,7 @@ import { fetchStaticPage } from '@/features/leagues/adminApi'
 import { submitContactMessage } from '@/features/home/api'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 export function ContactPage() {
   const { t, i18n } = useTranslation()
@@ -32,7 +33,7 @@ export function ContactPage() {
 
   useEffect(() => {
     void fetchStaticPage('contact')
-      .then((page) => setIntroHtml(page?.body ?? null))
+      .then((page) => setIntroHtml(page?.body ? sanitizeHtml(page.body) : null))
       .catch(() => undefined)
   }, [])
 

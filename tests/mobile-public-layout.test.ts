@@ -26,7 +26,7 @@ test('mobile clearance matches the fixed navigation and safe area', () => {
 
 test('sponsor autoplay scrolls only its own horizontal viewport', () => {
   assert.match(sponsors, /viewport\.scrollBy/)
-  assert.match(sponsors, /horizontalDelta/)
+  assert.match(sponsors, /targetRect\.left \+ targetRect\.width \/ 2/)
   assert.doesNotMatch(sponsors, /scrollIntoView/)
 })
 
@@ -43,8 +43,8 @@ test('route changes reset scroll centrally without smooth animation', () => {
 })
 
 test('footer has separated content, contact and copyright hierarchy', () => {
-  assert.match(footer, /footer\.ctaTitle/)
+  assert.match(footer, /FooterHeading/)
   assert.match(footer, /lg:grid-cols/)
-  assert.match(footer, /border-t border-white\/10 bg-\[#03283b\]/)
+  assert.match(footer, /border-t border-slate-200 bg-white/)
   assert.match(footer, /tel:\$\{phone\.replace/)
 })

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import pg from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { sql } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const migrationsDir = path.join(root, 'db', 'migrations')
@@ -41,7 +42,7 @@ if (!connectionString) {
 const pool = new pg.Pool({
   connectionString,
   max: 2,
-  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true, ...(process.env.DATABASE_CA ? { ca: process.env.DATABASE_CA.replace(/\\n/g, '\n') } : {}) } : undefined,
 })
 const db = drizzle(pool)
 
@@ -50,24 +51,30 @@ try {
   await db.execute(sql.raw(`
     create table if not exists app_private.schema_migrations (
       filename text primary key,
-      applied_at timestamptz not null default now()
+      applied_at timestamptz not null default now(),
+      checksum text
     )
   `))
+  await db.execute(sql.raw('alter table app_private.schema_migrations add column if not exists checksum text'))
 
-  const appliedResult = await db.execute(sql.raw('select filename from app_private.schema_migrations'))
-  const applied = new Set(appliedResult.rows.map((row) => String(row.filename)))
+  const appliedResult = await db.execute(sql.raw('select filename,checksum from app_private.schema_migrations'))
+  const applied = new Map(appliedResult.rows.map((row) => [String(row.filename), row.checksum == null ? null : String(row.checksum)]))
   const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
 
   for (const file of files) {
+    const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+    const checksum = createHash('sha256').update(migration).digest('hex')
     if (applied.has(file)) {
+      const recorded = applied.get(file)
+      if (recorded && recorded !== checksum) throw new Error(`[db:migrate] checksum mismatch for ${file}`)
+      if (!recorded) await db.execute(sql`update app_private.schema_migrations set checksum=${checksum} where filename=${file}`)
       console.log(`[db:migrate] skip ${file}`)
       continue
     }
-    const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
     console.log(`[db:migrate] apply ${file}`)
     await db.transaction(async (transaction) => {
       await transaction.execute(sql.raw(migration))
-      await transaction.execute(sql`insert into app_private.schema_migrations(filename) values (${file})`)
+      await transaction.execute(sql`insert into app_private.schema_migrations(filename,checksum) values (${file},${checksum})`)
     })
     console.log(`[db:migrate] ok ${file}`)
   }

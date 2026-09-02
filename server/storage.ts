@@ -9,6 +9,16 @@ import { db, type AuthUser, userFromRequest, withRequestRole } from './db.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } })
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const USER_STORAGE_QUOTA = 250 * 1024 * 1024
+
+function matchesDeclaredFileType(buffer: Buffer, mime: string): boolean {
+  if (mime === 'image/jpeg') return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+  if (mime === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))
+  if (mime === 'image/webp') return buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP'
+  if (mime === 'image/gif') return ['GIF87a','GIF89a'].includes(buffer.subarray(0, 6).toString())
+  if (mime === 'application/pdf') return buffer.subarray(0, 5).toString() === '%PDF-'
+  return !mime.startsWith('image/') && mime !== 'application/pdf'
+}
 
 function cleanObjectPath(value: unknown): string {
   const objectPath = String(value ?? '').replace(/^\/+/, '')
@@ -48,6 +58,19 @@ async function sendStoredObject(response: Response, object: { disk_path: string;
 
 function pathFromRegex(request: Request, group: number): string {
   return cleanObjectPath(decodeURIComponent(request.params[group] ?? ''))
+}
+
+function sendStorageError(response: Response, error: unknown): void {
+  const messages: string[] = []
+  let current: unknown = error
+  for (let depth=0; current && depth<4; depth+=1) {
+    messages.push(current instanceof Error ? current.message : String(current))
+    current = typeof current === 'object' && current !== null && 'cause' in current ? (current as { cause?: unknown }).cause : null
+  }
+  const combined = messages.join(' ')
+  const code = combined.match(/\b(authentication_required|forbidden|invalid_path|bucket_not_found|file_too_large|invalid_file_type|invalid_file_content|storage_quota_exceeded|object_not_found)\b/)?.[1]
+  if (!code) console.error('[storage] unexpected failure', error)
+  response.status(code === 'authentication_required' ? 401 : code === 'forbidden' ? 403 : code ? 400 : 500).json({ error: code ?? (config.isProduction ? 'internal_server_error' : combined) })
 }
 
 function teamIdFromMemberPhotoPath(objectPath: string): string {
@@ -180,6 +203,12 @@ export function registerStorageRoutes(router: Router): void {
       if (allowedMimeTypes?.length && !allowedMimeTypes.includes(request.file.mimetype)) {
         throw new Error('invalid_file_type')
       }
+      if (!matchesDeclaredFileType(request.file.buffer, request.file.mimetype)) throw new Error('invalid_file_content')
+      const usage = await db.execute(sql`
+        select coalesce(sum(size),0)::bigint as bytes from app_private.storage_objects
+        where owner_id=${user.id}::uuid and not (bucket=${bucket} and object_path=${objectPath})
+      `)
+      if (Number(usage.rows[0]?.bytes ?? 0) + request.file.size > USER_STORAGE_QUOTA) throw new Error('storage_quota_exceeded')
 
       await registerStorageObject(
         user,
@@ -210,9 +239,7 @@ export function registerStorageRoutes(router: Router): void {
       response.status(201).json({ path: objectPath })
     } catch (error) {
       await fs.unlink(diskPath).catch(() => undefined)
-      const message = error instanceof Error ? error.message : String(error)
-      const status = message === 'forbidden' ? 403 : 400
-      response.status(status).json({ error: message })
+      sendStorageError(response, error)
     }
   })
 
@@ -233,7 +260,7 @@ export function registerStorageRoutes(router: Router): void {
       const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/')
       response.json({ signedUrl: `${config.appUrl}/api/storage/signed/${encodeURIComponent(bucket)}/${encodedPath}?expires=${expires}&signature=${signature}` })
     } catch (error) {
-      response.status(403).json({ error: error instanceof Error ? error.message : String(error) })
+      sendStorageError(response, error)
     }
   })
 
@@ -251,7 +278,7 @@ export function registerStorageRoutes(router: Router): void {
       }
       response.json({ paths })
     } catch (error) {
-      response.status(403).json({ error: error instanceof Error ? error.message : String(error) })
+      sendStorageError(response, error)
     }
   })
 
@@ -263,6 +290,7 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
+    response.setHeader('Cache-Control', 'public, max-age=86400')
     await sendStoredObject(response, object)
   })
 
@@ -286,6 +314,8 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
+    response.setHeader('Cache-Control', 'private, no-store')
+    response.setHeader('Content-Disposition', `inline; filename="${path.basename(objectPath).replace(/["\r\n]/g, '_')}"`)
     await sendStoredObject(response, object)
   })
 
@@ -307,6 +337,8 @@ export function registerStorageRoutes(router: Router): void {
       response.sendStatus(404)
       return
     }
+    response.setHeader('Cache-Control', 'private, no-store')
+    response.setHeader('Content-Disposition', `inline; filename="${path.basename(objectPath).replace(/["\r\n]/g, '_')}"`)
     await sendStoredObject(response, object)
   })
 }

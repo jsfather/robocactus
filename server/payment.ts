@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { getAuthSettings } from './auth.js'
 import { config } from './config.js'
 import { db, userFromRequest, withRequestRole, type AuthUser } from './db.js'
+import { rateLimited } from './rate-limit.js'
 
 type PayableInvoice = { id: string; team_id: string; amount: string | number; status: string; gateway_ref: string | null; terms_accepted_at: string | null; invoice_number: string | null }
 type PaymentAttempt = { id: string; invoice_id: string; team_id: string; invoice_number: string | null; invoice_status: string; invoice_amount: string | number; authority: string; amount: string | number; status: string; ref_id: string | null }
@@ -137,6 +138,7 @@ export function registerPaymentRoutes(router: Router): void {
     const invoiceId = String(request.body?.invoiceId ?? '')
     const authority = String(request.body?.authority ?? '')
     if (!invoiceId || !authority) return void response.status(400).json({ success: false, state: 'invalid', error: 'callback_parameters_missing' })
+    if (await rateLimited(`payment-verify:${request.ip ?? 'unknown'}:${invoiceId}`, 20, 15 * 60 * 1000)) return void response.status(429).json({ success: false, state: 'error', error: 'too_many_attempts' })
     const result = await verifyAttempt(invoiceId, authority, request.body?.gatewayStatusOk !== false)
     response.status(result.http).json(result.body)
   })

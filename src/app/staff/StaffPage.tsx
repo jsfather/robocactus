@@ -17,6 +17,7 @@ import type { Company, DocumentRow, Invoice, League, Profile, Team, TeamMember, 
 import { backend } from '@/lib/backend'
 import { fetchTeamDocuments, fetchTeamMembers } from '@/features/registration/api'
 import { fetchLatestInvoiceForTeam } from '@/features/payments/api'
+import { safeSameOriginUrl } from '@/lib/safe-url'
 
 type TriageDossier = { team: Team; members: TeamMember[]; documents: DocumentRow[]; invoice: Invoice | null; company: Company | null; league: League | null }
 
@@ -24,7 +25,7 @@ function DossierAsset({ path, bucket, label, onOpen }: { path?: string | null; b
   const [url, setUrl] = useState('')
   useEffect(() => {
     if (!path) { setUrl(''); return }
-    if (/^https?:/i.test(path)) { setUrl(path); return }
+    if (/^https?:/i.test(path)) { setUrl(safeSameOriginUrl(path) ?? ''); return }
     void backend.storage.from(bucket).createSignedUrl(path, 600).then(({ data }) => setUrl(data.signedUrl ?? ''))
   }, [bucket, path])
   if (!url) return <span className="grid h-20 w-28 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-2 text-center text-[10px] text-slate-400">فایلی ثبت نشده</span>
@@ -55,6 +56,7 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const [canTriageTeams, setCanTriageTeams] = useState(false)
   const [dossier, setDossier] = useState<TriageDossier | null>(null)
   const [dossierLoading, setDossierLoading] = useState(false)
+  const [dossierError, setDossierError] = useState<string | null>(null)
   const [viewerUrl, setViewerUrl] = useState('')
   const tab = section
   const isSa = profile?.role === 'super_admin'
@@ -106,6 +108,11 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   }, [tab])
 
   const markReview = async (teamId: string) => {
+    if (dossierIssues.length) {
+      setDossierError(dossierIssues.join(' • '))
+      return
+    }
+    setDossierError(null)
     setBusy(true)
     setError(null)
     try {
@@ -113,14 +120,17 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
       setTeams((prev) => prev.filter((x) => x.id !== updated.id))
       setDossier(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : ''
+      setDossierError(message.includes('team_dossier_incomplete')
+        ? 'پرونده هنوز کامل نیست. اطلاعات هویتی، سرپرست، اعضا، مدارک و وضعیت پرداخت را دوباره بررسی کنید.'
+        : (message || t('common.error')))
     } finally {
       setBusy(false)
     }
   }
 
   const openDossier = async (team: Team) => {
-    setDossierLoading(true); setError(null)
+    setDossierLoading(true); setError(null); setDossierError(null)
     try {
       const [members, documents, invoice, companyResponse, leagueResponse] = await Promise.all([
         fetchTeamMembers(team.id), fetchTeamDocuments(team.id), fetchLatestInvoiceForTeam(team.id),
@@ -129,9 +139,17 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
       ])
       if (companyResponse.error) throw new Error(companyResponse.error.message)
       if (leagueResponse.error) throw new Error(leagueResponse.error.message)
-      setDossier({ team, members, documents, invoice, company: companyResponse.data as Company | null, league: leagueResponse.data as League | null })
+      setDossier({ team, members: members.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) })), documents, invoice, company: companyResponse.data as Company | null, league: leagueResponse.data as League | null })
     } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) } finally { setDossierLoading(false) }
   }
+
+  const dossierIssues = !dossier ? [] : [
+    !dossier.members.some((member) => member.role === 'captain') ? (isEn ? 'Team captain is missing' : 'سرپرست تیم ثبت نشده است') : null,
+    dossier.members.some((member) => !member.first_name_fa || !member.last_name_fa || !member.birth_date || !member.national_id || !member.national_id_doc_path) ? (isEn ? 'Some member identity records are incomplete' : 'اطلاعات هویتی یا مدرک برخی اعضا ناقص است') : null,
+    (dossier.team.registration_progress ?? 0) < 75 ? (isEn ? 'Registration flow has not reached final review' : 'فرآیند ثبت‌نام هنوز به مرحله بررسی نهایی نرسیده است') : null,
+    !dossier.invoice ? (isEn ? 'Invoice has not been issued' : 'فاکتور صادر نشده است') : null,
+    dossier.invoice && dossier.invoice.status !== 'paid' && dossier.invoice.receipt_status !== 'approved' && Number(dossier.invoice.amount) > 0 ? (isEn ? 'Payment has not been confirmed' : 'پرداخت یا فیش هنوز تأیید نشده است') : null,
+  ].filter((item): item is string => Boolean(item))
 
   return (
     <PanelPage
@@ -249,6 +267,8 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl">
           <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-7"><div className="min-w-0"><p className="text-xs font-black text-sky-700">بررسی اولیه ← پرونده کامل تیم</p><h2 className="mt-1 truncate text-xl font-black text-slate-950">{dossier.team.name}</h2><p className="mt-1 text-xs text-slate-500">{dossier.league?.name ?? 'لیگ نامشخص'} · {dossier.company?.name ?? 'مجموعه نامشخص'}</p></div><button type="button" onClick={() => setDossier(null)} className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-xl" aria-label="بستن">×</button></header>
           <div className="overflow-y-auto p-4 sm:p-7">
+            {dossierError ? <div className="mb-4"><FieldError message={dossierError} /></div> : null}
+            {dossierIssues.length ? <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-black text-amber-900">{isEn ? 'Complete these items before referral:' : 'پیش از ارجاع این موارد را تکمیل کنید:'}</p><ul className="mt-2 list-disc space-y-1 ps-5 text-xs leading-6 text-amber-800">{dossierIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div> : null}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
               ['وضعیت پرونده', t(`team.statuses.${dossier.team.status}`, { defaultValue: dossier.team.status })],
               ['تعداد اعضا', `${dossier.members.length.toLocaleString('fa-IR')} نفر`],
@@ -259,7 +279,7 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
             <section className="mt-6"><h3 className="mb-3 font-black text-slate-900">مدارک تیم</h3><div className="flex flex-wrap gap-3">{dossier.documents.map((doc) => <article key={doc.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"><DossierAsset path={doc.file_path} bucket="team-documents" label={doc.doc_type} onOpen={setViewerUrl} /><div className="max-w-44 min-w-0"><strong className="block truncate text-xs text-slate-800">{doc.doc_type === 'team_logo' ? 'لوگوی تیم' : doc.doc_type}</strong><span className="mt-1 block truncate text-[10px] text-slate-400" dir="ltr">{doc.file_path.split('/').pop()}</span></div></article>)}{!dossier.documents.length ? <p className="text-sm text-slate-500">مدرک مستقلی برای تیم ثبت نشده است.</p> : null}</div></section>
             <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4"><h3 className="font-black text-slate-900">پرداخت و فیش واریزی</h3>{dossier.invoice ? <div className="mt-3 flex flex-wrap items-center justify-between gap-4"><div className="text-xs leading-6 text-slate-600"><p>شماره فاکتور: <strong>{dossier.invoice.invoice_number ?? '—'}</strong></p><p>روش پرداخت: <strong>{dossier.invoice.payment_method === 'card_to_card' ? 'کارت به کارت' : 'آنلاین'}</strong></p><p>وضعیت: <strong>{dossier.invoice.status === 'paid' ? 'پرداخت‌شده' : dossier.invoice.receipt_status === 'rejected' ? 'فیش ردشده' : dossier.invoice.receipt_status === 'pending_review' ? 'فیش در انتظار بررسی' : 'پرداخت نشده'}</strong></p></div>{dossier.invoice.receipt_path ? <DossierAsset path={dossier.invoice.receipt_path} bucket="payment-receipts" label="فیش پرداخت" onOpen={setViewerUrl} /> : <span className="rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-500">فیش کارت‌به‌کارت ثبت نشده</span>}</div> : <p className="mt-3 text-sm text-amber-700">هنوز فاکتوری برای این تیم صادر نشده است.</p>}</section>
           </div>
-          <footer className="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7"><p className="text-xs leading-6 text-slate-500">پس از کنترل اطلاعات، اعضا، مدارک و پرداخت، پرونده را به بررسی تخصصی ارجاع دهید.</p><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => setDossier(null)}>بستن</Button><Button type="button" disabled={busy || dossier.members.length === 0} onClick={() => void markReview(dossier.team.id)}>{busy ? 'در حال ارسال…' : 'تأیید کامل بودن و ارسال به بررسی تیم‌ها'}</Button></div></footer>
+          <footer className="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7"><p className="text-xs leading-6 text-slate-500">پس از کنترل اطلاعات، اعضا، مدارک و پرداخت، پرونده را به بررسی تخصصی ارجاع دهید.</p><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => setDossier(null)}>بستن</Button><Button type="button" disabled={busy || dossierIssues.length > 0} onClick={() => void markReview(dossier.team.id)}>{busy ? 'در حال ارسال…' : 'تأیید کامل بودن و ارسال به بررسی تیم‌ها'}</Button></div></footer>
         </div>
       </div> : null}
       {viewerUrl ? <div className="fixed inset-0 z-[200] grid place-items-center bg-slate-950/85 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerUrl('') }}><div className="relative max-h-[90dvh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2"><button type="button" className="absolute end-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-slate-950/75 text-xl text-white" onClick={() => setViewerUrl('')}>×</button><img src={viewerUrl} alt="نمایش مدرک" className="max-h-[86dvh] max-w-full rounded-xl object-contain" /></div></div> : null}

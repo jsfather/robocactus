@@ -15,6 +15,7 @@ import { initializeRealtime, registerRealtimeRoutes } from './realtime.js'
 import { registerStorageRoutes } from './storage.js'
 import { registerKavenegarRoutes } from './kavenegar.js'
 import { registerCaptchaRoutes } from './captcha.js'
+import { migrateStoredSecrets } from './secrets.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -27,6 +28,11 @@ app.use((request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.setHeader('X-Frame-Options', 'SAMEORIGIN')
+  response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)')
+  if (config.isProduction) {
+    response.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://widget.arcaptcha.ir https://widget.arcaptcha.net https://widget.arcaptcha.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://widget.arcaptcha.ir https://widget.arcaptcha.net https://widget.arcaptcha.co; frame-src 'self' https://widget.arcaptcha.ir https://widget.arcaptcha.net https://widget.arcaptcha.co https://www.google.com https://maps.google.com")
+    response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
   const trustedProviderWebhook = request.path.startsWith('/api/kavenegar/webhook/')
   if (!trustedProviderWebhook && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
     const originCheck = checkRequestOrigin(request, [config.appUrl, ...config.allowedOrigins])
@@ -69,7 +75,7 @@ app.get('/env.js', async (_request, response) => {
   const paymentProvider = settings?.payment_provider
     ?? process.env.PAYMENT_PROVIDER
     ?? process.env.VITE_PAYMENT_PROVIDER
-    ?? 'mock'
+    ?? (config.isProduction ? 'zarinpal' : 'mock')
   response.type('application/javascript').setHeader('Cache-Control', 'no-store')
   response.send(`window.__APP_CONFIG__ = ${JSON.stringify({
     VITE_API_URL: process.env.VITE_API_URL ?? '',
@@ -95,6 +101,7 @@ app.use((error: unknown, _request: express.Request, response: express.Response, 
   response.status(500).json({ error: config.isProduction ? 'internal_server_error' : String(error) })
 })
 
+await migrateStoredSecrets()
 await initializeRealtime()
 await fs.promises.mkdir(config.uploadDir, { recursive: true })
 void purgeExpiredSessions()

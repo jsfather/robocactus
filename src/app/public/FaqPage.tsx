@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchStaticPage } from '@/features/leagues/adminApi'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 type FaqItem = { q: string; a: string }
 type FaqCategory = { id: string; title: string; items: FaqItem[] }
@@ -12,7 +13,7 @@ export function FaqPage() {
 
   useEffect(() => {
     void fetchStaticPage('faq')
-      .then((page) => setIntroHtml(page?.body ?? null))
+      .then((page) => setIntroHtml(page?.body ? sanitizeHtml(page.body) : null))
       .catch(() => undefined)
   }, [])
 

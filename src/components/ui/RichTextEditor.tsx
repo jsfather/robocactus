@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadContentMedia } from '@/features/content/api'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 type Props = {
   label: string
@@ -49,14 +50,14 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.innerHTML = value || '<p><br/></p>'
+      ref.current.innerHTML = value ? sanitizeHtml(value) : '<p><br/></p>'
     }
     // Only remount HTML when switching documents — not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [resetKey])
 
   const sync = () => {
-    if (ref.current) onChange(ref.current.innerHTML)
+    if (ref.current) onChange(sanitizeHtml(ref.current.innerHTML))
   }
 
   const exec = (cmd: string, arg?: string) => {

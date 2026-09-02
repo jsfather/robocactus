@@ -34,9 +34,10 @@ export const config = {
   sessionDays: Number.isFinite(configuredSessionDays) && configuredSessionDays >= 1 ? configuredSessionDays : 30,
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './data/uploads'),
   uploadSecret: process.env.UPLOAD_SIGNING_SECRET ?? process.env.SESSION_SECRET ?? 'change-me-in-production',
-  smsMock: (process.env.SMS_MOCK ?? 'true') === 'true',
-  emailMock: (process.env.EMAIL_MOCK ?? 'true') === 'true',
   isProduction: process.env.NODE_ENV === 'production',
+  smsMock: (process.env.SMS_MOCK ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true')) === 'true',
+  emailMock: (process.env.EMAIL_MOCK ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true')) === 'true',
+  databaseCa: process.env.DATABASE_CA?.replace(/\\n/g, '\n'),
 }
 
 if (!config.databaseUrl && config.isProduction) {
@@ -44,4 +45,7 @@ if (!config.databaseUrl && config.isProduction) {
 }
 if (config.isProduction && config.uploadSecret === 'change-me-in-production') {
   throw new Error('UPLOAD_SIGNING_SECRET or SESSION_SECRET is required in production')
+}
+if (config.isProduction && config.smsMock) {
+  throw new Error('SMS_MOCK must be disabled in production')
 }

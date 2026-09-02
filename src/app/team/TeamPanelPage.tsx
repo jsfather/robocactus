@@ -20,10 +20,11 @@ import { ageFromBirthDate, formatAppDate } from '@/lib/dates'
 import type { DocumentRow, ResultRow, Team, TeamMember } from '@/types/database'
 import type { League } from '@/types/database'
 import { backend } from '@/lib/backend'
+import { safeSameOriginUrl } from '@/lib/safe-url'
 
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
-  useEffect(() => { if (!path) { setUrl(''); return }; if (/^https?:/i.test(path)) { setUrl(path); return }; void backend.storage.from('team-documents').createSignedUrl(path, 600).then(({ data }) => setUrl(data.signedUrl)) }, [path])
+  useEffect(() => { if (!path) { setUrl(''); return }; if (/^https?:/i.test(path)) { setUrl(safeSameOriginUrl(path) ?? ''); return }; void backend.storage.from('team-documents').createSignedUrl(path, 600).then(({ data }) => setUrl(data.signedUrl)) }, [path])
   if (!url) return <span className="grid h-20 w-28 place-items-center rounded-xl bg-slate-100 px-2 text-center text-[10px] text-slate-400">تصویری ثبت نشده</span>
   if (/\.pdf(?:$|\?)/i.test(path ?? '')) return <button type="button" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} className="grid h-20 w-28 place-items-center rounded-xl bg-red-50 text-xs font-black text-red-700">PDF · بازکردن</button>
   return <button type="button" onClick={() => onOpen(url)} className="group relative block h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-slate-100"><img src={url} alt={alt} className="size-full object-cover transition group-hover:scale-[1.04]" /><span className="absolute inset-x-0 bottom-0 bg-slate-950/65 py-1 text-[9px] font-bold text-white">مشاهده</span></button>
@@ -31,7 +32,7 @@ function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; o
 
 function EditableMemberAsset({ label, file, stored, privateFile, busy, onChange }: { label: string; file?: File | null; stored?: string | null; privateFile?: boolean; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState('')
-  useEffect(() => { if (file) { const url = URL.createObjectURL(file); setPreview(url); return () => URL.revokeObjectURL(url) }; if (!stored) { setPreview(''); return }; if (!privateFile || /^https?:/i.test(stored)) { setPreview(stored); return }; void backend.storage.from('team-documents').createSignedUrl(stored, 600).then(({ data }) => setPreview(data.signedUrl)) }, [file, privateFile, stored])
+  useEffect(() => { if (file) { const url = URL.createObjectURL(file); setPreview(url); return () => URL.revokeObjectURL(url) }; if (!stored) { setPreview(''); return }; if (!privateFile || /^https?:/i.test(stored)) { setPreview(safeSameOriginUrl(stored) ?? ''); return }; void backend.storage.from('team-documents').createSignedUrl(stored, 600).then(({ data }) => setPreview(data.signedUrl)) }, [file, privateFile, stored])
   return <DocumentUploadField label={label} required value={preview} busy={busy} onSelect={onChange} onRemove={() => onChange(null)} />
 }
 
@@ -78,8 +79,9 @@ export function TeamPanelPage() {
               fetchTeamPublishedResult(row.id).catch(() => null),
               backend.from('leagues').select('*').eq('id', row.league_id).maybeSingle(),
             ])
-            setMembers(m)
-            setMemberEdits(m)
+            const safeMembers = m.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))
+            setMembers(safeMembers)
+            setMemberEdits(safeMembers)
             setDocs(d)
             setResult(r)
             setLeague((leagueResponse.data as League | null) ?? null)
@@ -144,8 +146,9 @@ export function TeamPanelPage() {
           if (idFiles[member.id] && user) await uploadMemberNationalId({ userId: user.id, teamId: team.id, memberId: member.id, file: idFiles[member.id]! })
         }
         const refreshed = await fetchTeamMembers(team.id)
-        setMembers(refreshed)
-        setMemberEdits(refreshed)
+        const safeMembers = refreshed.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))
+        setMembers(safeMembers)
+        setMemberEdits(safeMembers)
         setPhotoFiles({}); setIdFiles({})
         setEditing(false)
       } catch (err) { setError(err instanceof Error ? err.message : t('common.error')) } finally { setSaving(false) }

@@ -44,10 +44,11 @@ async function sendSms(row: Notification): Promise<string> {
   const patterns = settings.sms_patterns ?? JSON.parse(process.env.SMS_PATTERNS ?? process.env.IPPANEL_PATTERNS ?? '{}') as Record<string, string>
   const provider = (settings.sms_provider ?? process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
   const configuredKey = provider === 'kavenegar' ? settings.kavenegar_api_key : settings.ippanel_api_key
-  if (config.smsMock && !configuredKey) {
+  if (!configuredKey && config.smsMock && !config.isProduction) {
     console.log(`[sms:mock] ${row.template_key} -> ${row.phone}`, row.meta ?? {})
     return `MOCK-sms-${Date.now()}`
   }
+  if (!configuredKey) throw new Error('sms_not_configured')
   if (provider === 'kavenegar') {
     const values = templateValues(row)
     const template = String(row.meta?.provider_template ?? patterns[row.template_key] ?? '')
@@ -91,10 +92,11 @@ async function sendEmail(row: Notification): Promise<string> {
     `Tabarestan Cup notification: ${row.template_key}`,
     ...Object.entries(row.meta ?? {}).map(([key, value]) => `${key}: ${String(value)}`),
   ].join('\n')
-  if ((config.emailMock && !settings.email_api_key) || !apiKey) {
+  if (!apiKey && config.emailMock && !config.isProduction) {
     console.log(`[email:mock] ${row.template_key} -> ${row.email}\n${text}`)
     return `MOCK-email-${Date.now()}`
   }
+  if (!apiKey) throw new Error('email_not_configured')
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

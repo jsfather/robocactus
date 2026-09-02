@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate } from '@/lib/dates'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 type Props = { kind: 'article' | 'announcement'; title: string; excerpt?: string | null; body: string; coverImage?: string | null; coverAlt?: string | null; author?: string | null; publishedAt?: string | null; category?: string | null; backTo: string; backLabel: string }
 const plainText = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
 
 export function ArticleDetail(props: Props) {
+  props = { ...props, body: sanitizeHtml(props.body) }
   const { i18n } = useTranslation()
   const isEn = i18n.language.startsWith('en')
   const [copied, setCopied] = useState(false)

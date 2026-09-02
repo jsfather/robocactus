@@ -9,7 +9,7 @@ import { config } from './config.js'
 export const pool = new pg.Pool({
   connectionString: config.databaseUrl,
   max: Number(process.env.DATABASE_POOL_SIZE ?? 10),
-  ssl: config.databaseSsl ? { rejectUnauthorized: false } : undefined,
+  ssl: config.databaseSsl ? { rejectUnauthorized: true, ...(config.databaseCa ? { ca: config.databaseCa } : {}) } : undefined,
 })
 
 export const db = drizzle(pool, { schema })
@@ -70,4 +70,5 @@ export async function purgeExpiredSessions(): Promise<void> {
   await db.execute(sql`delete from app_private.sessions where expires_at <= now()`)
   await db.execute(sql`delete from app_private.one_time_tokens where expires_at <= now() - interval '1 day'`)
   await db.execute(sql`delete from app_private.realtime_events where created_at < now() - interval '7 days'`)
+  await db.execute(sql`delete from app_private.security_rate_limits where reset_at < now() - interval '1 day'`)
 }

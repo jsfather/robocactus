@@ -1,6 +1,9 @@
 import type { Request, Response, Router } from 'express'
 import { sql, type SQL } from 'drizzle-orm'
 import { db, userFromRequest, withRequestRole, type Transaction } from './db.js'
+import { config } from './config.js'
+import { getAuthSettings } from './auth.js'
+import { protectSecret, SECRET_SETTING_FIELDS } from './secrets.js'
 
 type Filter = {
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is' | 'not' | 'contains'
@@ -55,6 +58,13 @@ const CONFLICT_COLUMNS: Record<string, string[]> = {
   static_pages: ['slug'],
   system_notification_reads: ['notification_id', 'user_id'],
   role_section_permissions: ['role_key', 'section_key'],
+}
+const SECRET_COLUMNS = new Set<string>(SECRET_SETTING_FIELDS)
+const CONFIGURED_SECRET = '__configured__'
+
+function redactSecrets(table: string, rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  if (table !== 'auth_settings') return rows
+  return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, SECRET_COLUMNS.has(key) ? (value ? (key === 'kavenegar_webhook_secret' ? null : CONFIGURED_SECRET) : null) : value])))
 }
 
 const RELATIONS: Record<string, Record<string, { table: string; local: string; foreign: string }>> = {
@@ -179,24 +189,31 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
       ? sql` order by ${sql.join(spec.orders.map((order) => sql`base.${identifier(order.column)} ${sql.raw(order.ascending ? 'asc' : 'desc')} ${order.nullsFirst == null ? sql`` : sql.raw(order.nullsFirst ? 'nulls first' : 'nulls last')}`), sql`, `)}`
       : sql``
     const range = spec.range
-    const limitValue = range ? range[1] - range[0] + 1 : spec.limit
-    const limit = limitValue != null ? sql` limit ${Math.max(0, limitValue)}` : sql``
+    const requestedLimit = range ? range[1] - range[0] + 1 : spec.limit
+    const limitValue = requestedLimit == null ? 200 : Math.min(500, Math.max(0, requestedLimit))
+    const limit = sql` limit ${limitValue}`
     const offset = range ? sql` offset ${Math.max(0, range[0])}` : sql``
     const result = await transaction.execute(
       sql`select ${selection(spec.table, spec.select)} from ${table} base${where}${orders}${limit}${offset}`,
     )
-    let data: unknown = result.rows
+    const safeRows = redactSecrets(spec.table, result.rows as Record<string, unknown>[])
+    let data: unknown = safeRows
     if (spec.single === 'single') {
       if (result.rows.length !== 1) throw new Error(`single_row_expected:${result.rows.length}`)
-      data = result.rows[0]
+      data = safeRows[0]
     } else if (spec.single === 'maybeSingle') {
       if (result.rows.length > 1) throw new Error(`single_row_expected:${result.rows.length}`)
-      data = result.rows[0] ?? null
+      data = safeRows[0] ?? null
     }
     return { data, count: spec.count === 'exact' ? result.rows.length : null }
   }
 
-  const inputRows = Array.isArray(spec.values) ? spec.values : [spec.values ?? {}]
+  const inputRows = (Array.isArray(spec.values) ? spec.values : [spec.values ?? {}]).map((row) => {
+    if (spec.table !== 'auth_settings') return row
+    return Object.fromEntries(Object.entries(row)
+      .filter(([key, value]) => !SECRET_COLUMNS.has(key) || (value !== CONFIGURED_SECRET && !(key === 'kavenegar_webhook_secret' && value == null)))
+      .map(([key, value]) => [key, SECRET_COLUMNS.has(key) ? protectSecret(value) : value]))
+  })
   const columns = Object.keys(inputRows[0] ?? {})
   if (!columns.length && spec.action !== 'delete') throw new Error('empty_values')
   columns.forEach((column) => identifier(column))
@@ -225,19 +242,24 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   }
 
   const result = await transaction.execute(statement)
-  let data: unknown = spec.select ? result.rows : null
+  const safeRows = redactSecrets(spec.table, result.rows as Record<string, unknown>[])
+  let data: unknown = spec.select ? safeRows : null
   if (spec.single === 'single') {
     if (result.rows.length !== 1) throw new Error(`single_row_expected:${result.rows.length}`)
-    data = result.rows[0]
+    data = safeRows[0]
   } else if (spec.single === 'maybeSingle') {
     if (result.rows.length > 1) throw new Error(`single_row_expected:${result.rows.length}`)
-    data = result.rows[0] ?? null
+    data = safeRows[0] ?? null
   }
   return { data, count: null }
 }
 
 async function executeRpc(transaction: Transaction, name: string, args: Record<string, unknown>) {
   if (!RPCS.has(name)) throw new Error('rpc_not_allowed')
+  if (name === 'issue_mock_payment_authority' || name === 'apply_payment_result') {
+    const provider = (await getAuthSettings()).payment_provider ?? 'mock'
+    if (config.isProduction || provider !== 'mock') throw new Error('mock_payment_disabled')
+  }
   const financeRpcs = new Set(['admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'review_card_receipt'])
   const ticketRpcs = new Set(['create_ticket_with_department', 'ticket_status_counts', 'list_unread_ticket_ids', 'mark_ticket_read', 'refer_ticket', 'reply_ticket'])
   const chatRpcs = new Set(['close_live_chat_session', 'reply_live_chat_agent'])
@@ -279,9 +301,21 @@ async function enforceTeamReviewPermission(transaction: Transaction): Promise<vo
 }
 
 function sendError(response: Response, error: unknown): void {
-  const message = error instanceof Error ? error.message : String(error)
+  const messages: string[] = []
+  let current: unknown = error
+  for (let depth=0; current && depth<4; depth+=1) {
+    messages.push(current instanceof Error ? current.message : String(current))
+    current = typeof current === 'object' && current !== null && 'cause' in current ? (current as { cause?: unknown }).cause : null
+  }
+  const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
-  response.status(denied ? 403 : 400).json({ error: { message } })
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  if (config.isProduction && !known && !denied) {
+    console.error('[query] unexpected failure', error)
+    response.status(500).json({ error: { message: 'internal_server_error' } })
+    return
+  }
+  response.status(denied ? 403 : 400).json({ error: { message: denied ? 'forbidden' : (known ?? message) } })
 }
 
 export function registerQueryRoutes(router: Router): void {

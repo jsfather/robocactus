@@ -4,6 +4,7 @@ import multer from 'multer'
 import { sql } from 'drizzle-orm'
 import { db, userFromRequest, type AuthUser } from './db.js'
 import { getAuthSettings } from './auth.js'
+import { protectSecret } from './secrets.js'
 
 type Scalar = string | number | boolean
 type Params = Record<string, Scalar | Scalar[] | null | undefined>
@@ -285,7 +286,7 @@ export function registerKavenegarRoutes(router: Router): void {
     const user = await requireSuperAdminRequest(request)
     if (!user) return void response.status(403).json({ error: 'forbidden' })
     const secret = randomBytes(24).toString('base64url')
-    await db.execute(sql`update public.auth_settings set kavenegar_webhook_secret = ${secret}, updated_at = now() where id = 1`)
+    await db.execute(sql`update public.auth_settings set kavenegar_webhook_secret = ${protectSecret(secret)}, updated_at = now() where id = 1`)
     response.json({ secret })
   })
 

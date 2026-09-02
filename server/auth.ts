@@ -6,9 +6,10 @@ import { oneTimeTokens, sessions, users } from '../db/schema.js'
 import { config } from './config.js'
 import { db, hashToken, type AuthUser, userFromRequest } from './db.js'
 import { verifyCaptcha } from './captcha.js'
+import { rateLimited } from './rate-limit.js'
+import { revealSecret, SECRET_SETTING_FIELDS } from './secrets.js'
 
 const scrypt = promisify(scryptCallback)
-const attempts = new Map<string, { count: number; resetAt: number }>()
 const cookieOptions: CookieOptions = {
   httpOnly: true,
   sameSite: 'lax',
@@ -25,22 +26,6 @@ function publicUser(row: typeof users.$inferSelect): AuthUser {
     user_metadata: (row.rawUserMetaData ?? {}) as Record<string, unknown>,
     created_at: row.createdAt.toISOString(),
   }
-}
-
-function rateLimited(key: string, maximum: number, windowMs: number): boolean {
-  const now = Date.now()
-  if (attempts.size > 5000) {
-    for (const [attemptKey, value] of attempts) {
-      if (value.resetAt <= now) attempts.delete(attemptKey)
-    }
-  }
-  const current = attempts.get(key)
-  if (!current || current.resetAt <= now) {
-    attempts.set(key, { count: 1, resetAt: now + windowMs })
-    return false
-  }
-  current.count += 1
-  return current.count > maximum
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -139,9 +124,12 @@ const defaultAuthSettings: AuthSettings = {
 export async function getAuthSettings(includeSecrets = false): Promise<AuthSettings> {
   const result = await db.execute(sql.raw(`select * from public.auth_settings where id = 1 limit 1`))
     .catch(() => ({ rows: [] as Record<string, unknown>[] }))
-  const row = result.rows[0] as Partial<AuthSettings> | undefined
+  const rawRow = result.rows[0] as Record<string, unknown> | undefined
+  const decodedRow = rawRow ? { ...rawRow } : undefined
+  if (decodedRow) for (const field of SECRET_SETTING_FIELDS) decodedRow[field] = revealSecret(decodedRow[field])
+  const row = decodedRow as Partial<AuthSettings> | undefined
   const settings = { ...defaultAuthSettings, ...(row ?? {}) }
-  settings.payment_provider ??= (process.env.PAYMENT_PROVIDER ?? process.env.VITE_PAYMENT_PROVIDER ?? 'mock') as 'mock' | 'zarinpal'
+  settings.payment_provider ??= (process.env.PAYMENT_PROVIDER ?? process.env.VITE_PAYMENT_PROVIDER ?? (config.isProduction ? 'zarinpal' : 'mock')) as 'mock' | 'zarinpal'
   if (!includeSecrets) {
     delete settings.email_api_key
     delete settings.email_provider
@@ -199,10 +187,11 @@ async function createOneTimeToken(userId: string, kind: string, redirectTo?: str
 async function sendMagicLink(email: string, link: string): Promise<void> {
   const emailSettings = await getAuthSettings(true)
   const apiKey = emailSettings.email_api_key || process.env.RESEND_API_KEY
-  if ((config.emailMock && !emailSettings.email_api_key) || !apiKey) {
+  if (!apiKey && config.emailMock && !config.isProduction) {
     console.log(`[email:mock] magic link for ${email}: ${link}`)
     return
   }
+  if (!apiKey) throw new Error('email_not_configured')
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -219,10 +208,11 @@ async function sendMagicLink(email: string, link: string): Promise<void> {
 async function sendPasswordResetLink(email: string, link: string): Promise<void> {
   const emailSettings = await getAuthSettings(true)
   const apiKey = emailSettings.email_api_key || process.env.RESEND_API_KEY
-  if ((config.emailMock && !emailSettings.email_api_key) || !apiKey) {
+  if (!apiKey && config.emailMock && !config.isProduction) {
     console.log(`[email:mock] password reset for ${email}: ${link}`)
     return
   }
+  if (!apiKey) throw new Error('email_not_configured')
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -239,7 +229,7 @@ async function sendPasswordResetLink(email: string, link: string): Promise<void>
 async function emailDeliveryIsMock(): Promise<boolean> {
   const settings = await getAuthSettings(true)
   const apiKey = settings.email_api_key || process.env.RESEND_API_KEY
-  return !apiKey || (config.emailMock && !settings.email_api_key)
+  return !config.isProduction && !apiKey && config.emailMock
 }
 
 export function registerAuthRoutes(router: Router): void {
@@ -260,7 +250,7 @@ export function registerAuthRoutes(router: Router): void {
     }
     const captcha = await verifyCaptcha(request, 'login')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
-    if (rateLimited(`sign-in:${request.ip}`, 15, 15 * 60 * 1000)) {
+    if (await rateLimited(`sign-in:${request.ip}`, 15, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
     }
@@ -286,7 +276,7 @@ export function registerAuthRoutes(router: Router): void {
     }
     const captcha = await verifyCaptcha(request, 'signup')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
-    if (rateLimited(`sign-up:${request.ip}`, 10, 60 * 60 * 1000)) {
+    if (await rateLimited(`sign-up:${request.ip}`, 10, 60 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
     }
@@ -347,7 +337,7 @@ export function registerAuthRoutes(router: Router): void {
     const captcha = await verifyCaptcha(request, 'login')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const email = String(request.body?.email ?? '').trim().toLowerCase()
-    if (rateLimited(`magic-link:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
+    if (await rateLimited(`magic-link:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
     }
@@ -371,7 +361,7 @@ export function registerAuthRoutes(router: Router): void {
     const captcha = await verifyCaptcha(request, 'password_reset')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const email = String(request.body?.email ?? '').trim().toLowerCase()
-    if (rateLimited(`password-reset:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
+    if (await rateLimited(`password-reset:${request.ip}:${email}`, 5, 15 * 60 * 1000)) {
       response.status(429).json({ error: 'too_many_attempts' })
       return
     }
@@ -431,7 +421,7 @@ export function registerAuthRoutes(router: Router): void {
     const currentPassword = String(request.body?.currentPassword ?? '')
     const newPassword = String(request.body?.newPassword ?? '')
     if (!strongPassword(newPassword)) return void response.status(400).json({ error: 'password_too_weak' })
-    if (rateLimited(`password-change:${actor.id}:${request.ip}`, 8, 15 * 60 * 1000)) return void response.status(429).json({ error: 'too_many_attempts' })
+    if (await rateLimited(`password-change:${actor.id}:${request.ip}`, 8, 15 * 60 * 1000)) return void response.status(429).json({ error: 'too_many_attempts' })
     const rows = await db.select().from(users).where(eq(users.id, actor.id)).limit(1)
     const user = rows[0]
     if (!user || !(await verifyPassword(currentPassword, user.encryptedPassword))) return void response.status(400).json({ error: 'current_password_invalid' })

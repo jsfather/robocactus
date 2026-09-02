@@ -20,7 +20,7 @@ for (const filename of ['.env', '.env.local']) {
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required')
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true, ...(process.env.DATABASE_CA ? { ca: process.env.DATABASE_CA.replace(/\\n/g, '\n') } : {}) } : undefined,
 })
 const db = drizzle(pool)
 const scrypt = promisify(scryptCallback)

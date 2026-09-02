@@ -12,7 +12,10 @@ test('team people remain dependent records rather than CRM accounts', () => {
 })
 
 test('password management exists for account owner and super admin', () => {
-  assert.match(read('src/app/panel/AccountProfilePage.tsx'), /current-password[\s\S]*new-password/)
+  const profilePage = read('src/app/panel/AccountProfilePage.tsx')
+  const passwordField = read('src/components/auth/PasswordField.tsx')
+  assert.match(profilePage, /autoComplete="current-password"[\s\S]*showStrength=\{false\}/)
+  assert.match(passwordField, /autoComplete = 'new-password'/)
   assert.match(read('server/auth.ts'), /admin\/users\/:userId\/password[\s\S]*transaction\.delete\(sessions\)/)
 })
 

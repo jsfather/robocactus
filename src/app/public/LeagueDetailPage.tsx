@@ -11,6 +11,16 @@ import { formatAmountToman } from '@/features/payments/api'
 import { formatAppDateTime, leagueCoverUrl } from '@/lib/dates'
 import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
 import type { LeaguePerson, LeagueSponsor } from '@/types/database'
+import { sanitizeHtml } from '@/lib/sanitize'
+
+function safeMapEmbedUrl(value?: string | null): string | null {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    const host = url.hostname.toLowerCase()
+    return url.protocol === 'https:' && (host === 'google.com' || host.endsWith('.google.com') || host === 'googleusercontent.com' || host.endsWith('.googleusercontent.com')) ? url.toString() : null
+  } catch { return null }
+}
 
 function CountdownHud({ target }: { target: string }) {
   const { t, i18n } = useTranslation()
@@ -228,6 +238,7 @@ export function LeagueDetailPage() {
   const canRegister = period === 'open'
   const regPath = user ? '/dashboard' : canRegister ? '/signup' : '/login'
   const cover = leagueCoverUrl(league)
+  const mapEmbedUrl = safeMapEmbedUrl(league.venue_map_embed_url)
   const showCountdown =
     Boolean(league.event_starts_at) && new Date(league.event_starts_at!).getTime() > Date.now()
 
@@ -238,7 +249,7 @@ export function LeagueDetailPage() {
     /<\/?[a-z][\s\S]*>/i.test(html) ? (
       <div
         className="max-w-3xl leading-relaxed text-rc-muted [&_a]:text-rc-blue [&_h2]:text-rc-text [&_strong]:text-rc-text"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
       />
     ) : (
       <p className="max-w-3xl whitespace-pre-wrap leading-relaxed text-rc-muted">{html}</p>
@@ -702,7 +713,7 @@ export function LeagueDetailPage() {
                   <p className="mt-1 font-semibold">{n.title}</p>
                   <div
                     className="mt-2 text-sm text-rc-muted"
-                    dangerouslySetInnerHTML={{ __html: n.body }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(n.body) }}
                   />
                 </li>
               ))}
@@ -755,13 +766,15 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {league.venue_map_embed_url && (
+        {mapEmbedUrl && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.map')}>
             <div className="relative border border-rc-line">
               <Corners />
               <iframe
                 title="map"
-                src={league.venue_map_embed_url}
+                src={mapEmbedUrl}
+                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer"
                 className="h-80 w-full"
                 loading="lazy"
               />

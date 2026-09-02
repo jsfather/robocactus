@@ -8,9 +8,9 @@ import { createOneTimeToken, getAuthSettings } from './auth.js'
 import { sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 import { verifyCaptcha } from './captcha.js'
 import { classifyOtpChallenge } from './otp-state.js'
+import { rateLimited } from './rate-limit.js'
 
 const MAX_ATTEMPTS = 5
-const requestWindows = new Map<string, { count: number; resetAt: number }>()
 const captchaGrants = new Map<string, number>()
 
 function captchaGrantKey(request: Request, phone: string, purpose: string) {
@@ -19,23 +19,6 @@ function captchaGrantKey(request: Request, phone: string, purpose: string) {
     for (const [key, expiresAt] of captchaGrants) if (expiresAt <= now) captchaGrants.delete(key)
   }
   return `${request.ip ?? 'unknown'}:${phone}:${purpose}`
-}
-
-function ipRateLimited(ip: string | undefined): boolean {
-  const key = ip ?? 'unknown'
-  const now = Date.now()
-  if (requestWindows.size > 5000) {
-    for (const [windowKey, value] of requestWindows) {
-      if (value.resetAt <= now) requestWindows.delete(windowKey)
-    }
-  }
-  const current = requestWindows.get(key)
-  if (!current || current.resetAt <= now) {
-    requestWindows.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 })
-    return false
-  }
-  current.count += 1
-  return current.count > 20
 }
 
 function normalizeIranPhone(raw: string): string | null {
@@ -54,10 +37,11 @@ async function sendOtp(phone: string, code: string): Promise<{ mock: boolean }> 
   const settings = await getAuthSettings(true)
   const provider = (settings.sms_provider ?? process.env.SMS_PROVIDER ?? 'ippanel').toLowerCase()
   const configuredKey = provider === 'kavenegar' ? settings.kavenegar_api_key : settings.ippanel_api_key
-  if (config.smsMock && !configuredKey) {
+  if (!configuredKey && config.smsMock && !config.isProduction) {
     console.log(`[sms:mock] OTP for ${phone}: ${code}`)
     return { mock: true }
   }
+  if (!configuredKey) throw new Error('sms_not_configured')
   if (provider === 'kavenegar') {
     const template = settings.sms_patterns?.auth_otp ?? JSON.parse(process.env.SMS_PATTERNS ?? '{}').auth_otp
     if (!template) {
@@ -139,19 +123,16 @@ export function registerOtpRoutes(router: Router): void {
           }
         }
 
-        if (purpose === 'password_reset') {
-          const resetUser = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
-          if (!resetUser) {
-            response.status(400).json({ error: 'account_not_found' })
-            return
-          }
-          const resetToken = await createOneTimeToken(resetUser.id, 'password_reset', '/reset-password')
-          response.json({ ok: true, password_reset_token: resetToken })
-          return
-        }
-        if (ipRateLimited(request.ip)) {
+        if (await rateLimited(`sms-otp:${request.ip ?? 'unknown'}`, 20, 15 * 60 * 1000)) {
           response.status(429).json({ error: 'too_many_attempts' })
           return
+        }
+        if (purpose === 'password_reset') {
+          const resetUser = (await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1))[0]
+          if (!resetUser) {
+            response.json({ ok: true, challenge_id: randomUUID(), expires_in_sec: 300, resend_after_sec: 60 })
+            return
+          }
         }
         const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
         const issued = await db.transaction(async (transaction) => {
@@ -196,7 +177,7 @@ export function registerOtpRoutes(router: Router): void {
           server_time: issued.row?.server_time,
           expires_in_sec: Number(issued.row?.expires_in_sec ?? 0),
           resend_after_sec: 60,
-          ...(issued.mock ? { dev_code: code } : {}),
+          ...(issued.mock && !config.isProduction ? { dev_code: code } : {}),
         })
         return
       }
@@ -243,6 +224,21 @@ export function registerOtpRoutes(router: Router): void {
           return
         }
 
+        if (purpose === 'password_reset') {
+          const resetUser = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
+          if (!resetUser) {
+            response.status(400).json({ error: 'invalid_session' })
+            return
+          }
+          await db.execute(sql`
+            update app_private.one_time_tokens set used_at=now()
+            where user_id=${resetUser.id}::uuid and kind='password_reset' and used_at is null
+          `)
+          const resetToken = await createOneTimeToken(resetUser.id, 'password_reset', '/reset-password')
+          response.json({ ok: true, password_reset_token: resetToken })
+          return
+        }
+
         let user = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
         const isNewUser = !user
         const fullName = String(request.body?.full_name ?? '').trim()
@@ -277,7 +273,7 @@ export function registerOtpRoutes(router: Router): void {
       response.status(400).json({ error: 'invalid_action' })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const known = new Set(['authentication_required', 'phone_in_use', 'account_not_found', 'phone_signup_disabled', 'session_failed'])
+      const known = new Set(['authentication_required', 'phone_in_use', 'phone_signup_disabled', 'session_failed', 'sms_not_configured'])
       if (known.has(message)) {
         response.status(message === 'phone_in_use' ? 409 : message === 'authentication_required' ? 401 : 400).json({ error: message })
         return
