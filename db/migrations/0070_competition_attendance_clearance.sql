@@ -161,21 +161,83 @@ create trigger create_league_attendance_settings after insert on public.leagues 
 
 create or replace function public.upsert_team_technical_file(p_team_id uuid,p_kind text,p_file_path text,p_original_name text,p_mime_type text,p_size_bytes bigint)
 returns public.team_technical_files language plpgsql security definer set search_path=public as $$
-declare v_row team_technical_files%rowtype; v_setting league_attendance_settings%rowtype;
+declare
+  v_row public.team_technical_files%rowtype;
+  v_setting public.league_attendance_settings%rowtype;
+  v_allowed boolean := false;
+  v_file_owned boolean := false;
+  v_max_bytes bigint;
+  v_technical_status text;
 begin
-  if p_kind not in ('article','robot_video') then raise exception 'invalid_file_kind'; end if;
-  if not exists(select 1 from teams t left join company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid() where t.id=p_team_id and (t.captain_id=auth.uid() or cm.user_id is not null)) then raise exception 'forbidden'; end if;
-  select s.* into v_setting from league_attendance_settings s join teams t on t.league_id=s.league_id where t.id=p_team_id;
-  if p_size_bytes<=0 or p_size_bytes>case when p_kind='article' then coalesce(v_setting.article_max_bytes,94371840) else coalesce(v_setting.video_max_bytes,94371840) end then raise exception 'file_too_large'; end if;
-  if p_kind='article' and p_mime_type not in ('application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document') then raise exception 'invalid_file_type'; end if;
-  if p_kind='robot_video' and p_mime_type not in ('video/mp4','video/webm','video/quicktime') then raise exception 'invalid_file_type'; end if;
-  if split_part(p_file_path,'/',1)<>p_team_id::text or not exists(select 1 from storage.objects where bucket_id='technical-submissions' and name=p_file_path and owner=auth.uid()) then raise exception 'invalid_file_reference'; end if;
-  if (select technical_status from public.sync_team_attendance(p_team_id)) not in ('draft','rejected') then raise exception 'technical_submission_locked'; end if;
-  insert into team_technical_files(team_id,kind,file_path,original_name,mime_type,size_bytes,uploaded_by)
+  if p_kind not in ('article', 'robot_video') then
+    raise exception 'invalid_file_kind';
+  end if;
+
+  select exists (
+    select 1
+    from public.teams t
+    left join public.company_members cm
+      on cm.company_id = t.company_id
+     and cm.user_id = auth.uid()
+    where t.id = p_team_id
+      and (t.captain_id = auth.uid() or cm.user_id is not null)
+  ) into v_allowed;
+  if not v_allowed then
+    raise exception 'forbidden';
+  end if;
+
+  select s.*
+    into v_setting
+  from public.league_attendance_settings s
+  join public.teams t on t.league_id = s.league_id
+  where t.id = p_team_id;
+  if not found then
+    raise exception 'attendance_settings_not_found';
+  end if;
+
+  v_max_bytes := case
+    when p_kind = 'article' then coalesce(v_setting.article_max_bytes, 94371840)
+    else coalesce(v_setting.video_max_bytes, 94371840)
+  end;
+  if p_size_bytes <= 0 or p_size_bytes > v_max_bytes then
+    raise exception 'file_too_large';
+  end if;
+  if p_kind = 'article' and p_mime_type not in (
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) then
+    raise exception 'invalid_file_type';
+  end if;
+  if p_kind = 'robot_video' and p_mime_type not in ('video/mp4', 'video/webm', 'video/quicktime') then
+    raise exception 'invalid_file_type';
+  end if;
+  if split_part(p_file_path, '/', 1) <> p_team_id::text then
+    raise exception 'invalid_file_reference';
+  end if;
+
+  select exists (
+    select 1
+    from storage.objects o
+    where o.bucket_id = 'technical-submissions'
+      and o.name = p_file_path
+      and o.owner = auth.uid()
+  ) into v_file_owned;
+  if not v_file_owned then
+    raise exception 'invalid_file_reference';
+  end if;
+
+  select a.technical_status
+    into v_technical_status
+  from public.sync_team_attendance(p_team_id) a;
+  if v_technical_status not in ('draft', 'rejected') then
+    raise exception 'technical_submission_locked';
+  end if;
+
+  insert into public.team_technical_files(team_id,kind,file_path,original_name,mime_type,size_bytes,uploaded_by)
   values(p_team_id,p_kind,p_file_path,left(p_original_name,255),p_mime_type,p_size_bytes,auth.uid())
   on conflict(team_id,kind) do update set file_path=excluded.file_path,original_name=excluded.original_name,mime_type=excluded.mime_type,size_bytes=excluded.size_bytes,uploaded_by=auth.uid(),updated_at=now()
   returning * into v_row;
-  update team_attendance_clearances set technical_status='draft',technical_rejection_reason=null,updated_at=now() where team_id=p_team_id;
+  update public.team_attendance_clearances set technical_status='draft',technical_rejection_reason=null,updated_at=now() where team_id=p_team_id;
   return v_row;
 end $$;
 
