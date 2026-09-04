@@ -615,7 +615,42 @@ main[data-panel-section="system"] .panel-page-head { background: linear-gradient
 .otp-success { animation: otp-success-pulse .7s ease-in-out; }
 .otp-error { animation: otp-shake .32s ease-in-out; }
 
+/* Panel 5.0 — deliberately quiet workspace: hierarchy comes from type and spacing, not decoration. */
+.panel-shell-v4 {
+  background: #f7f9fa !important;
+}
+.panel-sidebar-v4 {
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.panel-topbar-v5 {
+  background: rgb(255 255 255 / .94) !important;
+  box-shadow: none !important;
+  color: #123047 !important;
+}
+.panel-nav-link { border-radius: .65rem !important; }
+.panel-sidebar-v4 .panel-nav-link.is-active {
+  background: #edf8f6 !important;
+  color: #076c59 !important;
+  box-shadow: none !important;
+}
+.panel-sidebar-v4 .panel-nav-link.is-active > span > span:first-child {
+  background: transparent !important;
+  color: #07816b !important;
+}
+.panel-nav-link.is-active::before { display: none; }
+.panel-sidebar-profile { background: transparent !important; border-radius: 0 !important; }
+.panel-page-head { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }
+.panel-page-head::after { display: none; }
+.panel-page-body > [class*="rounded-"] { border-radius: 1rem; }
+.dashboard-welcome {
+  background: #073b55 !important;
+  border-radius: 1rem !important;
+  box-shadow: none !important;
+}
+.dashboard-welcome > span { display: none; }
+
 @media (max-width: 1023px) {
   .panel-topbar-v4 { top: .5rem; margin-top: .5rem; }
-  .panel-page-head { border-radius: 1.35rem !important; }
+  .panel-page-head { border-radius: 0 !important; }
 }

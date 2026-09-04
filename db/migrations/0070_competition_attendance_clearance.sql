@@ -93,27 +93,31 @@ create policy technical_files_read on public.team_technical_files for select to 
   or (public.has_panel_permission('team_review') and exists(select 1 from public.teams t join public.league_admins la on la.league_id=t.league_id where t.id=team_id and la.user_id=auth.uid()))
 );
 
-create policy technical_submission_storage_read on storage.objects for select to authenticated using (
-  bucket_id='technical-submissions' and (
-    owner=auth.uid() or public.is_super_admin() or exists(
-      select 1 from public.teams t left join public.company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid()
-      where t.id=(storage.foldername(name))[1]::uuid and (t.captain_id=auth.uid() or cm.user_id is not null
-        or (public.has_panel_permission('team_review') and exists(select 1 from public.league_admins la where la.league_id=t.league_id and la.user_id=auth.uid())))
-    )
-  )
-);
-create policy technical_submission_storage_write on storage.objects for insert to authenticated with check (
-  bucket_id='technical-submissions' and owner=auth.uid() and exists(
-    select 1 from public.teams t left join public.company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid()
-    where t.id=(storage.foldername(name))[1]::uuid and (t.captain_id=auth.uid() or cm.user_id is not null)
-  )
-);
-create policy technical_submission_storage_delete on storage.objects for delete to authenticated using (
-  bucket_id='technical-submissions' and owner=auth.uid() and exists(
-    select 1 from public.teams t left join public.company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid()
-    where t.id=(storage.foldername(name))[1]::uuid and (t.captain_id=auth.uid() or cm.user_id is not null)
-  )
-);
+create or replace function public.can_access_technical_submission(p_path text, p_write boolean default false)
+returns boolean language sql stable security definer set search_path=public as $$
+  select public.is_super_admin() or exists (
+    select 1
+    from public.teams t
+    left join public.company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid()
+    where t.id::text=(storage.foldername(p_path))[1]
+      and (
+        t.captain_id=auth.uid()
+        or cm.user_id is not null
+        or (not p_write and public.has_panel_permission('team_review') and exists (
+          select 1 from public.league_admins la where la.league_id=t.league_id and la.user_id=auth.uid()
+        ))
+      )
+  );
+$$;
+drop policy if exists technical_submission_storage_read on storage.objects;
+drop policy if exists technical_submission_storage_write on storage.objects;
+drop policy if exists technical_submission_storage_delete on storage.objects;
+create policy technical_submission_storage_read on storage.objects for select to authenticated
+using (bucket_id='technical-submissions' and (owner=auth.uid() or public.can_access_technical_submission(name, false)));
+create policy technical_submission_storage_write on storage.objects for insert to authenticated
+with check (bucket_id='technical-submissions' and owner=auth.uid() and public.can_access_technical_submission(name, true));
+create policy technical_submission_storage_delete on storage.objects for delete to authenticated
+using (bucket_id='technical-submissions' and owner=auth.uid() and public.can_access_technical_submission(name, true));
 
 create or replace function public.sync_team_attendance(p_team_id uuid)
 returns public.team_attendance_clearances language plpgsql security definer set search_path=public as $$

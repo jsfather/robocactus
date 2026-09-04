@@ -123,9 +123,8 @@ export function SuperAdminHomePage() {
       title={t('panel.dashboardTitle')}
       description={t('admin.home.subtitle')}
     >
-      <div className="role-welcome dashboard-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#07374d] via-[#087eb8] to-[#087a58] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.24)] sm:p-8">
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5"><div><p className="text-sm font-black text-emerald-200">مرکز عملیات جام تبرستان</p><h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">خوش آمدید، {profile?.full_name ?? user?.email}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">وضعیت ثبت‌نام‌ها، امور مالی، پشتیبانی و محتوای سایت را از یک نمای یکپارچه مدیریت کنید.</p></div><Link to="/super-admin/analytics" className="rounded-2xl border border-white/25 bg-[#ffffff18] px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-[#ffffff2b]">مشاهده گزارش تحلیلی</Link></div>
-        <span className="absolute -start-12 -top-20 size-64 rounded-full border-[35px] border-white/5" /><span className="absolute -bottom-24 end-10 size-60 rounded-full bg-white/5" />
+      <div className="role-welcome dashboard-welcome relative overflow-hidden border-s-4 border-emerald-400 bg-[#073b55] p-6 text-white sm:p-7">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5"><div><p className="text-xs font-black tracking-[0.12em] text-emerald-200">مرکز مدیریت</p><h2 className="mt-2 text-2xl font-black text-white">خوش آمدید، {profile?.full_name ?? user?.email}</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-200">خلاصه وضعیت سامانه و کارهای نیازمند رسیدگی را از اینجا دنبال کنید.</p></div><Link to="/super-admin/analytics" className="border border-white/25 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/10">گزارش تحلیلی</Link></div>
       </div>
       {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
 

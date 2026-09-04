@@ -95,6 +95,7 @@ function SidebarNav({
   const { profile } = useAuth()
   const { count } = useUnreadTicketCount()
   const groups = useMemo(() => panelsForRole(role), [role])
+  const items = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const [enabledPermissions, setEnabledPermissions] = useState<Set<string> | null>(() => role === 'super_admin' || role === 'company_admin' || role === 'team_captain' ? null : new Set())
   useEffect(() => {
     if (role === 'super_admin' || role === 'company_admin' || role === 'team_captain') { setEnabledPermissions(null); return }
@@ -103,40 +104,33 @@ function SidebarNav({
   }, [profile?.staff_department, role])
 
   return (
-    <nav className="panel-nav-scroll flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
-      {groups.map((group) => (
-        <div key={group.id}>
-          <p className="mb-2.5 px-3 text-[11px] font-black tracking-[0.08em] text-slate-500 uppercase">
-            {t(group.titleKey)}
-          </p>
-          <ul className="space-y-1">
-            {group.items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    [
-                      'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
-                      isActive
-                        ? 'is-active border-sky-200 bg-sky-50 text-sky-900 shadow-[0_8px_22px_rgb(8_126_184/0.10)]'
-                        : 'text-slate-700 hover:border-sky-100 hover:bg-white hover:text-sky-800',
-                    ].join(' ')
-                  }
-                >
-                  <span className="flex min-w-0 items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition group-hover:bg-sky-100 group-hover:text-sky-700"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
-                  {item.badge === 'tickets' && count > 0 ? (
-                    <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
-                      {count > 99 ? '99+' : count}
-                    </span>
-                  ) : null}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+    <nav className="panel-nav-scroll flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+      <ul className="space-y-1">
+        {items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              end={item.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                [
+                  'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
+                  isActive
+                    ? 'is-active border-sky-200 bg-sky-50 text-sky-900 shadow-[0_8px_22px_rgb(8_126_184/0.10)]'
+                    : 'text-slate-700 hover:border-sky-100 hover:bg-white hover:text-sky-800',
+                ].join(' ')
+              }
+            >
+              <span className="flex min-w-0 items-center gap-3"><span className="grid size-7 shrink-0 place-items-center text-slate-500 transition group-hover:text-sky-700"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
+              {item.badge === 'tickets' && count > 0 ? (
+                <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
+                  {count > 99 ? '99+' : count}
+                </span>
+              ) : null}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
     </nav>
   )
 }
@@ -242,23 +236,15 @@ export function PanelShell() {
 
   return (
     <div className="panel-shell panel-shell-v4 relative flex min-h-dvh w-full max-w-full overflow-x-clip text-rc-text">
-      <div
-        className="pointer-events-none fixed inset-0 opacity-40"
-        style={{
-          background:
-            'radial-gradient(ellipse 50% 40% at 80% 0%, var(--rc-glow-blue), transparent), radial-gradient(ellipse 40% 30% at 10% 100%, var(--rc-glow-orange), transparent)',
-        }}
-      />
-
-      <aside className="panel-sidebar panel-sidebar-v4 fixed inset-y-3 right-3 z-30 hidden w-[18.5rem] flex-col overflow-hidden rounded-[2rem] border border-slate-200 lg:flex">
-        <div className="border-b border-slate-200 px-5 py-5">
+      <aside className="panel-sidebar panel-sidebar-v4 fixed inset-y-0 right-0 z-30 hidden w-[17.5rem] flex-col overflow-hidden border-s border-slate-200 lg:flex">
+        <div className="border-b border-slate-200 px-5 py-6">
           <Link to={home} className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-emerald-50 text-xl font-black text-[#087eb8] shadow-lg shadow-black/15">ت</span>
-            <span><span className="block text-base font-black text-slate-900">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-bold tracking-wide text-slate-500">TABARESTAN CONTROL CENTER</span></span>
+            <span className="flex size-10 items-center justify-center rounded-xl bg-[#073b55] text-lg font-black text-white">ت</span>
+            <span><span className="block text-base font-black text-slate-900">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-bold tracking-wide text-slate-500">PANEL</span></span>
           </Link>
         </div>
         <SidebarNav role={role} />
-        <div className="panel-sidebar-profile m-3 rounded-2xl border border-slate-200 p-3.5">
+        <div className="panel-sidebar-profile m-3 border-t border-slate-200 pt-3.5">
           <div className="flex items-center gap-3"><span className="grid size-9 overflow-hidden place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700">{profile.avatar_url ? <img src={profile.avatar_url} alt="" className="size-full object-cover" /> : (profile.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">{participantManagerLabel}</p></span></div>
         </div>
       </aside>
@@ -271,7 +257,7 @@ export function PanelShell() {
             aria-label="close"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="panel-sidebar-v4 absolute inset-y-0 right-0 flex w-[min(19rem,88vw)] flex-col border-l border-slate-200 shadow-2xl">
+          <aside className="panel-sidebar-v4 absolute inset-y-0 right-0 flex w-[min(19rem,88vw)] flex-col border-s border-slate-200 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
               <p className="text-sm font-bold text-slate-900">{t('panel.shellTitle')}</p>
               <button
@@ -287,9 +273,9 @@ export function PanelShell() {
         </div>
       ) : null}
 
-      <div className="relative flex min-h-dvh min-w-0 w-full flex-1 flex-col lg:pr-[19.5rem]">
-        <header className="panel-topbar panel-topbar-v5 sticky top-3 z-20 mx-3 mt-3 overflow-visible rounded-2xl border border-slate-200 lg:mx-5">
-          <div className="flex min-h-[4.5rem] items-center gap-3 px-4 md:px-5">
+      <div className="relative flex min-h-dvh min-w-0 w-full flex-1 flex-col lg:pr-[17.5rem]">
+        <header className="panel-topbar panel-topbar-v5 sticky top-0 z-20 overflow-visible border-b border-slate-200">
+          <div className="flex min-h-[4.25rem] items-center gap-3 px-4 md:px-7">
             <button
               type="button"
               className="rounded-xl border border-rc-line bg-slate-50 p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden"
@@ -322,7 +308,7 @@ export function PanelShell() {
           </div>
         </header>
 
-        <main data-panel-section={active?.id ?? 'account'} className="relative min-w-0 max-w-full flex-1 overflow-x-clip px-3 py-6 sm:px-5 md:py-8 lg:px-7">
+        <main data-panel-section={active?.id ?? 'account'} className="relative min-w-0 max-w-full flex-1 overflow-x-clip px-4 py-6 sm:px-6 md:py-8 lg:px-8">
           <div className="relative">
             <AccountPendingBanner />
             <AccountIssuesPanel />
@@ -350,13 +336,12 @@ export function PanelPage({
   children: ReactNode
 }) {
   return (
-    <div className="panel-page mx-auto max-w-[90rem] space-y-6">
+    <div className="panel-page mx-auto max-w-[88rem] space-y-7">
       {(title || actions) && (
-        <div className="panel-page-head relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white px-5 py-6 shadow-[0_18px_60px_rgb(18_76_98/0.08)] sm:px-7 sm:py-7">
-          <div className="pointer-events-none absolute inset-y-0 start-0 w-1.5 bg-gradient-to-b from-rc-blue via-cyan-400 to-emerald-400" />
+        <div className="panel-page-head border-b border-slate-200 pb-6 sm:pb-7">
           <div className="flex flex-wrap items-center justify-between gap-5"><div>
             {index ? (
-              <p className="mb-2 inline-flex rounded-lg bg-sky-50 px-2.5 py-1 text-[10px] font-black tracking-[0.08em] text-rc-blue uppercase">
+              <p className="mb-2 text-[10px] font-black tracking-[0.12em] text-emerald-700 uppercase">
                 {index}
               </p>
             ) : null}
