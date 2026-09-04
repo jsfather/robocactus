@@ -37,6 +37,7 @@ import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
 import { fetchAttendance, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TechnicalFile } from '@/features/attendance/api'
+import { backend } from '@/lib/backend'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -76,6 +77,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
   const [technicalFiles, setTechnicalFiles] = useState<TechnicalFile[]>([])
   const [technicalRejectReason, setTechnicalRejectReason] = useState('')
+  const [clearedTeamIds, setClearedTeamIds] = useState<Set<string>>(new Set())
   const tab = section
 
   const selected = useMemo(
@@ -84,7 +86,12 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   )
   const selectedLeague = useMemo(() => leagues.find((league) => league.id === selected?.league_id) ?? null, [leagues, selected?.league_id])
   const scoringCriteria = selectedLeague?.scoring_rows?.length ? selectedLeague.scoring_rows : [{ label: 'امتیاز کل', points: '100' }]
-  const visibleTeams = useMemo(() => teams.filter((team) => (queueLeague === 'all' || team.league_id === queueLeague) && (queueStatus === 'all' || team.status === queueStatus)), [queueLeague, queueStatus, teams])
+  const visibleTeams = useMemo(() => teams.filter((team) => {
+    if (tab === 'scores') {
+      return Boolean(queueLeague && queueLeague !== 'all' && team.league_id === queueLeague && clearedTeamIds.has(team.id))
+    }
+    return (queueLeague === 'all' || team.league_id === queueLeague) && (queueStatus === 'all' || team.status === queueStatus)
+  }), [clearedTeamIds, queueLeague, queueStatus, tab, teams])
   const completedCriteria = scoringCriteria.filter((_, index) => Number.isFinite(criterionScores[String(index)]) && criterionScores[String(index)] >= 0).length
   const scoringPercent = scoringCriteria.length ? Math.round((completedCriteria / scoringCriteria.length) * 100) : 0
   const enteredTotal = Object.values(criterionScores).reduce((sum, value) => sum + (Number(value) || 0), 0)
@@ -107,8 +114,15 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           leagueIds: profile?.role === 'super_admin' ? undefined : ids,
         })
         setTeams(list)
+        const { data: cleared, error: clearanceError } = await backend
+          .from('team_attendance_clearances')
+          .select('team_id')
+          .eq('stage', 'confirmed')
+        if (clearanceError) throw new Error(clearanceError.message)
+        setClearedTeamIds(new Set((cleared ?? []).map((row: { team_id: string }) => row.team_id)))
       } else {
         setTeams([])
+        setClearedTeamIds(new Set())
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -339,10 +353,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           </section>
           <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
           <PanelCard title={t('judging.queue')} description="فیلتر کنید و تیم بعدی را بدون خروج از صفحه انتخاب کنید.">
-            <div className="mb-4 grid grid-cols-2 gap-2"><Select label="لیگ" value={queueLeague} onChange={(event) => setQueueLeague(event.target.value)}><option value="all">همه لیگ‌ها</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select><Select label="وضعیت" value={queueStatus} onChange={(event) => setQueueStatus(event.target.value)}><option value="all">همه</option><option value="submitted">جدید</option><option value="under_review">در حال بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></Select></div>
+            <div className={`mb-4 grid gap-2 ${tab === 'scores' ? '' : 'grid-cols-2'}`}><Select label={tab === 'scores' ? 'ابتدا لیگ را انتخاب کنید' : 'لیگ'} value={queueLeague} onChange={(event) => { setQueueLeague(event.target.value); setSelectedId(null) }}><option value={tab === 'scores' ? '' : 'all'}>{tab === 'scores' ? 'انتخاب لیگ…' : 'همه لیگ‌ها'}</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select>{tab !== 'scores' ? <Select label="وضعیت" value={queueStatus} onChange={(event) => setQueueStatus(event.target.value)}><option value="all">همه</option><option value="submitted">جدید</option><option value="under_review">در حال بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></Select> : null}</div>
             <ul className="max-h-[32rem] space-y-1 overflow-y-auto">
               {visibleTeams.length === 0 ? (
-                <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-xl shadow-sm">✓</span><p className="mt-3 text-sm font-black text-slate-700">تیمی در این فیلتر باقی نمانده است</p><p className="mt-1 text-xs leading-5 text-slate-400">فیلتر وضعیت یا لیگ را تغییر دهید.</p></li>
+                <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-xl shadow-sm">✓</span><p className="mt-3 text-sm font-black text-slate-700">{tab === 'scores' && !queueLeague ? 'یک لیگ را انتخاب کنید' : 'تیمی در این فیلتر باقی نمانده است'}</p><p className="mt-1 text-xs leading-5 text-slate-400">{tab === 'scores' ? 'فقط تیم‌هایی نمایش داده می‌شوند که مجوز حضور آن‌ها صادر شده باشد.' : 'فیلتر وضعیت یا لیگ را تغییر دهید.'}</p></li>
               ) : (
                 visibleTeams.map((team, teamIndex) => (
                   <li key={team.id}>
@@ -465,6 +479,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                   )}
                 </ul>
 
+                {attendance ? <AttendanceFlowStatus attendance={attendance} /> : <section className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4"><h3 className="font-black text-amber-950">فلو مجوز حضور هنوز آغاز نشده است</h3><p className="mt-1 text-xs leading-6 text-amber-800">این فلو بعد از ثبت پرداخت قطعی ایجاد می‌شود. اگر پرداخت انجام شده است، وضعیت فاکتور را در بخش مالی بررسی کنید.</p></section>}
+
                 {attendance ? <section className="mb-5 rounded-2xl border border-sky-200 bg-sky-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">مقاله و فیلم ربات</h3><p className="mt-1 text-xs leading-6 text-slate-500">پس از تأیید کامل اعضا و تیم، فایل‌های ارسالی شرکت‌کننده در این بخش بررسی می‌شوند.</p></div><StatusBadge status={attendance.technical_status} label={attendance.technical_status==='approved'?'تأییدشده':attendance.technical_status==='rejected'?'نیازمند اصلاح':attendance.technical_status==='pending'?'در انتظار بررسی':'هنوز ارسال نشده'} /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{technicalFiles.map(file=><TechnicalReviewFile key={file.id} file={file} />)}{technicalFiles.length===0?<p className="text-sm text-slate-500">هنوز فایل فنی ارسال نشده است.</p>:null}</div>{attendance.technical_status==='pending'?<div className="mt-4 space-y-3"><Input label="دلیل عدم تأیید (برای رد الزامی)" value={technicalRejectReason} onChange={e=>setTechnicalRejectReason(e.target.value)} /><div className="flex gap-2"><Button type="button" disabled={busy} onClick={()=>void onTechnicalReview(true)}>تأیید مقاله و فیلم</Button><Button type="button" variant="danger" disabled={busy||!technicalRejectReason.trim()} onClick={()=>void onTechnicalReview(false)}>رد و درخواست اصلاح</Button></div></div>:null}</section>:null}
 
                 <div className="flex flex-wrap gap-2">
@@ -563,6 +579,15 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
 function ResultStep({ index, title, active, done }: { index: string; title: string; active: boolean; done: boolean }) {
   return <div className={`flex items-center gap-3 rounded-2xl border p-3 transition ${active ? 'border-sky-300 bg-sky-50' : done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}><span className={`grid size-9 place-items-center rounded-xl font-black ${done ? 'bg-emerald-600 text-white' : active ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{done ? '✓' : index}</span><span className="text-xs font-black text-slate-700">{title}</span></div>
+}
+
+function AttendanceFlowStatus({ attendance }: { attendance: AttendanceClearance }) {
+  const stages = [
+    { key: 'members', title: 'تأیید تیم و اعضا', done: attendance.stage !== 'members', active: attendance.stage === 'members' },
+    { key: 'technical', title: 'تأیید مقاله و فیلم ربات', done: attendance.stage === 'rules' || attendance.stage === 'confirmed', active: attendance.stage === 'technical' },
+    { key: 'rules', title: 'پذیرش قوانین و صدور مجوز', done: attendance.stage === 'confirmed', active: attendance.stage === 'rules' },
+  ]
+  return <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black text-slate-900">وضعیت مجوز حضور در مسابقات</h3><p className="mt-1 text-xs leading-6 text-slate-500">صدور مجوز خودکار است؛ پس از تأیید اعضا، مدارک فنی و پذیرش قوانین توسط شرکت‌کننده نهایی می‌شود.</p></div><StatusBadge status={attendance.stage} label={attendance.stage === 'confirmed' ? 'مجوز صادر شده' : 'در جریان بررسی'} /></div><ol className="mt-4 grid gap-2 md:grid-cols-3">{stages.map((stage, index) => <li key={stage.key} className={`flex items-center gap-3 rounded-xl border p-3 ${stage.done ? 'border-emerald-200 bg-emerald-50' : stage.active ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}><span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-black ${stage.done ? 'bg-emerald-600 text-white' : stage.active ? 'bg-amber-400 text-amber-950' : 'bg-slate-200 text-slate-500'}`}>{stage.done ? '✓' : index + 1}</span><div><p className="text-xs font-black text-slate-800">{stage.title}</p><p className="mt-0.5 text-[10px] text-slate-500">{stage.done ? 'تکمیل شده' : stage.active ? 'مرحله فعلی' : 'در انتظار'}</p></div></li>)}</ol>{attendance.stage === 'confirmed' ? <p className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white">مجوز حضور این تیم صادر شده و تیم آماده ورود به مرحله داوری است.</p> : null}</section>
 }
 
 function TechnicalReviewFile({file}:{file:TechnicalFile}){

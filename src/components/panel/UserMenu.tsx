@@ -3,13 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserRole } from '@/types/database'
-
-function initials(name: string | null | undefined, email: string | null | undefined): string {
-  const n = (name || email || '?').trim()
-  const parts = n.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
-  return n.slice(0, 2).toUpperCase()
-}
+import { ProfileAvatar } from '@/components/panel/ProfileAvatar'
 
 export function UserMenu({ role }: { role: UserRole }) {
   const { t, i18n } = useTranslation()
@@ -36,7 +30,7 @@ export function UserMenu({ role }: { role: UserRole }) {
         className="panel-header-action flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pe-3 ps-1.5 font-semibold text-slate-800 hover:bg-slate-50"
       >
         <span className="flex size-8 items-center justify-center overflow-hidden rounded-lg border border-sky-200 bg-sky-50 font-mono text-[11px] font-black text-sky-800">
-          {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="size-full object-cover" /> : initials(profile?.full_name, user?.email)}
+          <ProfileAvatar src={profile?.avatar_url} name={profile?.full_name} fallback={user?.email} />
         </span>
         <span className="hidden max-w-28 truncate text-xs sm:inline">{name}</span>
       </button>

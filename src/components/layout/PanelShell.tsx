@@ -14,6 +14,7 @@ import { PanelErrorBoundary } from '@/components/layout/PanelErrorBoundary'
 import { NotificationBell } from '@/components/panel/NotificationBell'
 import { UserMenu } from '@/components/panel/UserMenu'
 import { SmsBalancePill } from '@/components/panel/SmsBalancePill'
+import { ProfileAvatar } from '@/components/panel/ProfileAvatar'
 import { AccountPendingBanner } from '@/components/layout/AccountPendingBanner'
 import { AccountIssuesPanel } from '@/features/account-issues/AccountIssuesPanel'
 import { enqueueIncompleteProfileSms } from '@/features/notifications/api'
@@ -245,7 +246,7 @@ export function PanelShell() {
         </div>
         <SidebarNav role={role} />
         <div className="panel-sidebar-profile m-3 border-t border-slate-200 pt-3.5">
-          <div className="flex items-center gap-3"><span className="grid size-9 overflow-hidden place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700">{profile.avatar_url ? <img src={profile.avatar_url} alt="" className="size-full object-cover" /> : (profile.full_name ?? 'U').slice(0, 1)}</span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">{participantManagerLabel}</p></span></div>
+          <div className="flex items-center gap-3"><span className="grid size-9 overflow-hidden place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700"><ProfileAvatar src={profile.avatar_url} name={profile.full_name} fallback={user?.email} /></span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">{participantManagerLabel}</p></span></div>
         </div>
       </aside>
 
