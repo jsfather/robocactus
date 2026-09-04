@@ -64,7 +64,7 @@ export function PaymentCallbackPage() {
         {result?.error && viewState !== 'cancelled' ? <p className="mx-auto mt-4 max-w-md rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500" dir="ltr">{friendlyError(result.error, fa)}</p> : null}
         {viewState !== 'verifying' ? <div className="mt-7 flex flex-wrap justify-center gap-3">
           {(viewState === 'error' || viewState === 'failed') && invoiceId && authority ? <Button type="button" onClick={() => setRetry((value) => value + 1)}>{fa ? 'استعلام مجدد پرداخت' : 'Check payment again'}</Button> : null}
-          {result?.teamId ? <Link to={`/payments/teams/${result.teamId}`}><Button type="button" variant={viewState === 'paid' ? 'primary' : 'secondary'}>{viewState === 'paid' ? (fa ? 'مشاهده رسید و عضویت' : 'View receipt') : (fa ? 'بازگشت و تلاش مجدد' : 'Return and retry')}</Button></Link> : null}
+          {result?.teamId ? <Link to={viewState === 'paid' ? `/team/${result.teamId}/attendance` : `/payments/teams/${result.teamId}`}><Button type="button" variant={viewState === 'paid' ? 'primary' : 'secondary'}>{viewState === 'paid' ? (fa ? 'ادامه فرایند مجوز حضور' : 'Continue attendance clearance') : (fa ? 'بازگشت و تلاش مجدد' : 'Return and retry')}</Button></Link> : null}
           <Link to="/account/invoices"><Button type="button" variant="ghost">{fa ? 'صورتحساب‌های من' : 'My invoices'}</Button></Link>
         </div> : null}
       </div>

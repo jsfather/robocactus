@@ -588,7 +588,8 @@
         "people": "Judges & committee",
         "sponsors": "Sponsors",
         "faqs": "FAQ",
-        "results": "Past results"
+        "results": "Past results",
+        "attendance": "Attendance clearance"
       },
       "judgingPath": "Judging path",
       "techNotes": "Technical committee notes"
@@ -639,6 +640,8 @@
     }
   },
   "judging": {
+    "scoresNav": "Scores",
+    "liveResultsAdminNav": "Live results",
     "title": "League judging panel",
     "subtitle": "Review participating teams, approve/reject, score them, and prepare the live board.",
     "guideTitle": "Active league workflow",

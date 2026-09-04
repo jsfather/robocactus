@@ -26,6 +26,8 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     items: [
       { to: '/super-admin', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.sa.overview' },
       { to: '/super-admin/review', labelKey: 'judging.tabReview', helpKey: 'panel.help.sa.review' },
+      { to: '/super-admin/scores', labelKey: 'judging.scoresNav', helpKey: 'panel.help.sa.review' },
+      { to: '/super-admin/live-results', labelKey: 'judging.liveResultsAdminNav', helpKey: 'panel.help.sa.review' },
       { to: '/super-admin/tickets', labelKey: 'staff.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets' },
       { to: '/super-admin/chat', labelKey: 'chat.inboxTitle', helpKey: 'panel.help.sa.chat' },
       { to: '/super-admin/triage', labelKey: 'staff.tabTriage', helpKey: 'panel.help.sa.triage' },
@@ -77,6 +79,7 @@ export const LEAGUE_ADMIN_NAV: PanelNavGroup = {
   items: [
     { to: '/league-admin', labelKey: 'panel.nav.overview', end: true, helpKey: 'panel.help.la.overview' },
     { to: '/league-admin/review', labelKey: 'judging.tabReview', helpKey: 'panel.help.sa.review', permissionKey: 'team_review' },
+    { to: '/league-admin/scores', labelKey: 'judging.scoresNav', helpKey: 'panel.help.sa.review', permissionKey: 'team_review' },
     { to: '/league-admin/tickets', labelKey: 'judging.tabTickets', badge: 'tickets', helpKey: 'panel.help.sa.tickets', permissionKey: 'tickets' },
   ],
 }

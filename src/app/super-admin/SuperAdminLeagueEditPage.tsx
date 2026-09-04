@@ -49,6 +49,8 @@ import type {
   LeaguePerson,
   LeagueSponsor,
 } from '@/types/database'
+import { backend } from '@/lib/backend'
+import type { AttendanceSettings } from '@/features/attendance/api'
 
 type Tab =
   | 'basics'
@@ -62,6 +64,7 @@ type Tab =
   | 'sponsors'
   | 'faqs'
   | 'results'
+  | 'attendance'
 
 export function SuperAdminLeagueEditPage() {
   const { leagueId = '' } = useParams()
@@ -278,6 +281,7 @@ export function SuperAdminLeagueEditPage() {
     'sponsors',
     'faqs',
     'results',
+    'attendance',
   ]
 
   return (
@@ -748,6 +752,16 @@ export function SuperAdminLeagueEditPage() {
           </ul>
         </PanelCard>
       )}
+      {tab === 'attendance' && <AttendanceSettingsForm leagueId={leagueId} />}
     </PanelPage>
   )
+}
+
+function AttendanceSettingsForm({leagueId}:{leagueId:string}){
+  const [value,setValue]=useState<AttendanceSettings|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+  useEffect(()=>{void backend.from('league_attendance_settings').select('*').eq('league_id',leagueId).maybeSingle().then(({data,error})=>{if(error)setMessage(error.message);else setValue(data as AttendanceSettings)})},[leagueId])
+  const patch=(next:Partial<AttendanceSettings>)=>setValue(current=>current?{...current,...next}:current)
+  const save=async()=>{if(!value)return;setBusy(true);setMessage('');const {league_id,...payload}=value;const {error}=await backend.from('league_attendance_settings').upsert({league_id,...payload}).select('*').single();setBusy(false);setMessage(error?error.message:'تنظیمات مجوز حضور ذخیره شد.')}
+  if(!value)return <PanelCard title="فلو مجوز حضور"><p className="text-sm text-slate-500">{message||'در حال بارگذاری…'}</p></PanelCard>
+  return <PanelCard title="فلو مجوز حضور پس از پرداخت" description="متن‌ها، فایل‌های الزامی، یادداشت شرکت‌کننده و اطلاعات نهایی هر لیگ را از اینجا مدیریت کنید."><div className="grid gap-4 md:grid-cols-2"><label className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold"><input type="checkbox" checked={value.enabled} onChange={e=>patch({enabled:e.target.checked})}/>فعال باشد</label><label className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold"><input type="checkbox" checked={value.participant_note_enabled} onChange={e=>patch({participant_note_enabled:e.target.checked})}/>یادداشت شرکت‌کننده فعال باشد</label><label className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold"><input type="checkbox" checked={value.article_required} onChange={e=>patch({article_required:e.target.checked})}/>مقاله الزامی</label><label className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold"><input type="checkbox" checked={value.video_required} onChange={e=>patch({video_required:e.target.checked})}/>فیلم ربات الزامی</label><Input label="حداکثر حجم مقاله (مگابایت)" type="number" min={1} max={90} value={Math.round(value.article_max_bytes/1048576)} onChange={e=>patch({article_max_bytes:Math.min(90,Math.max(1,Number(e.target.value)||1))*1048576})}/><Input label="حداکثر حجم فیلم (مگابایت)" type="number" min={1} max={90} value={Math.round(value.video_max_bytes/1048576)} onChange={e=>patch({video_max_bytes:Math.min(90,Math.max(1,Number(e.target.value)||1))*1048576})}/><Input label="عنوان بررسی اعضا" value={value.member_review_title_fa} onChange={e=>patch({member_review_title_fa:e.target.value})}/><Input label="Member review title" dir="ltr" value={value.member_review_title_en} onChange={e=>patch({member_review_title_en:e.target.value})}/><Textarea label="راهنمای بررسی اعضا" value={value.member_review_help_fa} onChange={e=>patch({member_review_help_fa:e.target.value})}/><Textarea label="Member review help" dir="ltr" value={value.member_review_help_en} onChange={e=>patch({member_review_help_en:e.target.value})}/><Textarea label="راهنمای مدارک فنی" value={value.technical_help_fa} onChange={e=>patch({technical_help_fa:e.target.value})}/><Textarea label="Technical help" dir="ltr" value={value.technical_help_en} onChange={e=>patch({technical_help_en:e.target.value})}/><Input label="عنوان قوانین" value={value.rules_title_fa} onChange={e=>patch({rules_title_fa:e.target.value})}/><Input label="Rules title" dir="ltr" value={value.rules_title_en} onChange={e=>patch({rules_title_en:e.target.value})}/><Textarea label="متن قوانین حضور" value={value.rules_body_fa} onChange={e=>patch({rules_body_fa:e.target.value})}/><Textarea label="Attendance rules" dir="ltr" value={value.rules_body_en} onChange={e=>patch({rules_body_en:e.target.value})}/><Input label="عنوان یادداشت" value={value.participant_note_label_fa} onChange={e=>patch({participant_note_label_fa:e.target.value})}/><Input label="Note label" dir="ltr" value={value.participant_note_label_en} onChange={e=>patch({participant_note_label_en:e.target.value})}/><Input label="عنوان تأیید نهایی" value={value.confirmation_title_fa} onChange={e=>patch({confirmation_title_fa:e.target.value})}/><Input label="Confirmation title" dir="ltr" value={value.confirmation_title_en} onChange={e=>patch({confirmation_title_en:e.target.value})}/><Textarea label="پیام تأیید نهایی" value={value.confirmation_message_fa} onChange={e=>patch({confirmation_message_fa:e.target.value})}/><Textarea label="Confirmation message" dir="ltr" value={value.confirmation_message_en} onChange={e=>patch({confirmation_message_en:e.target.value})}/><Input label="محل برگزاری" value={value.venue_fa??''} onChange={e=>patch({venue_fa:e.target.value})}/><Input label="Venue" dir="ltr" value={value.venue_en??''} onChange={e=>patch({venue_en:e.target.value})}/><Textarea label="آدرس محل" value={value.venue_address_fa??''} onChange={e=>patch({venue_address_fa:e.target.value})}/><Textarea label="Venue address" dir="ltr" value={value.venue_address_en??''} onChange={e=>patch({venue_address_en:e.target.value})}/><DateTimeField label="زمان دقیق برگزاری" value={value.event_starts_at??''} onChange={next=>patch({event_starts_at:next})}/><Input label="شماره پشتیبانی" dir="ltr" value={value.support_phone??''} onChange={e=>patch({support_phone:e.target.value})}/></div><div className="mt-5 flex items-center gap-3"><Button type="button" disabled={busy} onClick={()=>void save()}>{busy?'در حال ذخیره…':'ذخیره تنظیمات مجوز حضور'}</Button>{message?<span className="text-sm text-slate-600">{message}</span>:null}</div></PanelCard>
 }

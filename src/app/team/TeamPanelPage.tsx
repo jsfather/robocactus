@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { DocumentUploadField } from '@/components/ui/DocumentUploadField'
@@ -39,6 +39,8 @@ function EditableMemberAsset({ label, file, stored, privateFile, busy, onChange 
 export function TeamPanelPage() {
   const { t, i18n } = useTranslation()
   const { teamId } = useParams()
+  const [searchParams] = useSearchParams()
+  const editMemberId = searchParams.get('editMember')
   const { user, profile, loading: authLoading } = useAuth()
   const [teams, setTeams] = useState<Team[]>([])
   const [team, setTeam] = useState<Team | null>(null)
@@ -55,6 +57,8 @@ export function TeamPanelPage() {
   const [photoFiles, setPhotoFiles] = useState<Record<string, File | null>>({})
   const [idFiles, setIdFiles] = useState<Record<string, File | null>>({})
   const [viewerUrl, setViewerUrl] = useState('')
+
+  useEffect(() => { if (editMemberId && members.some((member) => member.id === editMemberId && member.review_status === 'rejected')) setEditing(true) }, [editMemberId, members])
 
   useEffect(() => {
     if (!user || authLoading) return
@@ -118,12 +122,14 @@ export function TeamPanelPage() {
   }
 
   if (teamId && team) {
-    const editLocked = profile?.role !== 'super_admin' && Boolean(league?.team_edit_deadline && new Date(league.team_edit_deadline).getTime() < Date.now())
+    const hasRejectedMember = members.some((member) => member.review_status === 'rejected')
+    const editLocked = profile?.role !== 'super_admin' && !hasRejectedMember && Boolean(league?.team_edit_deadline && new Date(league.team_edit_deadline).getTime() < Date.now())
     const saveMemberEdits = async () => {
       setSaving(true)
       setError(null)
       try {
-        for (const member of memberEdits) {
+        const editableMembers = team.status === 'draft' ? memberEdits : memberEdits.filter((member) => member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))
+        for (const member of editableMembers) {
           const { error: updateError } = await backend.from('team_members').update({
             first_name: member.first_name,
             last_name: member.last_name,
@@ -144,6 +150,7 @@ export function TeamPanelPage() {
           if (updateError) throw new Error(updateError.message)
           if (photoFiles[member.id]) await uploadMemberPhoto(team.id, member.id, photoFiles[member.id]!)
           if (idFiles[member.id] && user) await uploadMemberNationalId({ userId: user.id, teamId: team.id, memberId: member.id, file: idFiles[member.id]! })
+          if (team.status !== 'draft') { const submitted = await backend.rpc('submit_team_member_correction', { p_member_id: member.id }); if (submitted.error) throw new Error(submitted.error.message) }
         }
         const refreshed = await fetchTeamMembers(team.id)
         const safeMembers = refreshed.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))
@@ -164,6 +171,7 @@ export function TeamPanelPage() {
               status={team.status}
               label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
             />
+            {team.status !== 'draft' ? <Link to={`/team/${team.id}/attendance`}><Button type="button">مجوز حضور در مسابقات</Button></Link> : null}
             <Link to={`/payments/teams/${team.id}`}>
               <Button type="button" variant={team.status === 'draft' ? 'primary' : 'secondary'}>
                 {team.status === 'draft' ? t('payment.payCta') : t('payment.viewInvoice')}
@@ -195,10 +203,10 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={editLocked} onClick={() => setEditing((value) => !value)}>{editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : 'ویرایش اطلاعات'}</Button>}>
+        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={editLocked || (team.status !== 'draft' && !members.some((member) => member.review_status === 'rejected'))} onClick={() => setEditing((value) => !value)}>{editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : team.status !== 'draft' ? 'اصلاح اعضای ردشده' : 'ویرایش اطلاعات'}</Button>}>
           {league?.team_edit_deadline ? <p className="mb-3 text-xs text-rc-muted">مهلت ویرایش: {formatAppDate(league.team_edit_deadline, i18n.language, { withTime: true })}</p> : null}
           {editing ? <div className="space-y-4">
-            {memberEdits.map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
+            {memberEdits.filter((member) => team.status === 'draft' || (member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))).map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
               <Input label="نام فارسی" value={member.first_name_fa ?? member.first_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_fa: event.target.value, first_name: event.target.value } : row))} />
               <Input label="نام خانوادگی فارسی" value={member.last_name_fa ?? member.last_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_fa: event.target.value, last_name: event.target.value } : row))} />
               <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />

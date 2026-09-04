@@ -36,6 +36,7 @@ import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
 import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
+import { fetchAttendance, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TechnicalFile } from '@/features/attendance/api'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -44,7 +45,7 @@ function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string;
   return <button type="button" disabled={!url} onClick={() => url && onOpen(url)} className="group relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">{url ? <img src={url} alt={label} className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[10px] text-slate-400">در حال بارگذاری</span>}<span className="absolute inset-x-0 bottom-0 bg-slate-950/65 py-0.5 text-[9px] text-white">مشاهده</span></button>
 }
 
-export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | 'tickets' }) {
+export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | 'tickets' | 'scores' | 'live' }) {
   const { t, i18n } = useTranslation()
   const toast = useToast()
   const { user, profile } = useAuth()
@@ -72,6 +73,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [queueLeague, setQueueLeague] = useState('all')
   const [queueStatus, setQueueStatus] = useState('all')
   const [viewerUrl, setViewerUrl] = useState('')
+  const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
+  const [technicalFiles, setTechnicalFiles] = useState<TechnicalFile[]>([])
+  const [technicalRejectReason, setTechnicalRejectReason] = useState('')
   const tab = section
 
   const selected = useMemo(
@@ -125,6 +129,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       setResultPublishedAt(null)
       setShowResultPreview(false)
       setResultUpdatedAt(null)
+      setAttendance(null)
+      setTechnicalFiles([])
       return
     }
     void fetchTeamDocuments(selectedId)
@@ -133,6 +139,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     void fetchTeamMembers(selectedId)
       .then(setMembers)
       .catch(() => setMembers([]))
+    const selectedTeam = teams.find((team) => team.id === selectedId)
+    if (selectedTeam) void fetchAttendance(selectedId, selectedTeam.league_id).then((data) => { setAttendance(data.flow); setTechnicalFiles(data.files) }).catch(() => { setAttendance(null); setTechnicalFiles([]) })
 
     const year = Number(seasonYear) || new Date().getFullYear()
     void Promise.all([fetchTeamResult(selectedId, year), user ? fetchMyJudgeScore(selectedId, year, user.id) : Promise.resolve(null), fetchJudgeProgress(selectedId, year)])
@@ -148,7 +156,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         setShowResultPreview(false)
       })
       .catch(() => undefined)
-  }, [selectedId, seasonYear, user])
+  }, [selectedId, seasonYear, user, teams])
 
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
 
@@ -165,6 +173,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         status === 'rejected' ? memberRejectReason : undefined,
       )
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+      if (selected) { const data = await fetchAttendance(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -182,12 +191,23 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         rejectionReason: status === 'rejected' ? rejectReason : undefined,
       })
       setTeams((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      const data = await fetchAttendance(updated.id, updated.league_id); setAttendance(data.flow); setTechnicalFiles(data.files)
       void dispatchPendingSms()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message.includes('team_members_not_approved') ? 'برای تأیید نهایی تیم، ابتدا باید تمام اعضای تیم تأیید شده باشند.' : message)
     } finally {
       setBusy(false)
     }
+  }
+
+  const onTechnicalReview = async (approved: boolean) => {
+    if (!selected) return
+    if (!approved && !technicalRejectReason.trim()) { setError('دلیل عدم تأیید مقاله یا فیلم را وارد کنید.'); return }
+    setBusy(true); setError(null)
+    try { const updated = await reviewTechnical(selected.id, approved, technicalRejectReason); setAttendance(updated); setTechnicalRejectReason(''); toast.success(approved ? 'مدارک فنی تأیید شد.' : 'مدارک برای اصلاح به شرکت‌کننده بازگردانده شد.') }
+    catch (err) { setError(err instanceof Error ? err.message : t('common.error')) }
+    finally { setBusy(false) }
   }
 
   const onDeleteTeam = async () => {
@@ -262,7 +282,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   }
 
   return (
-    <PanelPage index={tab === 'tickets' ? 'OPS.03' : 'OPS.02'} title={tab === 'tickets' ? t('judging.tabTickets') : t('judging.tabReview')} description={t('judging.subtitle')}>
+    <PanelPage index={tab === 'tickets' ? 'OPS.03' : tab === 'scores' ? 'JDG.02' : tab === 'live' ? 'RES.01' : 'OPS.02'} title={tab === 'tickets' ? t('judging.tabTickets') : tab === 'scores' ? 'امتیازات داوران' : tab === 'live' ? 'مدیریت نتایج زنده' : t('judging.tabReview')} description={tab === 'scores' ? 'ثبت و نهایی‌سازی امتیازها در فضای مستقل داوری' : tab === 'live' ? 'کنترل نمایش عمومی نتایج؛ فقط برای مدیریت سامانه' : t('judging.subtitle')}>
 
       <FieldError message={error ?? undefined} />
 
@@ -279,7 +299,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         </section>
       ) : null}
 
-      {tab === 'review' && profile?.role === 'super_admin' && !loading && leagues.length > 0 ? (
+      {tab === 'live' && profile?.role === 'super_admin' && !loading && leagues.length > 0 ? (
         <PanelCard title={t('liveResults.boardMode')} description={i18n.language.startsWith('en') ? 'Administrative control for what visitors see on the public results page. Changes take effect immediately.' : 'کنترل مدیریتی محتوایی که بازدیدکنندگان در صفحه نتایج عمومی می‌بینند؛ تغییر حالت بلافاصله اعمال می‌شود.'}>
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">{i18n.language.startsWith('en') ? 'Auto follows the competition state; Live shows in-progress results; Final locks the final presentation; Hidden removes the league from the public board.' : '«خودکار» از وضعیت مسابقه پیروی می‌کند؛ «زنده» نتایج در جریان، «نهایی» نتیجه قطعی و «پنهان» عدم نمایش لیگ در تابلوی عمومی است.'}</div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -313,7 +333,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       ) : loading ? (
         <p className="text-rc-muted">{t('app.loading')}</p>
       ) : (
-        <div className="space-y-4">
+        <div className={`space-y-4 ${tab === 'live' ? 'hidden' : ''}`}>
           <section className="overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#073b55] via-[#087eb8] to-[#0b8b66] p-5 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-5"><div><p className="text-xs font-black text-cyan-200">میز داوری مسابقه</p><h2 className="mt-2 text-2xl font-black">بررسی سریع، ثبت دقیق، انتشار مطمئن</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-white/80">ابتدا لیگ و تیم را انتخاب کنید؛ پرونده و مدارک را بررسی کنید، سپس برای هر معیار امتیاز بدهید. پیش‌نویس قابل ویرایش است اما ثبت نهایی قفل می‌شود.</p></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{visibleTeams.length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">تیم در صف</span></div><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{teams.filter((team) => team.status === 'under_review').length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">در حال بررسی</span></div></div></div>
           </section>
@@ -353,7 +373,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                 <span>بررسی تیم‌ها</span><span aria-hidden="true">←</span><span>{selectedLeague?.name ?? leagueName(selected.league_id)}</span><span aria-hidden="true">←</span><strong className="text-sky-700">پرونده تیم {selected.name}</strong>
               </nav>
               <section className="rounded-[1.75rem] border border-sky-100 bg-gradient-to-l from-sky-50 via-white to-emerald-50 p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black text-sky-600">لیگ فعال</p><h2 className="mt-1 text-xl font-black text-slate-900">{selectedLeague?.name}</h2><p className="mt-1 text-sm text-slate-500">تیم در حال بررسی: <strong className="text-slate-800">{selected.name}</strong> · فصل {seasonYear}</p></div><div className="flex flex-wrap items-center gap-2"><StatusBadge status={judgeStatus ?? 'draft'} label={judgeStatus === 'submitted' ? 'امتیاز نهایی‌شده' : judgeStatus === 'draft' ? 'پیش‌نویس ذخیره‌شده' : 'امتیازدهی شروع نشده'} /><span className={`rounded-full px-3 py-1.5 text-xs font-black ${resultPublishedAt ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 shadow-sm'}`}>{resultPublishedAt ? 'نتیجه منتشرشده' : 'منتشرنشده'}</span></div></div></section>
-              <PanelCard title={`پرونده تیم · ${selected.name}`} description={`${leagueName(selected.league_id)} — مدارک، اعضا و وضعیت پذیرش را پیش از امتیازدهی کنترل کنید.`}>
+              <div className={tab === 'review' ? '' : 'hidden'}><PanelCard title={`پرونده تیم · ${selected.name}`} description={`${leagueName(selected.league_id)} — مدارک، اعضا و وضعیت پذیرش را پیش از امتیازدهی کنترل کنید.`}>
                 <div className="mb-3 flex flex-wrap gap-2">
                   <StatusBadge
                     status={selected.status}
@@ -413,8 +433,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                                 {m.national_id ?? '—'} ·{' '}
                                 {formatAppDate(m.birth_date, i18n.language)}
                               </p>
-                              <p className="mt-1 font-mono text-[10px] uppercase text-rc-blue">
-                                {m.review_status ?? 'pending'}
+                              <p className={`mt-1 text-[10px] font-black ${m.review_status === 'approved' ? 'text-emerald-700' : m.review_status === 'rejected' ? 'text-rose-700' : 'text-amber-700'}`}>
+                                {m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'نیازمند اصلاح' : 'در انتظار بررسی'}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-1">
@@ -444,6 +464,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     })
                   )}
                 </ul>
+
+                {attendance ? <section className="mb-5 rounded-2xl border border-sky-200 bg-sky-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">مقاله و فیلم ربات</h3><p className="mt-1 text-xs leading-6 text-slate-500">پس از تأیید کامل اعضا و تیم، فایل‌های ارسالی شرکت‌کننده در این بخش بررسی می‌شوند.</p></div><StatusBadge status={attendance.technical_status} label={attendance.technical_status==='approved'?'تأییدشده':attendance.technical_status==='rejected'?'نیازمند اصلاح':attendance.technical_status==='pending'?'در انتظار بررسی':'هنوز ارسال نشده'} /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{technicalFiles.map(file=><TechnicalReviewFile key={file.id} file={file} />)}{technicalFiles.length===0?<p className="text-sm text-slate-500">هنوز فایل فنی ارسال نشده است.</p>:null}</div>{attendance.technical_status==='pending'?<div className="mt-4 space-y-3"><Input label="دلیل عدم تأیید (برای رد الزامی)" value={technicalRejectReason} onChange={e=>setTechnicalRejectReason(e.target.value)} /><div className="flex gap-2"><Button type="button" disabled={busy} onClick={()=>void onTechnicalReview(true)}>تأیید مقاله و فیلم</Button><Button type="button" variant="danger" disabled={busy||!technicalRejectReason.trim()} onClick={()=>void onTechnicalReview(false)}>رد و درخواست اصلاح</Button></div></div>:null}</section>:null}
 
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -483,9 +505,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     {t('judging.reject')}
                   </Button>
                 </div>
-              </PanelCard>
+              </PanelCard></div>
 
-              <PanelCard title={t('judging.resultsTitle')} description={t('judging.resultsHint')}>
+              <div className={tab === 'scores' ? '' : 'hidden'}><PanelCard title={t('judging.resultsTitle')} description={t('judging.resultsHint')}>
                 <div className="mb-5 grid gap-2 sm:grid-cols-3">
                   <ResultStep index="۱" title={t('judging.workflowScore')} active={!rank && !score} done={Boolean(rank || score)} />
                   <ResultStep index="۲" title={t('judging.workflowPreview')} active={showResultPreview} done={Boolean(resultPublishedAt)} />
@@ -526,7 +548,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                   {resultPublishedAt ? <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">{t('judging.publishedState')}</span> : <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-500">{t('judging.draftState')}</span>}
                   {resultUpdatedAt ? <span className="inline-flex items-center px-2 text-xs font-bold text-slate-400">{t('judging.lastUpdated')}: {formatAppDateTime(resultUpdatedAt, i18n.language)}</span> : null}
                 </div>
-              </PanelCard>
+              </PanelCard></div>
             </div>
           ) : (
             <div className="grid min-h-80 place-items-center rounded-[1.75rem] border-2 border-dashed border-slate-200 bg-white/70 p-8 text-center"><div><span className="mx-auto grid size-16 place-items-center rounded-3xl bg-sky-50 text-2xl text-sky-600">⌁</span><h2 className="mt-4 text-lg font-black text-slate-800">یک تیم را برای بررسی انتخاب کنید</h2><p className="mt-2 max-w-sm text-sm leading-7 text-slate-500">با انتخاب تیم از صف، پرونده، معیارهای امتیازدهی و وضعیت ذخیره در همین بخش نمایش داده می‌شود.</p></div></div>
@@ -541,4 +563,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
 function ResultStep({ index, title, active, done }: { index: string; title: string; active: boolean; done: boolean }) {
   return <div className={`flex items-center gap-3 rounded-2xl border p-3 transition ${active ? 'border-sky-300 bg-sky-50' : done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}><span className={`grid size-9 place-items-center rounded-xl font-black ${done ? 'bg-emerald-600 text-white' : active ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{done ? '✓' : index}</span><span className="text-xs font-black text-slate-700">{title}</span></div>
+}
+
+function TechnicalReviewFile({file}:{file:TechnicalFile}){
+  const [url,setUrl]=useState('')
+  useEffect(()=>{void technicalSignedUrl(file.file_path).then(setUrl).catch(()=>setUrl(''))},[file.file_path])
+  return <article className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><span className={`grid size-11 shrink-0 place-items-center rounded-lg text-xs font-black ${file.kind==='article'?'bg-rose-50 text-rose-700':'bg-violet-50 text-violet-700'}`}>{file.kind==='article'?'DOC':'VIDEO'}</span><div className="min-w-0 flex-1"><strong className="block truncate text-sm text-slate-800">{file.original_name}</strong><span className="text-xs text-slate-400">{(file.size_bytes/1048576).toLocaleString('fa-IR',{maximumFractionDigits:1})} مگابایت</span></div>{url?<a href={url} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg bg-sky-700 px-3 py-2 text-xs font-black text-white">مشاهده</a>:null}</article>
 }

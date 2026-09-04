@@ -37,7 +37,7 @@ const TABLES = new Set([
   'public_team_people',
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
-  'ticket_reads', 'tickets',
+  'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files',
 ])
 
 const RPCS = new Set([
@@ -51,6 +51,9 @@ const RPCS = new Set([
   'send_live_chat_guest_message', 'set_league_results_status',
   'submit_card_receipt', 'review_card_receipt', 'ticket_status_counts', 'upsert_team_result',
   'save_judge_score', 'publish_official_team_result', 'accept_invoice_terms',
+  'get_or_create_team_attendance', 'upsert_team_technical_file', 'submit_team_technical_files',
+  'review_team_technical_files', 'accept_team_attendance_rules',
+  'submit_team_member_correction',
 ])
 
 const CONFLICT_COLUMNS: Record<string, string[]> = {
@@ -58,6 +61,7 @@ const CONFLICT_COLUMNS: Record<string, string[]> = {
   static_pages: ['slug'],
   system_notification_reads: ['notification_id', 'user_id'],
   role_section_permissions: ['role_key', 'section_key'],
+  league_attendance_settings: ['league_id'],
 }
 const SECRET_COLUMNS = new Set<string>(SECRET_SETTING_FIELDS)
 const CONFIGURED_SECRET = '__configured__'
@@ -263,7 +267,7 @@ async function executeRpc(transaction: Transaction, name: string, args: Record<s
   const financeRpcs = new Set(['admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'review_card_receipt'])
   const ticketRpcs = new Set(['create_ticket_with_department', 'ticket_status_counts', 'list_unread_ticket_ids', 'mark_ticket_read', 'refer_ticket', 'reply_ticket'])
   const chatRpcs = new Set(['close_live_chat_session', 'reply_live_chat_agent'])
-  const teamReviewRpcs = new Set(['review_team_member', 'save_judge_score', 'publish_official_team_result', 'set_league_results_status'])
+  const teamReviewRpcs = new Set(['review_team_member', 'review_team_technical_files', 'save_judge_score', 'publish_official_team_result', 'set_league_results_status'])
   if (financeRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'finance')
   if (ticketRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'tickets')
   if (chatRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'chat')
@@ -309,7 +313,7 @@ function sendError(response: Response, error: unknown): void {
   }
   const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
-  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
     response.status(500).json({ error: { message: 'internal_server_error' } })

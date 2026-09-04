@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm'
 import { config } from './config.js'
 import { db, type AuthUser, userFromRequest, withRequestRole } from './db.js'
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 90 * 1024 * 1024 } })
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const USER_STORAGE_QUOTA = 250 * 1024 * 1024
 
@@ -17,7 +17,16 @@ function matchesDeclaredFileType(buffer: Buffer, mime: string): boolean {
   if (mime === 'image/webp') return buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP'
   if (mime === 'image/gif') return ['GIF87a','GIF89a'].includes(buffer.subarray(0, 6).toString())
   if (mime === 'application/pdf') return buffer.subarray(0, 5).toString() === '%PDF-'
-  return !mime.startsWith('image/') && mime !== 'application/pdf'
+  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04
+  }
+  if (mime === 'video/mp4' || mime === 'video/quicktime') {
+    return buffer.length >= 12 && buffer.subarray(4, 8).toString() === 'ftyp'
+  }
+  if (mime === 'video/webm') {
+    return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+  }
+  return false
 }
 
 function cleanObjectPath(value: unknown): string {

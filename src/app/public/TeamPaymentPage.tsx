@@ -261,7 +261,7 @@ export function TeamPaymentPage() {
         ) : null}
 
         {invoice?.status === 'paid' && company ? (
-          <Button
+          <><Button type="button" className="w-full" onClick={() => void navigate(`/team/${team.id}/attendance`)}>ادامه فرایند مجوز حضور</Button><Button
             type="button"
             variant="secondary"
             onClick={() =>
@@ -269,7 +269,7 @@ export function TeamPaymentPage() {
             }
           >
             {t('payment.downloadInvoice')}
-          </Button>
+          </Button></>
         ) : null}
 
         {failUrl && getConfiguredGatewayKind() === 'mock' && !isPaid ? (

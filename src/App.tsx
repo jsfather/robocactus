@@ -33,6 +33,7 @@ import { CompanyPanelPage } from '@/app/company/CompanyPanelPage'
 import { ParticipantTicketsPage } from '@/app/company/ParticipantTicketsPage'
 import { CompanyCompetitionsPage } from '@/app/company/CompanyCompetitionsPage'
 import { TeamPanelPage } from '@/app/team/TeamPanelPage'
+import { TeamAttendancePage } from '@/app/team/TeamAttendancePage'
 import { SuperAdminFinancePage } from '@/app/super-admin/SuperAdminFinancePage'
 import { SuperAdminLeagueEditPage } from '@/app/super-admin/SuperAdminLeagueEditPage'
 import { SuperAdminLeaguesPage } from '@/app/super-admin/SuperAdminLeaguesPage'
@@ -132,6 +133,8 @@ export default function App() {
                   <Route path="super-admin/incomplete-registrations" element={<SuperAdminIncompleteRegistrationsPage />} />
                   <Route path="super-admin/companies" element={<SuperAdminCompaniesPage />} />
                   <Route path="super-admin/review" element={<LeagueAdminPage section="review" />} />
+                  <Route path="super-admin/scores" element={<LeagueAdminPage section="scores" />} />
+                  <Route path="super-admin/live-results" element={<LeagueAdminPage section="live" />} />
                   <Route path="super-admin/tickets" element={<StaffPage section="tickets" />} />
                   <Route path="super-admin/chat" element={<LiveChatInboxPage />} />
                   <Route path="super-admin/triage" element={<StaffPage section="triage" />} />
@@ -156,6 +159,7 @@ export default function App() {
                 {/* Legacy paths kept for league_admin / staff roles; SA is redirected in PanelShell */}
                 <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} />}><Route path="league-admin" element={<LeagueAdminHomePage />} /></Route>
                 <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} permission="team_review" />}><Route path="league-admin/review" element={<LeagueAdminPage section="review" />} /></Route>
+                <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} permission="team_review" />}><Route path="league-admin/scores" element={<LeagueAdminPage section="scores" />} /></Route>
                 <Route element={<ProtectedRoute roles={['league_admin', 'super_admin']} permission="tickets" />}><Route path="league-admin/tickets" element={<LeagueAdminPage section="tickets" />} /></Route>
 
                 <Route element={<ProtectedRoute roles={['staff', 'super_admin']} />}><Route path="staff" element={<StaffHomePage />} /></Route>
@@ -181,6 +185,7 @@ export default function App() {
                 >
                   <Route path="team" element={<TeamPanelPage />} />
                   <Route path="team/:teamId" element={<TeamPanelPage />} />
+                  <Route path="team/:teamId/attendance" element={<TeamAttendancePage />} />
                 </Route>
               </Route>
 
