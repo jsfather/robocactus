@@ -340,8 +340,8 @@ export type Team = {
   reviewed_at: string | null
   reviewed_by: string | null
   created_at: string
-  lifecycle_status?: 'draft' | 'incomplete' | 'awaiting_documents' | 'awaiting_review' | 'awaiting_payment' | 'completed' | 'cancelled'
-  registration_stage?: 'team_info' | 'members' | 'documents' | 'review' | 'invoice' | 'payment' | 'completed'
+  lifecycle_status?: 'draft' | 'incomplete' | 'awaiting_documents' | 'awaiting_review' | 'awaiting_technical_review' | 'awaiting_rules' | 'awaiting_payment' | 'completed' | 'cancelled'
+  registration_stage?: 'team_info' | 'members' | 'documents' | 'review' | 'technical' | 'technical_review' | 'rules' | 'invoice' | 'payment' | 'completed'
   registration_progress?: number
   registration_draft?: Record<string, unknown>
   last_completed_step?: number

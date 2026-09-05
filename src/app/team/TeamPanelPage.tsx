@@ -171,7 +171,7 @@ export function TeamPanelPage() {
               status={team.status}
               label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
             />
-            {team.status !== 'draft' ? <Link to={`/team/${team.id}/attendance`}><Button type="button">مجوز حضور در مسابقات</Button></Link> : null}
+            {team.status !== 'draft' ? <Link to={`/team/${team.id}/attendance`}><Button type="button">ادامه ثبت‌نام و مشاهده مجوز</Button></Link> : null}
             <Link to={`/payments/teams/${team.id}`}>
               <Button type="button" variant={team.status === 'draft' ? 'primary' : 'secondary'}>
                 {team.status === 'draft' ? t('payment.payCta') : t('payment.viewInvoice')}

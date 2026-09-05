@@ -752,9 +752,17 @@ export function SuperAdminLeagueEditPage() {
           </ul>
         </PanelCard>
       )}
-      {tab === 'attendance' && <AttendanceSettingsForm leagueId={leagueId} />}
+      {tab === 'attendance' && <div className="space-y-5"><TeamDocumentsSettingsForm leagueId={leagueId} /><AttendanceSettingsForm leagueId={leagueId} /></div>}
     </PanelPage>
   )
+}
+
+function TeamDocumentsSettingsForm({leagueId}:{leagueId:string}){
+  const [value,setValue]=useState<AttendanceSettings|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+  useEffect(()=>{void backend.from('league_attendance_settings').select('*').eq('league_id',leagueId).maybeSingle().then(({data,error})=>{if(error)setMessage(error.message);else setValue(data as AttendanceSettings)})},[leagueId])
+  if(!value)return <PanelCard title="مرحله مدارک تیم"><p className="text-sm text-slate-500">{message||'در حال بارگذاری…'}</p></PanelCard>
+  const save=async()=>{setBusy(true);setMessage('');const {error}=await backend.from('league_attendance_settings').update({team_documents_enabled:value.team_documents_enabled,team_documents_notice_fa:value.team_documents_notice_fa,team_documents_notice_en:value.team_documents_notice_en}).eq('league_id',leagueId);setBusy(false);setMessage(error?error.message:'تنظیمات مرحله مدارک ذخیره شد.')}
+  return <PanelCard title="مرحله مدارک و مستندات تیم" description="در صورت غیرفعال‌بودن، این مرحله در مسیر ثبت‌نام حذف می‌شود. نوع و الزامی‌بودن فیلدهای مدرک از تنظیمات ثبت‌نام مدیریت می‌شود."><div className="grid gap-4 md:grid-cols-2"><label className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold"><input type="checkbox" checked={value.team_documents_enabled} onChange={e=>setValue({...value,team_documents_enabled:e.target.checked})}/>دریافت مدارک تیم فعال باشد</label><div className="rounded-xl bg-sky-50 p-4 text-xs leading-6 text-sky-800">هنگام فعال‌بودن، هشدار نیاز به مدارک در صفحه عمومی لیگ نمایش داده می‌شود.</div><Textarea label="متن هشدار فارسی" value={value.team_documents_notice_fa} onChange={e=>setValue({...value,team_documents_notice_fa:e.target.value})}/><Textarea label="English notice" dir="ltr" value={value.team_documents_notice_en} onChange={e=>setValue({...value,team_documents_notice_en:e.target.value})}/></div><div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" disabled={busy} onClick={()=>void save()}>{busy?'در حال ذخیره…':'ذخیره تنظیمات مدارک'}</Button><Link to="/super-admin/registration" className="text-sm font-bold text-sky-700 hover:underline">مدیریت فیلدهای مدارک</Link>{message?<span className="text-sm text-slate-600">{message}</span>:null}</div></PanelCard>
 }
 
 function AttendanceSettingsForm({leagueId}:{leagueId:string}){

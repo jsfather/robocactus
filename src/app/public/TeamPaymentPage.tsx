@@ -261,7 +261,7 @@ export function TeamPaymentPage() {
         ) : null}
 
         {invoice?.status === 'paid' && company ? (
-          <><Button type="button" className="w-full" onClick={() => void navigate(`/team/${team.id}/attendance`)}>ادامه فرایند مجوز حضور</Button><Button
+          <><Button type="button" className="w-full" onClick={() => void navigate(`/team/${team.id}/attendance`)}>مشاهده مجوز حضور و اطلاعات مسابقه</Button><Button
             type="button"
             variant="secondary"
             onClick={() =>

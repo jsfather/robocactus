@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
@@ -10,6 +10,7 @@ import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period
 import type { Company, League, Team } from '@/types/database'
 
 export function CompanyCompetitionsPage() {
+  const navigate = useNavigate()
   const { t } = useTranslation()
   const { user, loading: authLoading } = useAuth()
   const [companies, setCompanies] = useState<Company[]>([])
@@ -115,6 +116,7 @@ export function CompanyCompetitionsPage() {
             setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
             setRegisterLeagueId(null)
             setResumeTeamId(null)
+            void navigate(`/team/${team.id}/attendance`)
           }}
         />
       ) : (
@@ -158,6 +160,8 @@ export function CompanyCompetitionsPage() {
                         {team ? (
                           team.lifecycle_status === 'awaiting_payment' || ['invoice', 'payment'].includes(team.registration_stage ?? '') ? (
                             <Link to={`/payments/teams/${team.id}`} className="rounded-xl bg-rc-accent px-4 py-2 text-sm font-bold text-white">پرداخت و ویرایش</Link>
+                          ) : ['technical', 'technical_review', 'rules'].includes(team.registration_stage ?? '') ? (
+                            <Link to={`/team/${team.id}/attendance`} className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-bold text-white">ادامه ثبت‌نام</Link>
                           ) : !['completed', 'cancelled'].includes(team.lifecycle_status ?? '') || team.status === 'draft' ? (
                             <Button type="button" onClick={() => { setResumeTeamId(team.id); setRegisterLeagueId(league.id) }}>تکمیل ثبت‌نام</Button>
                           ) : (

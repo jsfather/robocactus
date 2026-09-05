@@ -5,6 +5,7 @@ import { registrationLifecycleForStep } from '../src/features/registration/lifec
 import { classifyOtpChallenge } from '../server/otp-state.ts'
 
 const migration = readFileSync(new URL('../db/migrations/0044_registration_lifecycle.sql', import.meta.url), 'utf8')
+const unifiedEnrollmentMigration = readFileSync(new URL('../db/migrations/0072_unified_team_enrollment_flow.sql', import.meta.url), 'utf8')
 const appRoutes = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const wizard = readFileSync(new URL('../src/features/registration/TeamRegistrationWizard.tsx', import.meta.url), 'utf8')
 const liveResultsAdmin = readFileSync(new URL('../src/app/league-admin/LeagueAdminPage.tsx', import.meta.url), 'utf8')
@@ -26,11 +27,19 @@ const authServer = readFileSync(new URL('../server/auth.ts', import.meta.url), '
 const smsOtpClient = readFileSync(new URL('../src/features/auth/smsOtp.ts', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
-  assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 10, lifecycleStatus: 'incomplete' })
-  assert.deepEqual(registrationLifecycleForStep(2), { stage: 'documents', progress: 60, lifecycleStatus: 'awaiting_documents' })
-  assert.deepEqual(registrationLifecycleForStep(3), { stage: 'review', progress: 75, lifecycleStatus: 'awaiting_review' })
-  assert.deepEqual(registrationLifecycleForStep(5), { stage: 'payment', progress: 85, lifecycleStatus: 'awaiting_payment' })
-  assert.deepEqual(registrationLifecycleForStep(6), { stage: 'completed', progress: 100, lifecycleStatus: 'completed' })
+  assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 8, lifecycleStatus: 'incomplete' })
+  assert.deepEqual(registrationLifecycleForStep(2), { stage: 'documents', progress: 34, lifecycleStatus: 'awaiting_documents' })
+  assert.deepEqual(registrationLifecycleForStep(3), { stage: 'review', progress: 44, lifecycleStatus: 'awaiting_review' })
+  assert.deepEqual(registrationLifecycleForStep(5), { stage: 'technical_review', progress: 64, lifecycleStatus: 'awaiting_technical_review' })
+  assert.deepEqual(registrationLifecycleForStep(7), { stage: 'invoice', progress: 82, lifecycleStatus: 'awaiting_payment' })
+  assert.deepEqual(registrationLifecycleForStep(9), { stage: 'completed', progress: 100, lifecycleStatus: 'completed' })
+})
+
+test('unified enrollment enforces technical approval and rules before payment', () => {
+  assert.match(unifiedEnrollmentMigration, /team_documents_enabled boolean not null default true/)
+  assert.match(unifiedEnrollmentMigration, /technical_status='approved' and rules_accepted_at is not null/)
+  assert.match(unifiedEnrollmentMigration, /v_flow\.stage not in \('payment','confirmed'\)/)
+  assert.match(unifiedEnrollmentMigration, /registration_incomplete:approval/)
 })
 
 test('registration stage is clamped for corrupt persisted step values', () => {

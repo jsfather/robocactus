@@ -34,8 +34,10 @@ export function CompanyPanelPage({
   const [companyResults, setCompanyResults] = useState<RankingsRow[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [memberCount, setMemberCount] = useState(0)
-  const [showWizard, setShowWizard] = useState(section === 'teams')
+  const [showWizard, setShowWizard] = useState(false)
   const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
+  const [showLeaguePicker, setShowLeaguePicker] = useState(false)
   const [editingProfile, setEditingProfile] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -256,17 +258,20 @@ export function CompanyPanelPage({
               key={resumeTeamId ?? 'new-registration'}
               companyId={activeCompanyId}
               initialTeamId={resumeTeamId ?? undefined}
-              initialLeagueId={teams.find((team) => team.id === resumeTeamId)?.league_id}
+              initialLeagueId={selectedLeagueId ?? teams.find((team) => team.id === resumeTeamId)?.league_id}
               onCancel={() => setShowWizard(false)}
               onCompleted={(team) => {
                 setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
                 setShowWizard(false)
-                void navigate(`/payments/teams/${team.id}`)
+                setShowLeaguePicker(false)
+                void navigate(`/team/${team.id}/attendance`)
               }}
             />
           ) : null}
 
-          <PanelCard title={t('team.listTitle')} description={t('team.listHint')}>
+          <PanelCard title="تیم‌های ما" description="برای هر مسابقه یک پرونده تیم بسازید و همه مراحل ثبت‌نام، بررسی و پرداخت را از همین‌جا ادامه دهید.">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><p className="text-sm text-slate-500">{teams.length ? `${teams.length.toLocaleString('fa-IR')} تیم در این مجموعه` : 'هنوز تیمی برای این مجموعه ثبت نشده است.'}</p><Button type="button" onClick={() => { setResumeTeamId(null); setSelectedLeagueId(null); setShowWizard(false); setShowLeaguePicker(true) }}>{teams.length ? 'شرکت در لیگ جدید' : 'انتخاب مسابقه'}</Button></div>
+            {(showLeaguePicker || teams.length === 0) && !showWizard ? <div className="mb-6 grid gap-3 md:grid-cols-2">{leagues.filter((league) => (league.registration_cycle_status ?? 'open') === 'open').map((league) => <article key={league.id} className="flex items-center justify-between gap-4 rounded-2xl border border-sky-100 bg-sky-50/40 p-4"><div><h3 className="font-black text-slate-900">{league.name}</h3><p className="mt-1 text-xs text-slate-500">ثبت‌نام این دوره فعال است</p></div><Button type="button" onClick={() => { setSelectedLeagueId(league.id); setShowLeaguePicker(false); setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>شرکت در مسابقه</Button></article>)}</div> : null}
             {teams.length === 0 ? (
               <p className="text-sm text-rc-muted">{t('team.empty')}</p>
             ) : (
@@ -294,7 +299,7 @@ export function CompanyPanelPage({
                           {t('payment.payCta')}
                         </Link>
                       ) : null}
-                      {!['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ادامه ثبت‌نام</Button> : null}
+                      {!['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setSelectedLeagueId(team.league_id); if (['technical','technical_review','rules'].includes(team.registration_stage ?? '')) void navigate(`/team/${team.id}/attendance`); else { setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } }}>ادامه ثبت‌نام</Button> : null}
                       <Link
                         to={`/team/${team.id}`}
                         className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-800 hover:bg-sky-100"

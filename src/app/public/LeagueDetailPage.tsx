@@ -193,6 +193,7 @@ export function LeagueDetailPage() {
   }, [slug, t])
 
   const locale = contentLocale(i18n.language)
+  const isFa = locale === 'fa'
   const league = useMemo(() => bundle?.league ? localizeLeague(bundle.league, locale) : undefined, [bundle?.league, locale])
   const files = useMemo(() => (bundle?.files ?? []).map((item) => localizeFile(item, locale)), [bundle?.files, locale])
   const faqs = useMemo(() => (bundle?.faqs ?? []).map((item) => localizeFaq(item, locale)), [bundle?.faqs, locale])
@@ -739,6 +740,12 @@ export function LeagueDetailPage() {
             ) : null}
             {league.refund_policy ? (
               <p className="relative mt-2 max-w-2xl text-xs leading-6 text-slate-600">{league.refund_policy}</p>
+            ) : null}
+            {bundle.attendanceSettings?.team_documents_enabled ? (
+              <div className="relative mt-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-amber-400 font-black text-white" aria-hidden="true">!</span>
+                <p className="text-sm leading-7">{isFa ? bundle.attendanceSettings.team_documents_notice_fa : bundle.attendanceSettings.team_documents_notice_en}</p>
+              </div>
             ) : null}
           </div>
         </SectionFrame>

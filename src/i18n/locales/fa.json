@@ -418,9 +418,13 @@
       "info": "اطلاعات تیم",
       "members": "اعضا",
       "documents": "مدارک",
-      "review": "تأیید نهایی",
+      "review": "بازبینی اطلاعات",
+      "technical": "اطلاعات فنی",
+      "technical_review": "بررسی کمیته فنی",
+      "rules": "قوانین لیگ",
       "invoice": "صدور صورتحساب",
-      "payment": "پرداخت و ثبت نهایی"
+      "payment": "پرداخت",
+      "completed": "صدور مجوز"
     },
     "docTypes": {
       "id_card": "کارت شناسایی",

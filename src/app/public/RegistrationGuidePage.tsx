@@ -8,9 +8,10 @@ const stepsFa = [
   ['احراز و مدارک حساب', 'موبایل را تأیید و مدارک الزامی مانند کارت ملی یا روزنامه رسمی و مدرک نماینده را بارگذاری کنید.'],
   ['انتخاب لیگ', 'از میان لیگ‌های فعال و دارای ثبت‌نام باز، مسابقه مناسب را انتخاب کنید.'],
   ['ساخت تیم و افراد آن', 'نام و شعار تیم را ثبت کنید؛ سپس سرپرست، مربی و اعضا را به‌عنوان Team People وارد کنید. این افراد حساب CRM مستقل نمی‌گیرند.'],
-  ['بازبینی و محاسبه مبلغ', 'اطلاعات، محدودیت سنی و مدارک بررسی و مبلغ ورودی، سرپرست، مربی و اعضا محاسبه می‌شود.'],
-  ['پذیرش قوانین و پرداخت', 'قوانین را بپذیرید و پرداخت آنلاین یا کارت‌به‌کارت را انجام دهید. فیش کارت‌به‌کارت توسط حسابداری بررسی می‌شود.'],
-  ['تأیید نهایی', 'پس از پرداخت و بررسی، عضویت تیم قطعی می‌شود و وضعیت از پنل همان Account قابل پیگیری است.'],
+  ['بازبینی اطلاعات', 'اعضا و تصاویر مدارک مرتبط با هر فرد را یک‌بار کنترل کنید و در صورت نیاز به مرحله قبل برگردید.'],
+  ['ارسال اطلاعات فنی و بررسی کمیته', 'مقاله و فیلم ربات را مطابق شرایط لیگ ارسال کنید. فقط عضو یا مدرک ردشده برای اصلاح باز می‌شود.'],
+  ['پذیرش قوانین و پرداخت', 'پس از تأیید فنی، قوانین لیگ را بپذیرید، پیش‌فاکتور را ببینید و پرداخت آنلاین یا کارت‌به‌کارت را انجام دهید.'],
+  ['صدور مجوز حضور', 'پس از تأیید پرداخت، مجوز حضور همراه با زمان و محل مسابقه صادر و از پرونده تیم قابل مشاهده است.'],
 ]
 const stepsEn = [
   ['Sign in or create an account', 'Enter your mobile number and verify the six-digit OTP. New numbers continue to registration.'],
@@ -19,9 +20,10 @@ const stepsEn = [
   ['Verification and documents', 'Verify the phone and upload required identity or corporate documents.'],
   ['Choose a league', 'Select an active league whose registration window is open.'],
   ['Create the team and its people', 'Add team details, captain, coaches and members. Team People do not receive separate CRM accounts.'],
-  ['Review and fee calculation', 'Review eligibility and documents; entry and per-person fees are calculated.'],
-  ['Accept terms and pay', 'Accept the terms and use online or card-to-card payment. Receipts are reviewed by accounting.'],
-  ['Final confirmation', 'After payment and review, membership is confirmed and remains trackable from the participant account.'],
+  ['Review submitted information', 'Review every team member and the documents attached to that person before submission.'],
+  ['Technical submission and review', 'Submit the robot paper and video. Only rejected members or files are reopened for correction.'],
+  ['Accept terms and pay', 'After technical approval, accept the league rules, review the proforma and pay online or by bank transfer.'],
+  ['Attendance clearance', 'After payment confirmation, the attendance clearance is issued with the competition time and venue.'],
 ]
 
 export function RegistrationGuidePage() {

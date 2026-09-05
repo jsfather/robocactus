@@ -420,8 +420,12 @@
       "members": "Members",
       "documents": "Documents",
       "review": "Review",
+      "technical": "Technical files",
+      "technical_review": "Committee review",
+      "rules": "League rules",
       "invoice": "Invoice",
-      "payment": "Payment & completion"
+      "payment": "Payment",
+      "completed": "Clearance"
     },
     "docTypes": {
       "id_card": "ID card",

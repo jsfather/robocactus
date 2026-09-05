@@ -9,6 +9,7 @@ import type {
   LeaguePerson,
   LeagueSponsor,
 } from '@/types/database'
+import type { AttendanceSettings } from '@/features/attendance/api'
 
 export type LeagueDetailBundle = {
   league: League
@@ -22,6 +23,7 @@ export type LeagueDetailBundle = {
   news: Announcement[]
   related: League[]
   registeredCount: number
+  attendanceSettings: AttendanceSettings | null
 }
 
 export async function fetchLeagueBySlug(slug: string): Promise<League | null> {
@@ -48,6 +50,7 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     galleryRes,
     newsRes,
     countRes,
+    attendanceRes,
   ] = await Promise.all([
     backend.from('league_files').select('*').eq('league_id', league.id).order('sort_order'),
     backend.from('league_people').select('*').eq('league_id', league.id).order('sort_order'),
@@ -72,9 +75,10 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
       .order('published_at', { ascending: false })
       .limit(5),
     backend.rpc('league_registered_count', { p_league_id: league.id }),
+    backend.from('league_attendance_settings').select('*').eq('league_id', league.id).maybeSingle(),
   ])
 
-  for (const res of [filesRes, peopleRes, sponsorsRes, faqsRes, pastRes, galleryRes, newsRes]) {
+  for (const res of [filesRes, peopleRes, sponsorsRes, faqsRes, pastRes, galleryRes, newsRes, attendanceRes]) {
     if (res.error) throw new Error(res.error.message)
   }
   if (countRes.error) throw new Error(countRes.error.message)
@@ -104,5 +108,6 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     news: (newsRes.data ?? []) as Announcement[],
     related,
     registeredCount: Number(countRes.data ?? 0),
+    attendanceSettings: (attendanceRes.data as AttendanceSettings | null) ?? null,
   }
 }

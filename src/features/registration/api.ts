@@ -164,7 +164,7 @@ export async function createDraftTeam(input: {
     .eq('captain_id', input.captainId)
     .eq('league_id', input.leagueId)
     .eq('season_year', input.seasonYear)
-    .in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_payment'])
+    .in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_technical_review', 'awaiting_rules', 'awaiting_payment'])
     .order('last_activity_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -259,7 +259,7 @@ export async function loadRegistrationDraft(teamId: string): Promise<TeamWizardD
 }
 
 export async function findResumableRegistration(companyId: string, leagueId?: string): Promise<Team | null> {
-  let query = backend.from('teams').select('*').eq('company_id', companyId).in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_payment']).order('last_activity_at', { ascending: false }).limit(1)
+  let query = backend.from('teams').select('*').eq('company_id', companyId).in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_technical_review', 'awaiting_rules', 'awaiting_payment']).order('last_activity_at', { ascending: false }).limit(1)
   if (leagueId) query = query.eq('league_id', leagueId)
   const { data, error } = await query.maybeSingle()
   if (error) throw new Error(error.message)

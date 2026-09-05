@@ -8,7 +8,7 @@ import { formatAppDateTime } from '@/lib/dates'
 import type { DocumentRow, Invoice, League, Profile, Team } from '@/types/database'
 
 type Reminder = { reminder_type: string; template_key: string; is_active: boolean; delay_hours: number; max_sends: number; interval_hours: number; variables: string[] }
-const stageLabel: Record<string, string> = { draft: 'شروع‌شده', incomplete: 'اطلاعات ناقص', awaiting_documents: 'در انتظار مدارک', awaiting_review: 'در انتظار بررسی', awaiting_payment: 'در انتظار پرداخت' }
+const stageLabel: Record<string, string> = { draft: 'شروع‌شده', incomplete: 'اطلاعات ناقص', awaiting_documents: 'در انتظار مدارک', awaiting_review: 'در انتظار بررسی اعضا', awaiting_technical_review: 'در انتظار بررسی فنی', awaiting_rules: 'در انتظار تأیید قوانین', awaiting_payment: 'در انتظار پرداخت' }
 const reminderLabel: Record<string, string> = { incomplete_registration: 'تکمیل ثبت‌نام', team_approval: 'تأیید تیم', account_verification: 'تأیید حساب', payment: 'پرداخت' }
 
 export function SuperAdminIncompleteRegistrationsPage() {
@@ -32,7 +32,7 @@ export function SuperAdminIncompleteRegistrationsPage() {
 
   const load = async () => {
     const results = await Promise.all([
-      backend.from('teams').select('*').in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_payment']).order('last_activity_at'),
+      backend.from('teams').select('*').in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_technical_review', 'awaiting_rules', 'awaiting_payment']).order('last_activity_at'),
       backend.from('profiles').select('*'), backend.from('leagues').select('*'),
       backend.from('invoices').select('*').order('created_at', { ascending: false }),
       backend.from('documents').select('*'),

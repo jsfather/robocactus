@@ -14,7 +14,6 @@ import { fetchActiveLeagues } from '@/features/companies/api'
 import { ageFromBirthDate } from '@/lib/dates'
 import { backend } from '@/lib/backend'
 import {
-  clearTeamDraft,
   createDraftTeam,
   emptyMemberDraft,
   emptyTeamDraft,
@@ -34,6 +33,7 @@ import {
 } from '@/features/registration/api'
 import { registrationLifecycleForStep } from '@/features/registration/lifecycle'
 import { fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
+import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/api'
 import type { DocumentRow, League, Team } from '@/types/database'
 
 function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { label: string; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
@@ -54,7 +54,7 @@ function PrivateImage({ path, alt, onOpen }: { path?: string | null; alt: string
   return <button type="button" onClick={() => onOpen(url)} className="block w-full overflow-hidden bg-slate-100 focus-visible:ring-2 focus-visible:ring-sky-500"><img src={url} alt={alt} className="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-[1.03]" /></button>
 }
 
-const STEPS = ['info', 'members', 'documents', 'review', 'invoice', 'payment'] as const
+const STEPS = ['info', 'members', 'documents', 'review', 'technical', 'technical_review', 'rules', 'invoice', 'payment', 'completed'] as const
 const EDITABLE_STEPS = 4
 
 interface TeamRegistrationWizardProps {
@@ -98,6 +98,7 @@ export function TeamRegistrationWizard({
   const [viewerUrl, setViewerUrl] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [openMemberIndex, setOpenMemberIndex] = useState<number | null>(0)
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -139,6 +140,12 @@ export function TeamRegistrationWizard({
     () => leagues.find((l) => l.id === draft.leagueId) ?? null,
     [leagues, draft.leagueId],
   )
+
+  useEffect(() => {
+    if (!draft.leagueId) { setAttendanceSettings(null); return }
+    void backend.from('league_attendance_settings').select('*').eq('league_id', draft.leagueId).maybeSingle()
+      .then(({ data }) => setAttendanceSettings((data as AttendanceSettings | null) ?? null))
+  }, [draft.leagueId])
 
   useEffect(() => {
     const name = draft.name.trim()
@@ -296,11 +303,13 @@ export function TeamRegistrationWizard({
         persistedTeamId = teamId
         await saveMembersWithIdCards(teamId)
       }
-      if (step === 2) {
+      if (step === 2 && attendanceSettings?.team_documents_enabled !== false) {
         if (requiredTeamDocsMissing.length) throw new Error(`مدارک الزامی بارگذاری نشده‌اند: ${requiredTeamDocsMissing.map((item) => i18n.language.startsWith('en') ? item.label_en : item.label_fa).join('، ')}`)
         persistedTeamId = await ensureTeamRecord()
       }
-      const nextStep = Math.min(step + 1, EDITABLE_STEPS - 1)
+      const nextStep = step === 1 && attendanceSettings?.team_documents_enabled === false
+        ? 3
+        : Math.min(step + 1, EDITABLE_STEPS - 1)
       const teamId = persistedTeamId
       const nextDraft = { ...draft, teamId: teamId ?? draft.teamId, step: nextStep }
       patchDraft({ teamId: teamId ?? draft.teamId, step: nextStep })
@@ -315,7 +324,7 @@ export function TeamRegistrationWizard({
 
   const goBack = () => {
     setError(null)
-    patchDraft({ step: Math.max(step - 1, 0) })
+    patchDraft({ step: step === 3 && attendanceSettings?.team_documents_enabled === false ? 1 : Math.max(step - 1, 0) })
   }
 
   const onUpload = async (event: FormEvent<HTMLFormElement>) => {
@@ -366,9 +375,11 @@ export function TeamRegistrationWizard({
     try {
       const teamId = await ensureTeamRecord()
       await saveMembersWithIdCards(teamId)
-      await persistRegistrationDraft(teamId, { ...draft, teamId, step: 3 }, { stage: 'invoice', progress: 82, lastCompletedStep: 3, lifecycleStatus: 'awaiting_payment' })
-      const { error: invoiceError } = await backend.rpc('create_invoice_for_team', { p_team_id: teamId })
-      if (invoiceError) throw new Error(invoiceError.message)
+      await persistRegistrationDraft(teamId, { ...draft, teamId, step: 4 }, { stage: 'technical', progress: 55, lastCompletedStep: 3, lifecycleStatus: 'awaiting_review' })
+      const attendance = await fetchAttendance(teamId, draft.leagueId)
+      if (attendance.flow.stage === 'payment') {
+        await persistRegistrationDraft(teamId, { ...draft, teamId, step: 7 }, { stage: 'invoice', progress: 82, lastCompletedStep: 6, lifecycleStatus: 'awaiting_payment' })
+      }
       const { data, error: fetchError } = await backend
         .from('teams')
         .select('*')
@@ -376,7 +387,6 @@ export function TeamRegistrationWizard({
         .single()
 
       if (fetchError) throw new Error(fetchError.message)
-      clearTeamDraft(companyId)
       onCompleted(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -527,7 +537,7 @@ export function TeamRegistrationWizard({
         </div>
       ) : null}
 
-      {step === 2 ? (
+      {step === 2 && attendanceSettings?.team_documents_enabled !== false ? (
         <div className="space-y-6">
           <section className="rounded-2xl border border-sky-100 bg-sky-50/40 p-5"><div className="mb-4"><h3 className="font-black text-slate-900">مدارک مربوط به تیم</h3><p className="mt-1 text-xs leading-6 text-slate-600">فقط مدارکی که مدیریت برای ثبت‌نام تیم فعال کرده است نمایش داده می‌شوند. لوگوی تیم می‌تواند اختیاری باشد یا از پنل کاملاً غیرفعال شود.</p></div>
             {teamDocTypes.length ? <form className="grid gap-4 lg:grid-cols-[minmax(12rem,.65fr)_minmax(0,1fr)_auto] lg:items-end" onSubmit={(e) => void onUpload(e)}><Select label="نوع مدرک تیم" value={teamDocType} onChange={(e) => setTeamDocType(e.target.value)}>{teamDocTypes.map((type) => <option key={type.id} value={type.code}>{i18n.language.startsWith('en') ? type.label_en : type.label_fa}{type.is_required ? ' *' : ' (اختیاری)'}</option>)}</Select><DocumentUploadField label={teamDocTypes.find((type) => type.code === teamDocType)?.label_fa ?? 'فایل تیم'} required={teamDocTypes.find((type) => type.code === teamDocType)?.is_required} value={teamFilePreview} busy={fileBusy} onSelect={setTeamFile} onRemove={() => setTeamFile(null)} /><Button type="submit" disabled={fileBusy || !draft.teamId || !teamFile}>{fileBusy ? t('app.loading') : 'بارگذاری مدرک'}</Button></form> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">برای این لیگ مدرک اضافه‌ای از تیم درخواست نشده است؛ می‌توانید به مرحله بعد بروید.</div>}
@@ -536,6 +546,8 @@ export function TeamRegistrationWizard({
           <section><div className="mb-4"><h3 className="font-black text-slate-900">مدارک هویتی افراد تیم</h3><p className="mt-1 text-xs leading-6 text-slate-500">اطلاعاتی که در مرحله اعضا ثبت کردید اینجا برای کنترل نهایی نمایش داده می‌شود. برای بزرگ‌نمایی روی هر تصویر بزنید.</p></div><div className="grid gap-4 md:grid-cols-2">{draft.members.map((member, index) => <article key={`${member.full_name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-14 overflow-hidden rounded-xl bg-slate-100">{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)}><img src={member.photo_url} alt={member.full_name} className="size-14 object-cover" /></button> : <span className="grid size-full place-items-center text-lg font-black text-slate-400">{(member.first_name || member.full_name).slice(0, 1)}</span>}</div><div className="min-w-0"><strong className="block truncate text-slate-900">{member.first_name} {member.last_name}</strong><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{roleLabel(member.role)}</span></div></div><div className="grid grid-cols-2 gap-px bg-slate-100"><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر پرسنلی</span>{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)} className="w-full"><img src={member.photo_url} alt="تصویر پرسنلی" className="aspect-[4/3] w-full rounded-lg object-cover" /></button> : <span className="grid aspect-[4/3] place-items-center rounded-lg bg-slate-50 text-xs text-slate-400">ثبت نشده</span>}</div><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">کارت ملی / مدرک هویت</span><PrivateImage path={member.national_id_doc_path} alt="مدرک هویت" onOpen={setViewerUrl} /></div></div></article>)}</div></section>
         </div>
       ) : null}
+
+      {step === 3 ? <section className="space-y-4"><div><h3 className="font-black text-slate-900">مدارک افراد و تیم</h3><p className="mt-1 text-xs leading-6 text-slate-500">پیش از ارسال، تصاویر را کنترل کنید. برای مشاهده کامل روی تصویر بزنید؛ برای اصلاح از دکمه مرحله قبل استفاده کنید.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{draft.members.map((member,index)=><article key={index} className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="flex items-center gap-3 border-b border-slate-100 p-3"><span className="grid size-9 place-items-center overflow-hidden rounded-lg bg-sky-50">{member.photo_url?<img src={member.photo_url} alt="" className="size-full object-cover"/>:(member.first_name||'?').slice(0,1)}</span><div><strong className="text-sm text-slate-900">{member.first_name} {member.last_name}</strong><p className="text-xs text-slate-500">{roleLabel(member.role)}</p></div></div><div className="p-3"><PrivateImage path={member.national_id_doc_path} alt={`مدرک هویتی ${member.first_name}`} onOpen={setViewerUrl}/></div></article>)}{teamOnlyDocs.map(doc=><article key={doc.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><PrivateImage path={doc.file_path} alt={doc.doc_type} onOpen={setViewerUrl}/><p className="p-3 text-sm font-bold text-slate-700">{teamDocTypes.find(type=>type.code===doc.doc_type)?.label_fa??doc.doc_type}</p></article>)}</div></section> : null}
 
       {step === 3 ? (
         <div className="space-y-5 text-sm">
@@ -567,7 +579,7 @@ export function TeamRegistrationWizard({
           </Button>
         ) : (
           <Button type="button" onClick={() => void finish()} disabled={busy}>
-            {busy ? t('app.loading') : t('team.issueInvoice')}
+            {busy ? t('app.loading') : 'تأیید اطلاعات و ادامه به مدارک فنی'}
           </Button>
         )}
       </div></div>
