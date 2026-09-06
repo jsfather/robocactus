@@ -54,28 +54,25 @@ export function LiveChatInboxPage() {
         if (!cancelled) setError(err.message)
       })
 
-    const channel = backend
-      .channel(`live-chat-${selectedId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'live_chat_messages',
-          filter: `session_id=eq.${selectedId}`,
-        },
-        (payload) => {
-          const row = payload.new as LiveChatMessage
-          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]))
-        },
-      )
-      .subscribe()
-
     return () => {
       cancelled = true
-      void backend.removeChannel(channel)
     }
   }, [selectedId])
+
+  useEffect(() => {
+    const channel = backend
+      .channel('live-chat-inbox')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_chat_sessions' }, () => { void reload() })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat_messages' }, (payload) => {
+        const row = payload.new as LiveChatMessage
+        if (row.session_id === selectedId) {
+          setMessages((current) => current.some((message) => message.id === row.id) ? current : [...current, row])
+        }
+        void reload()
+      })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
+  }, [reload, selectedId])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })

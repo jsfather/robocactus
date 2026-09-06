@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { applySiteBrandColors, fetchSiteSettings, normalizeSiteBrand } from '@/features/settings/api'
 import type { SiteSettings } from '@/types/database'
+import { backend } from '@/lib/backend'
 
 type Ctx = {
   settings: SiteSettings | null
@@ -51,6 +52,13 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     void refresh()
     // Cached settings render header/footer immediately; refresh runs in background.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refresh])
+
+  useEffect(() => {
+    const channel = backend.channel('site-settings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => { void refresh() })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
   }, [refresh])
 
   const value = useMemo(() => ({ settings, loading, refresh }), [settings, loading, refresh])

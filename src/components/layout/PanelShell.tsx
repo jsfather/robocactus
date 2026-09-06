@@ -176,12 +176,6 @@ export function PanelShell() {
     void enqueueIncompleteProfileSms(profile.id).catch(() => undefined)
   }, [profile])
 
-  useEffect(() => {
-    if (!profile?.requires_account_approval || profile.account_status !== 'pending' || !profile.signup_completed_at) return
-    const timer = window.setInterval(() => { void refreshProfile() }, 15_000)
-    return () => window.clearInterval(timer)
-  }, [profile?.requires_account_approval, profile?.account_status, profile?.signup_completed_at, refreshProfile])
-
   if (loading || (user && !profile && profileLoading)) {
     return (
       <div className="flex min-h-dvh items-center justify-center font-mono text-sm text-rc-muted">

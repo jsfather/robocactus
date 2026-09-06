@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { backend } from '@/lib/backend'
 import { HeroBanner } from '@/components/home/HeroBanner'
 import { SponsorsSlider } from '@/components/home/SponsorsSlider'
 import { CompetitionStats } from '@/components/home/CompetitionStats'
@@ -99,6 +100,23 @@ export function HomePage() {
     loadSection(fetchTopCompanies, setCompanies, [])
     loadSection(fetchLatestNews, setPosts, [])
     loadSection(fetchLiveResultsBoards, setLiveBoards, [])
+  }, [])
+
+  useEffect(() => {
+    const channel = backend.channel('homepage-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => loadSection(fetchActiveBanners, setBanners, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sponsors' }, () => loadSection(fetchActiveSponsors, setSponsors, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_stat_cards' }, () => loadSection(fetchActiveStatCards, setStats, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_why_cards' }, () => loadSection(fetchActiveWhyCards, setWhy, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_events' }, () => loadSection(fetchActiveEvents, setEvents, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_partners' }, () => loadSection(fetchActivePartners, setPartners, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_faqs' }, () => loadSection(fetchActiveFaqs, setFaqs, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leagues' }, () => { loadSection(fetchActiveLeagues, setLeagues, []); loadSection(fetchLiveResultsBoards, setLiveBoards, []) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => loadSection(fetchLiveResultsBoards, setLiveBoards, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => loadSection(fetchTopCompanies, setCompanies, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'blog_posts' }, () => loadSection(fetchLatestNews, setPosts, []))
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
   }, [])
 
   return (

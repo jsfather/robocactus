@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, FieldError, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
@@ -64,6 +64,12 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const tab = section
   const isSa = profile?.role === 'super_admin'
 
+  const loadPendingAccounts = useCallback(async () => {
+    const { data, error: profileError } = await backend.from('profiles').select('*').eq('requires_account_approval', true).eq('account_status', 'pending').not('signup_completed_at', 'is', null).order('created_at', { ascending: true })
+    if (profileError) throw new Error(profileError.message)
+    setPendingAccounts((data ?? []) as Profile[])
+  }, [])
+
   const loadTriage = async () => {
     setLoading(true)
     setError(null)
@@ -84,11 +90,19 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         const allowAccounts = permissionRows.includes('account_activation'); const allowTeams = false
         setCanActivateAccounts(allowAccounts); setCanTriageTeams(allowTeams)
         if (allowTeams) void loadTriage(); else setTeams([])
-        if (allowAccounts) { const { data, error: profileError } = await backend.from('profiles').select('*').eq('requires_account_approval', true).eq('account_status', 'pending').not('signup_completed_at', 'is', null).order('created_at', { ascending: true }); if (profileError) throw new Error(profileError.message); setPendingAccounts((data ?? []) as Profile[]) } else setPendingAccounts([])
+        if (allowAccounts) await loadPendingAccounts(); else setPendingAccounts([])
       })().catch((err: Error) => setError(err.message))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, profile])
+  }, [tab, profile, loadPendingAccounts])
+
+  useEffect(() => {
+    if (tab !== 'triage' || !canActivateAccounts) return
+    const channel = backend.channel('account-review-queue')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void loadPendingAccounts() })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
+  }, [tab, canActivateAccounts, loadPendingAccounts])
 
   const reviewAccount = async (account: Profile, approved: boolean) => {
     const reason = approved ? null : window.prompt('دلیل رد حساب را بنویسید:')

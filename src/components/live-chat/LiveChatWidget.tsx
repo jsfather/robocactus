@@ -69,10 +69,21 @@ export function LiveChatWidget() {
       }
     }
     void pull()
-    const id = window.setInterval(() => void pull(), 4000)
+    const source = new EventSource(`/api/realtime?tables=live_chat_messages,live_chat_sessions&chat_token=${encodeURIComponent(token)}`, { withCredentials: true })
+    source.onmessage = (event) => {
+      try {
+        const change = JSON.parse(event.data) as { table?: string; event?: string; record?: LiveChatMessage & { status?: string } }
+        if (change.table === 'live_chat_messages' && change.event === 'INSERT' && change.record?.id) {
+          const row = change.record as LiveChatMessage
+          setMessages((current) => current.some((message) => message.id === row.id) ? current : [...current, row])
+        }
+        if (change.table === 'live_chat_sessions' && change.record?.status === 'closed') void pull()
+      } catch { /* malformed events are ignored; EventSource reconnects automatically */ }
+    }
+    source.onerror = () => { if (!cancelled) void pull() }
     return () => {
       cancelled = true
-      window.clearInterval(id)
+      source.close()
     }
   }, [token, open])
 

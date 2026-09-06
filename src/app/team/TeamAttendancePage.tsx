@@ -20,7 +20,12 @@ export function TeamAttendancePage(){
   const [editDeadline,setEditDeadline]=useState<string|null>(null)
   const load=useCallback(async()=>{setError('');try{const nextTeam=await fetchTeamById(teamId);if(!nextTeam)throw new Error('team_not_found');setTeam(nextTeam);const [data,leagueResult]=await Promise.all([fetchAttendance(teamId,nextTeam.league_id),backend.from('leagues').select('team_edit_deadline').eq('id',nextTeam.league_id).maybeSingle()]);setFlow(data.flow);setSettings(data.settings);setMembers(data.members);setFiles(data.files);setNote(data.flow.participant_note??'');setEditDeadline(leagueResult.data?.team_edit_deadline??null)}catch(e){setError(e instanceof Error?e.message:'خطا در دریافت اطلاعات')}},[teamId])
   useEffect(()=>{void load()},[load])
-  useEffect(()=>{if(flow?.stage==='confirmed')return;const timer=window.setInterval(()=>void load(),15000);return()=>window.clearInterval(timer)},[flow?.stage,load])
+  useEffect(()=>{if(!teamId)return;const channel=backend.channel(`attendance:${teamId}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_attendance_clearances',filter:`team_id=eq.${teamId}`},()=>{void load()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_members',filter:`team_id=eq.${teamId}`},()=>{void load()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`team_id=eq.${teamId}`},()=>{void load()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'teams',filter:`id=eq.${teamId}`},()=>{void load()})
+    .subscribe();return()=>{void backend.removeChannel(channel)}},[teamId,load])
   const stageIndex=flow?.stage==='confirmed'?steps.length:Math.max(1,steps.findIndex(([key])=>key===flow?.stage)); const allMembersApproved=members.length>0&&members.every(m=>m.review_status==='approved')
   const fileMap=useMemo(()=>Object.fromEntries(files.map(file=>[file.kind,file])),[files]) as Partial<Record<'article'|'robot_video',TechnicalFile>>
   const editExpired=Boolean(editDeadline&&new Date(editDeadline).getTime()<Date.now())

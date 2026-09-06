@@ -246,6 +246,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [configured, loadProfile])
 
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    const channel = backend
+      .channel(`profile-status:${userId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => {
+        void loadProfile(userId)
+      })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
+  }, [loadProfile, session?.user?.id])
+
   const signIn = useCallback(async (email: string, password: string, captchaToken?: string) => {
     if (!configured) {
       return { error: 'backend_missing' }

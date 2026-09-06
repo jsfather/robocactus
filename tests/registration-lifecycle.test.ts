@@ -9,6 +9,7 @@ const unifiedEnrollmentMigration = readFileSync(new URL('../db/migrations/0072_u
 const clearanceStateMigration = readFileSync(new URL('../db/migrations/0073_team_clearance_status_and_reopen.sql', import.meta.url), 'utf8')
 const recursionFixMigration = readFileSync(new URL('../db/migrations/0074_fix_attendance_status_recursion.sql', import.meta.url), 'utf8')
 const accountApprovalMigration = readFileSync(new URL('../db/migrations/0075_account_approval_and_team_sms.sql', import.meta.url), 'utf8')
+const realtimeProfilesMigration = readFileSync(new URL('../db/migrations/0076_realtime_profiles.sql', import.meta.url), 'utf8')
 const appRoutes = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const wizard = readFileSync(new URL('../src/features/registration/TeamRegistrationWizard.tsx', import.meta.url), 'utf8')
 const liveResultsAdmin = readFileSync(new URL('../src/app/league-admin/LeagueAdminPage.tsx', import.meta.url), 'utf8')
@@ -67,6 +68,12 @@ test('new participant accounts are server-gated and lifecycle messages are idemp
   assert.match(accountApprovalMigration, /team_correction_required:/)
   assert.match(accountApprovalMigration, /team_review_approved:/)
   assert.match(accountApprovalMigration, /on conflict do nothing/)
+})
+
+test('account approval and operational conversations update without page refresh', () => {
+  assert.match(realtimeProfilesMigration, /app_realtime_capture on public\.profiles/)
+  assert.match(realtimeProfilesMigration, /team_attendance_clearances/)
+  assert.match(realtimeProfilesMigration, /home_banners/)
 })
 
 test('registration stage is clamped for corrupt persisted step values', () => {
