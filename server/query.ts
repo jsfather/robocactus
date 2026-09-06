@@ -174,6 +174,18 @@ function returningClause(select: string | undefined): SQL {
   return sql` returning ${sql.join(columns.map(identifier), sql`, `)}`
 }
 
+// Drizzle expands a JavaScript array interpolated directly in `sql`` ` as a
+// SQL tuple. That is correct for IN clauses, but invalid for assigning JSONB
+// columns (`[]` became `()` and non-empty arrays became `($1,$2,...)`). Values
+// received by this endpoint are JSON-compatible, so compound mutation values
+// must travel as one JSON parameter. PostgreSQL infers the destination column
+// type from INSERT/UPDATE and parses the parameter as json/jsonb.
+function mutationParameter(value: unknown): unknown {
+  if (Array.isArray(value)) return JSON.stringify(value)
+  if (value !== null && typeof value === 'object') return JSON.stringify(value)
+  return value
+}
+
 async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   if (!TABLES.has(spec.table)) throw new Error('table_not_allowed')
   const sectionByTable: Record<string, string> = {
@@ -227,7 +239,7 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   let statement: SQL
 
   if (spec.action === 'insert' || spec.action === 'upsert') {
-    const tuples = inputRows.map((row) => sql`(${sql.join(columns.map((column) => sql`${row[column]}`), sql`, `)})`)
+    const tuples = inputRows.map((row) => sql`(${sql.join(columns.map((column) => sql`${mutationParameter(row[column])}`), sql`, `)})`)
     let conflict = sql``
     if (spec.action === 'upsert') {
       const target = CONFLICT_COLUMNS[spec.table]
@@ -241,7 +253,7 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   } else if (spec.action === 'update') {
     if (!spec.filters?.length) throw new Error('mutation_filter_required')
     const row = inputRows[0]!
-    statement = sql`update ${table} set ${sql.join(columns.map((column) => sql`${identifier(column)} = ${row[column]}`), sql`, `)}${where}${returningClause(spec.select)}`
+    statement = sql`update ${table} set ${sql.join(columns.map((column) => sql`${identifier(column)} = ${mutationParameter(row[column])}`), sql`, `)}${where}${returningClause(spec.select)}`
   } else {
     if (!spec.filters?.length) throw new Error('mutation_filter_required')
     statement = sql`delete from ${table}${where}${returningClause(spec.select)}`

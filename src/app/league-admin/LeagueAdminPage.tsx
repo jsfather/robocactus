@@ -339,10 +339,11 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           <section className="overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#073b55] via-[#087eb8] to-[#0b8b66] p-5 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-5"><div><p className="text-xs font-black text-cyan-200">میز داوری مسابقه</p><h2 className="mt-2 text-2xl font-black">بررسی سریع، ثبت دقیق، انتشار مطمئن</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-white/80">ابتدا لیگ و تیم را انتخاب کنید؛ پرونده و مدارک را بررسی کنید، سپس برای هر معیار امتیاز بدهید. پیش‌نویس قابل ویرایش است اما ثبت نهایی قفل می‌شود.</p></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{visibleTeams.length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">تیم در صف</span></div><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{teams.filter((team) => team.status === 'under_review').length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">در حال بررسی</span></div></div></div>
           </section>
-          <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-          {tab==='review'?<div className="mb-3 flex flex-wrap gap-2">{[['all','همه'],['under_review','در انتظار بررسی'],['approved','تأییدشده'],['re_review','نیازمند بازبینی'],['withdrawal_pending','درخواست انصراف'],['cancelled','انصرافی']].map(([value,label])=><button type="button" key={value} onClick={()=>setQueueStatus(value)} className={`rounded-xl px-3 py-2 text-xs font-bold ${queueStatus===value?'bg-sky-700 text-white':'border border-slate-200 bg-white text-slate-600'}`}>{label}</button>)}</div>:null}
+          <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <aside className="min-w-0 space-y-3 lg:sticky lg:top-24">
+          {tab==='review'?<div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 [scrollbar-width:thin]"><div className="flex min-w-max gap-1">{[['all','همه'],['under_review','در انتظار'],['approved','تأییدشده'],['re_review','بازبینی'],['withdrawal_pending','انصراف'],['cancelled','انصرافی']].map(([value,label])=><button type="button" key={value} onClick={()=>setQueueStatus(value)} className={`h-8 whitespace-nowrap rounded-lg px-2.5 text-[11px] font-bold transition ${queueStatus===value?'bg-sky-700 text-white shadow-sm':'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>{label}</button>)}</div></div>:null}
           <PanelCard title={t('judging.queue')} description="فیلتر کنید و تیم بعدی را بدون خروج از صفحه انتخاب کنید.">
-            <div className={`mb-4 grid gap-2 ${tab === 'scores' ? '' : 'grid-cols-2'}`}><Select label={tab === 'scores' ? 'ابتدا لیگ را انتخاب کنید' : 'لیگ'} value={queueLeague} onChange={(event) => { setQueueLeague(event.target.value); setSelectedId(null) }}><option value={tab === 'scores' ? '' : 'all'}>{tab === 'scores' ? 'انتخاب لیگ…' : 'همه لیگ‌ها'}</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select>{tab !== 'scores' ? <Select label="وضعیت" value={queueStatus} onChange={(event) => setQueueStatus(event.target.value)}><option value="all">همه</option><option value="submitted">جدید</option><option value="under_review">در حال بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></Select> : null}</div>
+            <div className="mb-3"><Select label={tab === 'scores' ? 'ابتدا لیگ را انتخاب کنید' : 'مسابقه'} value={queueLeague} onChange={(event) => { setQueueLeague(event.target.value); setSelectedId(null) }}><option value={tab === 'scores' ? '' : 'all'}>{tab === 'scores' ? 'انتخاب لیگ…' : 'همه مسابقات'}</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select></div>
             <ul className="max-h-[32rem] space-y-1 overflow-y-auto">
               {visibleTeams.length === 0 ? (
                 <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-xl shadow-sm">✓</span><p className="mt-3 text-sm font-black text-slate-700">{tab === 'scores' && !queueLeague ? 'یک لیگ را انتخاب کنید' : 'تیمی در این فیلتر باقی نمانده است'}</p><p className="mt-1 text-xs leading-5 text-slate-400">{tab === 'scores' ? 'فقط تیم‌هایی نمایش داده می‌شوند که مجوز حضور آن‌ها صادر شده باشد.' : 'فیلتر وضعیت یا لیگ را تغییر دهید.'}</p></li>
@@ -354,7 +355,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                       className={`w-full rounded-2xl border px-4 py-3 text-start text-sm transition ${
                         selectedId === team.id ? 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm' : 'border-transparent bg-slate-50/70 hover:border-slate-200 hover:bg-white'
                       }`}
-                      onClick={() => setSelectedId(team.id)}
+                      onClick={() => { setSelectedId(team.id); if (window.innerWidth < 1024) window.setTimeout(() => document.getElementById('team-review-dossier')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80) }}
                     >
                       <span className="flex items-center gap-2"><b className="grid size-7 shrink-0 place-items-center rounded-lg bg-white text-[11px] text-slate-400 shadow-sm">{String(teamIndex + 1).padStart(2, '0')}</b><span className="block min-w-0"><strong className="block truncate font-black">{team.name}</strong><small className="mt-0.5 block truncate text-xs text-slate-500">{leagueName(team.league_id)}</small></span></span>
                       <div className="mt-2 ps-9">
@@ -369,9 +370,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
               )}
             </ul>
           </PanelCard>
+          </aside>
 
           {selected ? (
-            <div className="space-y-4">
+            <div id="team-review-dossier" className="min-w-0 w-full scroll-mt-24 space-y-4">
               <nav aria-label="موقعیت فعلی" className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-500">
                 <span>بررسی تیم‌ها</span><span aria-hidden="true">←</span><span>{selectedLeague?.name ?? leagueName(selected.league_id)}</span><span aria-hidden="true">←</span><strong className="text-sky-700">پرونده تیم {selected.name}</strong>
               </nav>
@@ -414,10 +416,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                       return (
                         <li
                           key={m.id}
-                          className="rounded-lg border border-rc-line/70 bg-rc-surface/40 p-3 text-sm"
+                          className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm"
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
+                          <div className="grid min-w-0 gap-4 p-4 xl:grid-cols-[minmax(12rem,1fr)_minmax(18rem,1.25fr)] xl:items-end">
+                            <div className="min-w-0">
                               <p className="font-medium">
                                 {m.first_name || m.last_name
                                   ? `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim()
@@ -437,27 +439,29 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                               </p>
                               {m.reviewed_by?<p className="mt-1 text-[10px] text-slate-500">بررسی توسط: <strong>{reviewerProfiles[m.reviewed_by]??'کارشناس سامانه'}</strong>{m.reviewed_at?` · ${formatAppDateTime(m.reviewed_at,i18n.language)}`:''}</p>:null}
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              <Input label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} />
-                              {m.national_id_doc_path ? (
-                                <ReviewThumbnail path={m.national_id_doc_path} label={t('team.memberNationalIdCard')} onOpen={setViewerUrl} />
-                              ) : null}
-                              <Button
+                            <div className="min-w-0 space-y-2">
+                              <Input className="w-full" label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} />
+                              <div className="flex flex-wrap items-center gap-2">
+                                {m.national_id_doc_path ? (
+                                  <ReviewThumbnail path={m.national_id_doc_path} label={t('team.memberNationalIdCard')} onOpen={setViewerUrl} />
+                                ) : null}
+                                <Button
                                 type="button"
                                 variant="secondary"
                                 disabled={busy}
                                 onClick={() => void onMemberReview(m.id, 'approved')}
-                              >
-                                {t('judging.approve')}
-                              </Button>
-                              <Button
+                                >
+                                  {t('judging.approve')}
+                                </Button>
+                                <Button
                                 type="button"
                                 variant="danger"
                                 disabled={busy||!(memberRejectReasons[m.id]??'').trim()}
                                 onClick={() => void onMemberReview(m.id, 'rejected')}
-                              >
-                                {t('judging.reject')}
-                              </Button>
+                                >
+                                  {t('judging.reject')}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </li>
