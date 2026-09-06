@@ -15,11 +15,14 @@ export type AttendanceSettings = {
   confirmation_message_fa: string; confirmation_message_en: string
   venue_fa?: string | null; venue_en?: string | null; venue_address_fa?: string | null; venue_address_en?: string | null
   event_starts_at?: string | null; support_phone?: string | null
+  withdrawal_enabled: boolean; withdrawal_deadline?: string | null
+  withdrawal_terms_fa: string; withdrawal_terms_en: string
 }
 export type AttendanceClearance = {
   team_id: string; league_id: string; stage: 'members'|'technical'|'rules'|'payment'|'confirmed'
   technical_status: 'locked'|'draft'|'pending'|'approved'|'rejected'
   technical_rejection_reason?: string|null; participant_note?: string|null; rules_accepted_at?: string|null; confirmed_at?: string|null
+  technical_submitted_at?:string|null;technical_reviewed_at?:string|null;technical_reviewed_by?:string|null
   edit_reopened_at?: string|null
 }
 export type TeamRegistrationChange = { id:string; team_id:string; entity_type:'team'|'member'|'document'|'flow'; entity_id?:string|null; change_kind:string; before_data?:Record<string,unknown>|null; after_data?:Record<string,unknown>|null; changed_at:string }
@@ -58,3 +61,7 @@ export async function acceptAttendanceRules(teamId:string,note:string){const r=a
 export async function reopenTeamRegistration(teamId:string){const r=await backend.rpc('reopen_team_registration_for_edit',{p_team_id:teamId});if(r.error)throw new Error(r.error.message);return r.data}
 export async function fetchTeamRegistrationChanges(teamId:string){const r=await backend.from('team_registration_change_log').select('*').eq('team_id',teamId).order('changed_at',{ascending:false}).limit(50);if(r.error)throw new Error(r.error.message);return (r.data??[]) as TeamRegistrationChange[]}
 export async function technicalSignedUrl(path:string){const r=await backend.storage.from('technical-submissions').createSignedUrl(path,600);if(r.error)throw new Error(r.error.message);return r.data.signedUrl}
+export type TeamWithdrawalRequest={id:string;team_id:string;league_id:string;reason:string;status:'pending'|'approved'|'rejected';review_reason?:string|null;created_at:string;reviewed_at?:string|null}
+export async function fetchTeamWithdrawal(teamId:string){const r=await backend.from('team_withdrawal_requests').select('*').eq('team_id',teamId).order('created_at',{ascending:false}).limit(1).maybeSingle();if(r.error)throw new Error(r.error.message);return r.data as TeamWithdrawalRequest|null}
+export async function requestTeamWithdrawal(teamId:string,reason:string){const r=await backend.rpc('request_team_withdrawal',{p_team_id:teamId,p_reason:reason});if(r.error)throw new Error(r.error.message);return r.data as TeamWithdrawalRequest}
+export async function reviewTeamWithdrawal(requestId:string,approved:boolean,reason?:string){const r=await backend.rpc('review_team_withdrawal',{p_request_id:requestId,p_approved:approved,p_reason:reason??null});if(r.error)throw new Error(r.error.message);return r.data as TeamWithdrawalRequest}

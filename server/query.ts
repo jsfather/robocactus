@@ -37,7 +37,7 @@ const TABLES = new Set([
   'public_team_people',
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
-  'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files',
+  'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files', 'review_audit_log', 'team_withdrawal_requests',
 ])
 
 const RPCS = new Set([
@@ -54,6 +54,7 @@ const RPCS = new Set([
   'get_or_create_team_attendance', 'upsert_team_technical_file', 'submit_team_technical_files',
   'review_team_technical_files', 'accept_team_attendance_rules',
   'submit_team_member_correction',
+  'request_team_withdrawal', 'review_team_withdrawal',
 ])
 
 const CONFLICT_COLUMNS: Record<string, string[]> = {

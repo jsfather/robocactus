@@ -9,9 +9,10 @@ import {
   type RankingsRow,
 } from '@/features/rankings/api'
 import type { League } from '@/types/database'
+import { formatSeasonYear } from '@/lib/dates'
 
 export function RankingsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [rows, setRows] = useState<RankingsRow[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
   const [years, setYears] = useState<number[]>([])
@@ -120,7 +121,7 @@ export function RankingsPage() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-white/5">
-                  <td className="px-3 py-3 font-mono text-rc-blue">{row.season_year}</td>
+                  <td className="px-3 py-3 font-mono text-rc-blue">{formatSeasonYear(row.season_year,i18n.language)}</td>
                   <td className="px-3 py-3 font-mono text-rc-accent">
                     {row.rank != null ? `#${row.rank}` : '—'}
                   </td>

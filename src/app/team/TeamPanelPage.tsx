@@ -16,7 +16,7 @@ import {
 } from '@/features/registration/api'
 import { fetchTeamPublishedResult } from '@/features/live-results/api'
 import { PodiumCup } from '@/components/live-results/PodiumCup'
-import { ageFromBirthDate, formatAppDate } from '@/lib/dates'
+import { ageFromBirthDate, formatAppDate, formatSeasonYear } from '@/lib/dates'
 import type { DocumentRow, Invoice, ResultRow, Team, TeamMember } from '@/types/database'
 import type { League } from '@/types/database'
 import { backend } from '@/lib/backend'
@@ -203,7 +203,7 @@ export function TeamPanelPage() {
                   {t('liveResults.rank')}: {result.rank ?? '—'} · {t('judging.score')}:{' '}
                   <span dir="ltr">{result.score ?? '—'}</span>
                 </p>
-                <p className="mt-1 text-rc-muted">{result.season_year}</p>
+                <p className="mt-1 text-rc-muted">{formatSeasonYear(result.season_year,i18n.language)}</p>
               </div>
               <Link to="/live" className="ms-auto text-rc-blue hover:underline">
                 {t('nav.liveResults')}

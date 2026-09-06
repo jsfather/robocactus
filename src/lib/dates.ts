@@ -37,6 +37,14 @@ export function formatAppDateTime(iso: string | null | undefined, language = 'fa
   return formatAppDate(iso, language, { withTime: true })
 }
 
+export function formatSeasonYear(year: number | string | null | undefined, language: string): string {
+  const numeric = Number(year)
+  if (!Number.isFinite(numeric)) return '—'
+  if (!language.toLowerCase().startsWith('fa')) return String(numeric)
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { calendar: 'persian', numberingSystem: 'arabext', year: 'numeric', timeZone: 'Asia/Tehran' })
+    .format(new Date(Date.UTC(numeric, 6, 1))).replace(/[^۰-۹0-9]/g, '')
+}
+
 export function formatAppTime(iso: string | null | undefined, language: string): string {
   if (!iso) return '—'
   const date = new Date(iso)

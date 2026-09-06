@@ -16,6 +16,7 @@ import { TeamRegistrationWizard } from '@/features/registration/TeamRegistration
 import type { Company, Invoice, League, Team } from '@/types/database'
 import { backend } from '@/lib/backend'
 import type { RankingsRow } from '@/features/rankings/api'
+import { formatSeasonYear } from '@/lib/dates'
 
 const entityLabels: Record<string, string> = { individual: 'شخص حقیقی', company: 'شرکت', institute: 'مؤسسه', school: 'مدرسه', university: 'دانشگاه', academy: 'آموزشگاه', club: 'باشگاه', other: 'سایر' }
 
@@ -24,7 +25,7 @@ export function CompanyPanelPage({
 }: {
   section?: 'overview' | 'teams'
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
@@ -246,7 +247,7 @@ export function CompanyPanelPage({
                       <div>
                         <p className="font-medium">{r.team_name}</p>
                         <p className="text-xs text-rc-muted">
-                          {r.league_name} · {r.season_year}
+                          {r.league_name} · {formatSeasonYear(r.season_year,i18n.language)}
                         </p>
                       </div>
                     </div>

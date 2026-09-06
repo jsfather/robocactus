@@ -8,6 +8,7 @@ import {
   fetchCompanyProfile,
   type CompanyProfileBundle,
 } from '@/features/rankings/api'
+import { formatSeasonYear } from '@/lib/dates'
 
 function medalLabel(rank: number | null, t: (k: string) => string) {
   if (rank === 1) return t('companies.gold')
@@ -18,7 +19,7 @@ function medalLabel(rank: number | null, t: (k: string) => string) {
 
 export function CompanyPublicProfilePage() {
   const { slug } = useParams()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [bundle, setBundle] = useState<CompanyProfileBundle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -142,7 +143,7 @@ export function CompanyPublicProfilePage() {
                   </span>
                   <p className="mt-2 font-semibold">{item.league_name}</p>
                   <p className="mt-1 font-mono text-xs text-rc-muted">
-                    {item.season_year} · {item.team_name}
+                    {formatSeasonYear(item.season_year,i18n.language)} · {item.team_name}
                   </p>
                 </li>
               ))}
@@ -193,7 +194,7 @@ export function CompanyPublicProfilePage() {
                 <tbody>
                   {results.map((r, i) => (
                     <tr key={i} className="border-b border-rc-line-soft">
-                      <td className="px-3 py-2 font-mono text-xs">{r.season_year}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{formatSeasonYear(r.season_year,i18n.language)}</td>
                       <td className="px-3 py-2">{r.league_name}</td>
                       <td className="px-3 py-2">{r.team_name}</td>
                       <td className="px-3 py-2 font-mono">{medalLabel(r.rank, t)}</td>

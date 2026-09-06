@@ -35,7 +35,7 @@ import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
 import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, Team, TeamMember } from '@/types/database'
-import { fetchAttendance, fetchTeamRegistrationChanges, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TechnicalFile } from '@/features/attendance/api'
+import { fetchAttendance, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
 import { backend } from '@/lib/backend'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
@@ -74,6 +74,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [viewerUrl, setViewerUrl] = useState('')
   const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
   const [technicalFiles, setTechnicalFiles] = useState<TechnicalFile[]>([])
+  const [withdrawals, setWithdrawals] = useState<TeamWithdrawalRequest[]>([])
+  const [reviewerProfiles,setReviewerProfiles]=useState<Record<string,string>>({})
   const [technicalRejectReason, setTechnicalRejectReason] = useState('')
   const [registrationChanges,setRegistrationChanges]=useState<TeamRegistrationChange[]>([])
   const [clearedTeamIds, setClearedTeamIds] = useState<Set<string>>(new Set())
@@ -89,8 +91,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     if (tab === 'scores') {
       return Boolean(queueLeague && queueLeague !== 'all' && team.league_id === queueLeague && clearedTeamIds.has(team.id))
     }
-    return (queueLeague === 'all' || team.league_id === queueLeague) && (queueStatus === 'all' || team.status === queueStatus)
-  }), [clearedTeamIds, queueLeague, queueStatus, tab, teams])
+    const withdrawal=withdrawals.find(row=>row.team_id===team.id)
+    const matchesStatus=queueStatus==='withdrawal_pending'?withdrawal?.status==='pending':queueStatus==='cancelled'?team.lifecycle_status==='cancelled':queueStatus==='re_review'?team.status==='rejected'||withdrawal?.status==='rejected':queueStatus === 'all' || team.status === queueStatus
+    return (queueLeague === 'all' || team.league_id === queueLeague) && matchesStatus
+  }), [clearedTeamIds, queueLeague, queueStatus, tab, teams,withdrawals])
   const completedCriteria = scoringCriteria.filter((_, index) => Number.isFinite(criterionScores[String(index)]) && criterionScores[String(index)] >= 0).length
   const scoringPercent = scoringCriteria.length ? Math.round((completedCriteria / scoringCriteria.length) * 100) : 0
   const enteredTotal = Object.values(criterionScores).reduce((sum, value) => sum + (Number(value) || 0), 0)
@@ -113,6 +117,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
           leagueIds: profile?.role === 'super_admin' ? undefined : ids,
         })
         setTeams(list)
+        const withdrawalRows=await backend.from('team_withdrawal_requests').select('*').order('created_at',{ascending:false})
+        if(withdrawalRows.error)throw new Error(withdrawalRows.error.message)
+        setWithdrawals((withdrawalRows.data??[]) as TeamWithdrawalRequest[])
         const { data: cleared, error: clearanceError } = await backend
           .from('team_attendance_clearances')
           .select('team_id')
@@ -150,7 +157,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       .then(setDocs)
       .catch((err: Error) => setError(err.message))
     void fetchTeamMembers(selectedId)
-      .then(setMembers)
+      .then(async rows=>{setMembers(rows);const ids=[...new Set(rows.map(row=>row.reviewed_by).filter(Boolean))] as string[];if(ids.length){const people=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',ids);setReviewerProfiles(Object.fromEntries((people.data??[]).map((p:{id:string;full_name:string;staff_department?:string;role:string})=>[p.id,`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`])))}})
       .catch(() => setMembers([]))
     const selectedTeam = teams.find((team) => team.id === selectedId)
     if (selectedTeam) { void fetchAttendance(selectedId, selectedTeam.league_id).then((data) => { setAttendance(data.flow); setTechnicalFiles(data.files) }).catch(() => { setAttendance(null); setTechnicalFiles([]) }); void fetchTeamRegistrationChanges(selectedId).then(setRegistrationChanges).catch(()=>setRegistrationChanges([])) }
@@ -170,6 +177,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       })
       .catch(() => undefined)
   }, [selectedId, seasonYear, user, teams])
+
+  useEffect(()=>{const id=attendance?.technical_reviewed_by;if(!id||reviewerProfiles[id])return;void backend.from('profiles').select('id,full_name,staff_department,role').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;const p=data as {id:string;full_name:string;staff_department?:string;role:string};setReviewerProfiles(current=>({...current,[p.id]:`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`}))})},[attendance?.technical_reviewed_by,reviewerProfiles])
 
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
 
@@ -331,6 +340,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
             <div className="flex flex-wrap items-center justify-between gap-5"><div><p className="text-xs font-black text-cyan-200">میز داوری مسابقه</p><h2 className="mt-2 text-2xl font-black">بررسی سریع، ثبت دقیق، انتشار مطمئن</h2><p className="mt-2 max-w-2xl text-sm leading-7 text-white/80">ابتدا لیگ و تیم را انتخاب کنید؛ پرونده و مدارک را بررسی کنید، سپس برای هر معیار امتیاز بدهید. پیش‌نویس قابل ویرایش است اما ثبت نهایی قفل می‌شود.</p></div><div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{visibleTeams.length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">تیم در صف</span></div><div className="rounded-2xl bg-white/12 px-4 py-3 backdrop-blur"><strong className="block text-2xl">{teams.filter((team) => team.status === 'under_review').length.toLocaleString('fa-IR')}</strong><span className="text-xs text-white/70">در حال بررسی</span></div></div></div>
           </section>
           <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+          {tab==='review'?<div className="mb-3 flex flex-wrap gap-2">{[['all','همه'],['under_review','در انتظار بررسی'],['approved','تأییدشده'],['re_review','نیازمند بازبینی'],['withdrawal_pending','درخواست انصراف'],['cancelled','انصرافی']].map(([value,label])=><button type="button" key={value} onClick={()=>setQueueStatus(value)} className={`rounded-xl px-3 py-2 text-xs font-bold ${queueStatus===value?'bg-sky-700 text-white':'border border-slate-200 bg-white text-slate-600'}`}>{label}</button>)}</div>:null}
           <PanelCard title={t('judging.queue')} description="فیلتر کنید و تیم بعدی را بدون خروج از صفحه انتخاب کنید.">
             <div className={`mb-4 grid gap-2 ${tab === 'scores' ? '' : 'grid-cols-2'}`}><Select label={tab === 'scores' ? 'ابتدا لیگ را انتخاب کنید' : 'لیگ'} value={queueLeague} onChange={(event) => { setQueueLeague(event.target.value); setSelectedId(null) }}><option value={tab === 'scores' ? '' : 'all'}>{tab === 'scores' ? 'انتخاب لیگ…' : 'همه لیگ‌ها'}</option>{leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}</Select>{tab !== 'scores' ? <Select label="وضعیت" value={queueStatus} onChange={(event) => setQueueStatus(event.target.value)}><option value="all">همه</option><option value="submitted">جدید</option><option value="under_review">در حال بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></Select> : null}</div>
             <ul className="max-h-[32rem] space-y-1 overflow-y-auto">
@@ -367,6 +377,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
               </nav>
               <section className="rounded-[1.75rem] border border-sky-100 bg-gradient-to-l from-sky-50 via-white to-emerald-50 p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black text-sky-600">لیگ فعال</p><h2 className="mt-1 text-xl font-black text-slate-900">{selectedLeague?.name}</h2><p className="mt-1 text-sm text-slate-500">تیم در حال بررسی: <strong className="text-slate-800">{selected.name}</strong> · فصل {seasonYear}</p></div><div className="flex flex-wrap items-center gap-2"><StatusBadge status={judgeStatus ?? 'draft'} label={judgeStatus === 'submitted' ? 'امتیاز نهایی‌شده' : judgeStatus === 'draft' ? 'پیش‌نویس ذخیره‌شده' : 'امتیازدهی شروع نشده'} /><span className={`rounded-full px-3 py-1.5 text-xs font-black ${resultPublishedAt ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 shadow-sm'}`}>{resultPublishedAt ? 'نتیجه منتشرشده' : 'منتشرنشده'}</span></div></div></section>
               <div className={tab === 'review' ? '' : 'hidden'}><PanelCard title={`پرونده تیم · ${selected.name}`} description={`${leagueName(selected.league_id)} — مدارک، اعضا و وضعیت پذیرش را پیش از امتیازدهی کنترل کنید.`}>
+                <div className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3"><div><span className="text-xs text-slate-500">تکمیل و ارسال پرونده</span><strong className="mt-1 block text-sm text-slate-900">{formatAppDateTime(selected.registration_completed_at??selected.submitted_at,i18n.language)}</strong></div><div><span className="text-xs text-slate-500">ارسال برای کمیته فنی</span><strong className="mt-1 block text-sm text-slate-900">{formatAppDateTime(attendance?.technical_submitted_at,i18n.language)}</strong></div><div><span className="text-xs text-slate-500">تأیید فنی</span><strong className="mt-1 block text-sm text-slate-900">{formatAppDateTime(attendance?.technical_reviewed_at,i18n.language)}</strong></div></div>
+                {withdrawals.find(row=>row.team_id===selected.id)?(()=>{const request=withdrawals.find(row=>row.team_id===selected.id)!;return <section className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-amber-950">درخواست انصراف</h3><p className="mt-1 text-xs text-amber-800">{request.reason}</p><time className="mt-1 block text-xs text-amber-700">{formatAppDateTime(request.created_at,i18n.language)}</time></div><StatusBadge status={request.status} label={request.status==='pending'?'در حال بررسی':request.status==='approved'?'تأییدشده':'ردشده'}/></div>{request.status==='pending'?<div className="mt-3 flex gap-2"><Button type="button" disabled={busy} onClick={async()=>{setBusy(true);try{const next=await reviewTeamWithdrawal(request.id,true);setWithdrawals(rows=>rows.map(row=>row.id===next.id?next:row));toast.success('انصراف تأیید شد.')}catch(e){setError(e instanceof Error?e.message:'خطا')}finally{setBusy(false)}}}>تأیید انصراف</Button><Button type="button" variant="danger" disabled={busy} onClick={async()=>{const reason=window.prompt('دلیل رد درخواست انصراف را وارد کنید:');if(!reason)return;setBusy(true);try{const next=await reviewTeamWithdrawal(request.id,false,reason);setWithdrawals(rows=>rows.map(row=>row.id===next.id?next:row));toast.success('درخواست انصراف رد شد.')}catch(e){setError(e instanceof Error?e.message:'خطا')}finally{setBusy(false)}}}>رد درخواست</Button></div>:request.review_reason?<p className="mt-3 text-xs text-amber-900">دلیل بررسی: {request.review_reason}</p>:null}</section>})():null}
                 <div className="mb-3 flex flex-wrap gap-2">
                   <StatusBadge
                     status={selected.status}
@@ -378,6 +390,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                 <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-6 text-sky-900">اکنون در پرونده همین تیم هستید. مدارک و اعضا در ادامه بررسی می‌شوند؛ تیکت‌ها بخش مستقلی در منوی پنل دارند و با انتخاب تیم به‌صورت ناخواسته باز نمی‌شوند.</p>
 
                 <h3 className="mb-2 text-sm font-medium">{t('team.docsTitle')}</h3>
+                {(attendance?.technical_reviewed_by||members.some(member=>member.reviewed_by))?<section className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><h3 className="text-sm font-black text-emerald-950">سوابق بررسی و تأیید</h3>{attendance?.technical_reviewed_by?<p className="mt-2 text-xs text-emerald-900">مدارک فنی: <strong>{reviewerProfiles[attendance.technical_reviewed_by]??'کارشناس سامانه'}</strong> · {formatAppDateTime(attendance.technical_reviewed_at,i18n.language)}</p>:null}{[...new Set(members.map(member=>member.reviewed_by).filter(Boolean))].map(id=><p key={id} className="mt-1 text-xs text-emerald-900">اعضای تیم: <strong>{reviewerProfiles[id as string]??'کارشناس سامانه'}</strong></p>)}</section>:null}
                 <ul className="mb-4 space-y-2 text-sm">
                   {docs.length === 0 ? (
                     <li className="text-rc-muted">{t('team.noDocs')}</li>
@@ -422,6 +435,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                               <p className={`mt-1 text-[10px] font-black ${m.review_status === 'approved' ? 'text-emerald-700' : m.review_status === 'rejected' ? 'text-rose-700' : 'text-amber-700'}`}>
                                 {m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'نیازمند اصلاح' : 'در انتظار بررسی'}
                               </p>
+                              {m.reviewed_by?<p className="mt-1 text-[10px] text-slate-500">بررسی توسط: <strong>{reviewerProfiles[m.reviewed_by]??'کارشناس سامانه'}</strong>{m.reviewed_at?` · ${formatAppDateTime(m.reviewed_at,i18n.language)}`:''}</p>:null}
                             </div>
                             <div className="flex flex-wrap gap-1">
                               <Input label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} />

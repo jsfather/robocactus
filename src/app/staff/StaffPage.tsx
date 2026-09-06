@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, FieldError, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
+import { Button, FieldError, Input, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { TicketInbox } from '@/features/chat/TicketInbox'
@@ -18,6 +18,7 @@ import { backend } from '@/lib/backend'
 import { fetchTeamDocuments, fetchTeamMembers } from '@/features/registration/api'
 import { fetchLatestInvoiceForTeam } from '@/features/payments/api'
 import { safeSameOriginUrl } from '@/lib/safe-url'
+import { formatAppDateTime } from '@/lib/dates'
 
 type TriageDossier = { team: Team; members: TeamMember[]; documents: DocumentRow[]; invoice: Invoice | null; company: Company | null; league: League | null }
 type ProfileDocument = { id: string; doc_type_id: string; file_url: string; label: string }
@@ -52,7 +53,10 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const [departments, setDepartments] = useState<TicketDepartment[]>([])
   const [deptFilter, setDeptFilter] = useState('')
   const [showDeptSettings, setShowDeptSettings] = useState(false)
-  const [pendingAccounts, setPendingAccounts] = useState<Profile[]>([])
+  const [allAccounts, setPendingAccounts] = useState<Profile[]>([])
+  const [accountFilter, setAccountFilter] = useState('pending')
+  const [accountSearch, setAccountSearch] = useState('')
+  const [accountReviewers, setAccountReviewers] = useState<Record<string,string>>({})
   const [selectedAccount, setSelectedAccount] = useState<Profile | null>(null)
   const [profileDocuments, setProfileDocuments] = useState<ProfileDocument[]>([])
   const [canActivateAccounts, setCanActivateAccounts] = useState(false)
@@ -65,9 +69,12 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const isSa = profile?.role === 'super_admin'
 
   const loadPendingAccounts = useCallback(async () => {
-    const { data, error: profileError } = await backend.from('profiles').select('*').eq('account_status', 'pending').order('created_at', { ascending: true })
+    const { data, error: profileError } = await backend.from('profiles').select('*').in('account_status', ['pending','active','rejected']).order('created_at', { ascending: false })
     if (profileError) throw new Error(profileError.message)
-    setPendingAccounts(((data ?? []) as Profile[]).filter((account) => !account.requires_account_approval || Boolean(account.signup_completed_at)))
+    const accounts=((data ?? []) as Profile[]).filter((account) => Boolean(account.signup_completed_at))
+    setPendingAccounts(accounts)
+    const reviewerIds=[...new Set(accounts.map(account=>account.account_reviewed_by).filter(Boolean))] as string[]
+    if(reviewerIds.length){const reviewers=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',reviewerIds);setAccountReviewers(Object.fromEntries((reviewers.data??[]).map((row:{id:string;full_name:string;staff_department?:string;role:string})=>[row.id,`${row.full_name} · ${row.role==='super_admin'?'مدیریت':row.staff_department==='support'?'پشتیبانی':row.staff_department==='finance'?'حسابداری':'کارشناس'}`])))}
   }, [])
 
   const loadTriage = async () => {
@@ -180,6 +187,13 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
     dossier.invoice && dossier.invoice.status !== 'paid' && dossier.invoice.receipt_status !== 'approved' && Number(dossier.invoice.amount) > 0 ? (isEn ? 'Payment has not been confirmed' : 'پرداخت یا فیش هنوز تأیید نشده است') : null,
   ].filter((item): item is string => Boolean(item))
 
+  const pendingAccounts=allAccounts.filter(account=>{
+    const status=account.account_status==='active'?'approved':account.account_status==='pending'&&account.account_reviewed_at?'re_review':account.account_status
+    const matchesStatus=accountFilter==='all'||status===accountFilter
+    const needle=accountSearch.trim().toLowerCase()
+    return matchesStatus&&(!needle||[account.full_name,account.company_name,account.phone,account.email].some(value=>value?.toLowerCase().includes(needle)))
+  })
+
   return (
     <PanelPage
       index={tab === 'triage' ? 'OPS.04' : 'OPS.03'}
@@ -245,6 +259,7 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         </>
       ) : (
         <div className="space-y-5">
+          {canActivateAccounts?<div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-2"><Input label="جست‌وجوی نام، مجموعه، موبایل یا ایمیل" value={accountSearch} onChange={e=>setAccountSearch(e.target.value)}/><Select label="وضعیت پرونده" value={accountFilter} onChange={e=>setAccountFilter(e.target.value)}><option value="pending">در انتظار تأیید</option><option value="re_review">در انتظار بازبینی مجدد</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option><option value="all">همه پرونده‌ها</option></Select></div>:null}
           {canActivateAccounts ? <PanelCard title="تأیید حساب کاربری" description="برای مشاهده اطلاعات هویتی و مدارک، پرونده متقاضی را باز کنید. تیم‌ها مستقیماً در بخش بررسی تیم‌ها ارزیابی می‌شوند."><div className="space-y-3">{pendingAccounts.map((account) => <button type="button" key={account.id} onClick={() => void openAccount(account)} className="grid w-full gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-start transition hover:border-sky-300 hover:bg-sky-50/40 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-slate-900">{account.full_name}</h3><span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">در انتظار بررسی هویت</span></div><p className="mt-2 text-xs text-slate-500">{account.account_type === 'legal' ? `حقوقی · ${account.company_name || 'نام مجموعه ثبت نشده'}` : 'شخص حقیقی'} · <span dir="ltr">{account.phone}</span></p><p className="mt-1 text-xs text-slate-500">کد ملی/شناسه: {account.account_type === 'legal' ? account.company_national_id : account.national_id || '—'} · {account.city || 'شهر ثبت نشده'}</p></div><span className="text-xs font-black text-sky-700">مشاهده پرونده ←</span></button>)}{!pendingAccounts.length ? <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-8 text-center text-sm font-bold text-emerald-800">حسابی در انتظار بررسی نیست.</div> : null}</div></PanelCard> : null}
           {canTriageTeams ? <><section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-8">
             <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -299,7 +314,8 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
             ['نوع حساب', selectedAccount.account_type === 'legal' ? 'حقوقی' : 'حقیقی'], ['نام مجموعه', selectedAccount.company_name || selectedAccount.full_name], ['شماره موبایل', selectedAccount.phone || '—'], ['ایمیل', selectedAccount.email || '—'], ['کد ملی', selectedAccount.national_id || '—'], ['شناسه ملی مجموعه', selectedAccount.company_national_id || '—'], ['نماینده قانونی', selectedAccount.legal_representative_national_id || '—'], ['تاریخ تولد', selectedAccount.birth_date || '—'], ['کد پستی', selectedAccount.postal_code || '—'], ['استان و شهر', [selectedAccount.province, selectedAccount.city].filter(Boolean).join('، ') || '—'],
           ].map(([label, value]) => <div key={label} className="border-s-4 border-sky-500 bg-white px-4 py-3"><span className="block text-[11px] text-slate-500">{label}</span><strong className="mt-1 block break-words text-sm text-slate-900">{value}</strong></div>)}</div><div className="mt-3 border-s-4 border-emerald-500 bg-white px-4 py-3"><span className="block text-[11px] text-slate-500">نشانی</span><strong className="mt-1 block text-sm leading-7 text-slate-900">{selectedAccount.address || '—'}</strong></div>
           <section className="mt-6"><div className="mb-3 flex items-center justify-between"><h3 className="font-black text-slate-900">مدارک هویتی</h3><span className="text-xs text-slate-500">برای مشاهده، تصویر را انتخاب کنید</span></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{profileDocuments.map((doc) => { const url = safeSameOriginUrl(doc.file_url); return <button type="button" key={doc.id} disabled={!url} onClick={() => url && setViewerUrl(url)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-start"><span className="block aspect-[4/3] bg-slate-100">{url ? <img src={url} alt={doc.label} className="size-full object-cover" /> : null}</span><strong className="block p-3 text-xs text-slate-800">{doc.label}</strong></button>})}{!profileDocuments.length ? <p className="rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">مدرکی برای این پرونده ثبت نشده است.</p> : null}</div></section></div>
-          <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4"><Button type="button" variant="secondary" onClick={() => setSelectedAccount(null)}>بستن</Button><Button type="button" variant="danger" disabled={busy} onClick={() => void reviewAccount(selectedAccount, false)}>اعلام نقص</Button><Button type="button" disabled={busy} onClick={() => void reviewAccount(selectedAccount, true)}>تأیید و فعال‌سازی</Button></footer>
+          <div className="grid gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs sm:grid-cols-2"><div><span className="text-slate-500">تاریخ تکمیل ثبت‌نام</span><strong className="mt-1 block text-slate-900">{formatAppDateTime(selectedAccount.signup_completed_at,i18n.language)}</strong></div><div><span className="text-slate-500">کارشناس بررسی</span><strong className="mt-1 block text-slate-900">{selectedAccount.account_reviewed_by?accountReviewers[selectedAccount.account_reviewed_by]??'کارشناس سامانه':'هنوز بررسی نشده'}</strong>{selectedAccount.account_reviewed_at?<span className="mt-1 block text-slate-500">{formatAppDateTime(selectedAccount.account_reviewed_at,i18n.language)}</span>:null}</div></div>
+          <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4"><Button type="button" variant="secondary" onClick={() => setSelectedAccount(null)}>بستن</Button>{selectedAccount.account_status!=='active'?<><Button type="button" variant="danger" disabled={busy} onClick={() => void reviewAccount(selectedAccount, false)}>اعلام نقص</Button><Button type="button" disabled={busy} onClick={() => void reviewAccount(selectedAccount, true)}>تأیید و فعال‌سازی</Button></>:null}</footer>
         </div>
       </div> : null}
       {dossier ? <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setDossier(null) }}>

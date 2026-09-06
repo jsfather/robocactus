@@ -16,13 +16,14 @@ import {
 } from '@/features/payments/api'
 import { downloadInvoicePdf } from '@/features/payments/invoicePdf'
 import { backend } from '@/lib/backend'
+import { formatSeasonYear } from '@/lib/dates'
 import { getConfiguredGatewayKind } from '@/lib/payment-gateway'
 import type { Company, Invoice, League, Team } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
 
 export function TeamPaymentPage() {
   const { teamId } = useParams()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
 
@@ -218,7 +219,7 @@ export function TeamPaymentPage() {
           <div className="absolute -left-10 -top-10 size-32 rounded-full bg-emerald-400/10 blur-2xl" />
           <p className="text-xs font-bold tracking-[0.2em] text-emerald-500">MEMBERSHIP CONFIRMED</p>
           <h2 className="mt-2 text-2xl font-black">عضویت تیم در لیگ تأیید شد</h2>
-          <p className="mt-2 text-sm leading-7 text-rc-muted">تیم «{team.name}» برای دوره {team.season_year ?? league.current_season_year} لیگ «{league.name}» ثبت قطعی شده است.</p>
+          <p className="mt-2 text-sm leading-7 text-rc-muted">تیم «{team.name}» برای دوره {formatSeasonYear(team.season_year ?? league.current_season_year,i18n.language)} لیگ «{league.name}» ثبت قطعی شده است.</p>
         </div>
       ) : null}
 

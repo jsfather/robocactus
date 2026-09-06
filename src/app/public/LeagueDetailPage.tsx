@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { fetchLeagueDetailBundle, type LeagueDetailBundle } from '@/features/leagues/detailApi'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import { formatAmountToman } from '@/features/payments/api'
-import { formatAppDateTime, leagueCoverUrl } from '@/lib/dates'
+import { formatAppDateTime, formatSeasonYear, leagueCoverUrl } from '@/lib/dates'
 import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
 import type { LeaguePerson, LeagueSponsor } from '@/types/database'
 import { sanitizeHtml } from '@/lib/sanitize'
@@ -604,7 +604,7 @@ export function LeagueDetailPage() {
                   {g.caption || g.season_year ? (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                       <p className="font-mono text-[10px] text-rc-blue">
-                        {g.season_year ? `Y${g.season_year}` : 'ARCHIVE'}
+                        {g.season_year ? formatSeasonYear(g.season_year,i18n.language) : 'ARCHIVE'}
                       </p>
                       {g.caption ? <p className="text-xs text-white/90">{g.caption}</p> : null}
                     </div>
@@ -630,7 +630,7 @@ export function LeagueDetailPage() {
                 <tbody>
                   {bundle.pastResults.map((r) => (
                     <tr key={r.id} className="border-t border-rc-line-soft">
-                      <td className="px-4 py-3 font-mono text-rc-blue">{r.season_year}</td>
+                      <td className="px-4 py-3 font-mono text-rc-blue">{formatSeasonYear(r.season_year,i18n.language)}</td>
                       <td className="px-4 py-3 text-amber-400">{r.first_place ?? '—'}</td>
                       <td className="px-4 py-3 text-slate-300">{r.second_place ?? '—'}</td>
                       <td className="px-4 py-3 text-orange-400/90">{r.third_place ?? '—'}</td>

@@ -129,6 +129,8 @@ export type Profile = {
   signup_step?: string | null
   signup_completed_at?: string | null
   requires_account_approval?: boolean
+  account_reviewed_at?: string | null
+  account_reviewed_by?: string | null
 }
 
 export type Company = {
@@ -368,6 +370,8 @@ export type TeamMember = {
   national_id_doc_path?: string | null
   review_status?: 'pending' | 'approved' | 'rejected' | string
   rejection_reason?: string | null
+  reviewed_by?: string | null
+  reviewed_at?: string | null
   father_name_fa?: string | null
   father_name_en?: string | null
   photo_url?: string | null
