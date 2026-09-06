@@ -58,6 +58,8 @@ export function AuthCallbackPage() {
         if (!user) throw new Error('no_session')
 
         const draft = loadSignupDraft<Draft>()
+        const { data: authOptions } = await backend.auth.getOptions()
+        const documentsEnabled = authOptions?.registration_documents_enabled !== false
         const email = (draft?.email ?? user.email ?? '').trim().toLowerCase()
 
         const patch: Record<string, unknown> = {
@@ -86,7 +88,7 @@ export function AuthCallbackPage() {
           patch.postal_code = draft.postalCode?.trim() || null
           patch.legal_representative_national_id = draft.accountType === 'legal' ? draft.representativeNationalId?.trim() || null : null
           patch.identity_completed_at = null
-          patch.signup_step = 'docs'
+          patch.signup_step = documentsEnabled ? 'docs' : 'review'
           if (draft.fullName?.trim()) patch.full_name = draft.fullName.trim()
 
           const duplicate = await checkProfileDuplicates(user.id, {
@@ -105,7 +107,8 @@ export function AuthCallbackPage() {
         await refreshProfile()
         clearSignupDraft()
 
-        const next = params.get('next') || '/dashboard'
+        const requestedNext = params.get('next') || '/dashboard'
+        const next = !documentsEnabled && requestedNext.includes('resume=docs') ? '/signup?resume=review' : requestedNext
         if (!cancelled) {
           setMessage(t('auth.emailVerified'))
           void navigate(next, { replace: true })

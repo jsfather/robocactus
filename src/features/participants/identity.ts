@@ -25,6 +25,8 @@ export function participantErrors(profile: Profile, rules: ParticipantFieldRule[
     if (!String((profile as unknown as Record<string, unknown>)[rule.field_key] ?? '').trim()) errors[rule.field_key] = `${rule.label_fa} الزامی است.`
   }
   if (!normalizeIranMobile(profile.phone ?? '')) errors.phone = profile.is_foreign ? 'شماره موبایل بین‌المللی معتبر با کد کشور وارد کنید.' : 'شماره موبایل معتبر ایران وارد کنید؛ مانند 09123456789.'
+  if (!profile.is_foreign && !/^09\d{9}$/.test(profile.phone ?? '')) errors.phone = 'شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'
+  if (profile.postal_code && !/^\d{10}$/.test(profile.postal_code)) errors.postal_code = 'کد پستی باید دقیقاً ۱۰ رقم باشد.'
   if (profile.is_foreign) {
     if (!profile.passport_number?.trim()) errors.passport_number = 'شماره گذرنامه برای اتباع خارجی الزامی است.'
   } else if (profile.account_type === 'individual' && !/^\d{10}$/.test(profile.national_id ?? '')) {
@@ -34,7 +36,7 @@ export function participantErrors(profile: Profile, rules: ParticipantFieldRule[
   if (profile.account_type === 'legal') {
     if (!profile.company_name?.trim()) errors.company_name = 'نام شرکت الزامی است.'
     if (!profile.company_national_id?.trim()) errors.company_national_id = 'شناسه ملی شرکت الزامی است.'
-    if (!profile.legal_representative_national_id?.trim()) errors.legal_representative_national_id = 'کد ملی نماینده قانونی الزامی است.'
+    if (!/^\d{10}$/.test(profile.legal_representative_national_id ?? '')) errors.legal_representative_national_id = 'کد ملی نماینده قانونی باید دقیقاً ۱۰ رقم باشد.'
   }
   return errors
 }

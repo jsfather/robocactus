@@ -287,6 +287,10 @@ export function TeamRegistrationWizard({
             (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.father_name_fa.trim() || !m.father_name_en.trim() || !m.birth_date || !(m.is_foreign ? m.passport_number.trim() : m.national_id.trim()) || !m.role || !m.residence.trim() || !m.country_code || !m.nationality.trim() || !m.education_level || (['captain', 'coach'].includes(m.role) && !m.phone.trim())),
         )
         if (incomplete) throw new Error(t('auth.required'))
+        const invalidIranianIdentity = draft.members.some((member) => !member.is_foreign && !/^\d{10}$/.test(member.national_id))
+        if (invalidIranianIdentity) throw new Error('کد ملی هر عضو ایرانی باید دقیقاً ۱۰ رقم باشد.')
+        const invalidContact = draft.members.some((member) => ['captain', 'coach'].includes(member.role) && !/^09\d{9}$/.test(member.phone))
+        if (invalidContact) throw new Error('شماره موبایل سرپرست و مربی باید ۱۱ رقم و با 09 آغاز شود.')
         const invalidAge = draft.members.some((member) => {
           const age = ageFromBirthDate(member.birth_date)
           if (age == null) return true
@@ -496,10 +500,10 @@ export function TeamRegistrationWizard({
                   </Select>
                   <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: e.target.value })} />
                   <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: e.target.value })} dir="ltr" />
-                  {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: e.target.value })} dir="ltr" /> : null}
+                  {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" /> : null}
                   <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
                   {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
-                  {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value })} dir="ltr" />}
+                  {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} dir="ltr" inputMode="numeric" maxLength={10} />}
                   <Input label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })} /><Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: e.target.value })} />
                   <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
                   <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={selectedLeague?.min_age ?? 3} maxAge={selectedLeague?.max_age ?? 100} />

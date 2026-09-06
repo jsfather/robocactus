@@ -87,6 +87,9 @@ export function SignupPage() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [resumeReady, setResumeReady] = useState(false)
   const verifyInFlight = useRef(false)
+  const documentsEnabled = authOptions?.registration_documents_enabled !== false
+  const manualApprovalEnabled = authOptions?.manual_account_approval_enabled !== false
+  const nextAfterIdentity: Step = documentsEnabled ? 'docs' : 'review'
 
   useEffect(() => {
     void backend.auth.getOptions().then(({ data }) => setAuthOptions(data))
@@ -107,9 +110,9 @@ export function SignupPage() {
   useEffect(() => {
     if (params.get('resume') === 'docs' && user) {
       setUserId(user.id)
-      setStep('docs')
+      setStep(documentsEnabled ? 'docs' : 'review')
     }
-  }, [params, user])
+  }, [params, user, documentsEnabled])
 
   useEffect(() => {
     if (phoneOnboardingRequested && user?.phone) {
@@ -167,7 +170,8 @@ export function SignupPage() {
         ? Object.fromEntries(data.map((row: { doc_type_id: string; file_url: string }) => [row.doc_type_id, row.file_url]))
         : {}
       if (Object.keys(restoredUploads).length) setUploads(restoredUploads)
-      const resumedStep = inferSignupStep(profile, Object.keys(restoredUploads).length)
+      const inferredStep = inferSignupStep(profile, Object.keys(restoredUploads).length)
+      const resumedStep = !documentsEnabled && inferredStep === 'docs' ? 'review' : inferredStep
       setStep(resumedStep)
       if (resumedStep === 'verify' && profile.auth_channel === 'email' && profile.email_verified_at) {
         setEmailCheckInbox(true)
@@ -175,7 +179,7 @@ export function SignupPage() {
       setResumeReady(true)
       toast.info(t('auth.resumeSignup'))
     })
-  }, [user, profile, params, toast, t])
+  }, [user, profile, params, toast, t, documentsEnabled])
 
   const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
   const shouldResumeSignup = Boolean(user && profile && isSignupIncomplete(profile))
@@ -213,7 +217,7 @@ export function SignupPage() {
           password: z.string().refine(isStrongPassword),
         }).parse({ fullName, username, email, password })
         if (accountType === 'individual') {
-          z.object({ nationalId: z.string().min(5) }).parse({ nationalId })
+          z.object({ nationalId: z.string().regex(/^\d{10}$/) }).parse({ nationalId })
         } else {
           z.object({
             companyName: z.string().min(2),
@@ -223,21 +227,24 @@ export function SignupPage() {
       } else if (accountType === 'individual') {
         z.object({
           fullName: z.string().min(2), email: z.string().email(),
-          nationalId: z.string().min(8),
-          phone: z.string().min(10),
+          nationalId: z.string().regex(/^\d{10}$/),
+          phone: z.string().regex(/^09\d{9}$/),
         }).parse({ fullName, nationalId, phone, email })
       } else {
         z.object({
           fullName: z.string().min(2), email: z.string().email(),
           companyName: z.string().min(2),
           companyNationalId: z.string().min(5),
-          phone: z.string().min(10),
+          phone: z.string().regex(/^09\d{9}$/),
         }).parse({ fullName, companyName, companyNationalId, phone, email })
       }
       if (!firstNameFa.trim() || !lastNameFa.trim() || !firstNameEn.trim() || !lastNameEn.trim() || !birthDate || !postalCode.trim() || !address.trim()) {
         setError(t('auth.required'))
         return false
       }
+      if (phone && !/^09\d{9}$/.test(phone)) { setError('شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'); return false }
+      if (!/^\d{10}$/.test(postalCode)) { setError('کد پستی باید دقیقاً ۱۰ رقم باشد.'); return false }
+      if (accountType === 'legal' && !/^\d{10}$/.test(representativeNationalId)) { setError('کد ملی نماینده باید دقیقاً ۱۰ رقم باشد.'); return false }
       if (accountType === 'legal' && !representativeNationalId.trim()) {
         setError(t('auth.required'))
         return false
@@ -361,7 +368,7 @@ export function SignupPage() {
       setOtpState('success')
       toast.success(t('auth.phoneVerified'))
       await new Promise((resolve) => window.setTimeout(resolve, 5000))
-      void saveSignupStep('docs')
+      void saveSignupStep(nextAfterIdentity)
     } catch (err) {
       setOtpState('error')
       const mapped = mapSignupError(err instanceof Error ? err.message : t('common.error'), t)
@@ -383,7 +390,7 @@ export function SignupPage() {
       setUserId(user.id)
       await refreshProfile()
       clearSignupDraft()
-      void saveSignupStep('docs')
+      void saveSignupStep(nextAfterIdentity)
       toast.success(t('auth.identitySaved'))
     } catch (err) {
       setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
@@ -468,7 +475,7 @@ export function SignupPage() {
       setUserId(uid)
       await refreshProfile()
       clearSignupDraft()
-      void saveSignupStep('docs')
+      void saveSignupStep(nextAfterIdentity)
       toast.success(t('auth.emailVerified'))
     } catch (err) {
       setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
@@ -535,7 +542,7 @@ export function SignupPage() {
   }
 
   const finish = async () => {
-    const missing = docTypes.filter((d) => d.is_required).some((d) => !uploads[d.id])
+    const missing = documentsEnabled && docTypes.filter((d) => d.is_required).some((d) => !uploads[d.id])
     if (missing) {
       setError(t('auth.docsRequired'))
       return
@@ -547,9 +554,9 @@ export function SignupPage() {
     const { error: finishError } = await backend.from('profiles').update({
       signup_step: 'review',
       signup_completed_at: new Date().toISOString(),
-      account_status: 'pending',
+      account_status: manualApprovalEnabled ? 'pending' : 'active',
       rejection_reason: null,
-      requires_account_approval: true,
+      requires_account_approval: manualApprovalEnabled,
     }).eq('id', uid)
     setSubmitting(false)
     if (finishError) {
@@ -561,9 +568,10 @@ export function SignupPage() {
     void navigate('/dashboard')
   }
 
-  const steps: Step[] = isPhoneOnboarding
+  const steps: Step[] = (isPhoneOnboarding
     ? ['type', 'identity', 'docs', 'review']
-    : ['type', 'channel', 'identity', 'verify', 'docs', 'review']
+    : ['type', 'channel', 'identity', 'verify', 'docs', 'review'])
+    .filter((item) => documentsEnabled || item !== 'docs') as Step[]
   const stepLabels: Record<Step, string> = {
     type: t('auth.registrationSteps.type'),
     channel: t('auth.registrationSteps.channel'),
@@ -689,8 +697,10 @@ export function SignupPage() {
               label={t('auth.nationalId')}
               required
               value={nationalId}
-              onChange={(e) => setNationalId(e.target.value)}
+              onChange={(e) => setNationalId(e.target.value.replace(/\D/g, '').slice(0, 10))}
               dir="ltr"
+              inputMode="numeric"
+              maxLength={10}
             />
           ) : (
             <>
@@ -699,15 +709,18 @@ export function SignupPage() {
                 label={t('auth.companyNationalId')}
                 required
                 value={companyNationalId}
-                onChange={(e) => setCompanyNationalId(e.target.value)}
+                onChange={(e) => setCompanyNationalId(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 dir="ltr"
+                inputMode="numeric"
+                maxLength={11}
               />
-              <Input label="کد ملی نماینده قانونی" required value={representativeNationalId} onChange={(e) => setRepresentativeNationalId(e.target.value)} dir="ltr" />
+              <Input label="کد ملی نماینده قانونی" required value={representativeNationalId} onChange={(e) => setRepresentativeNationalId(e.target.value.replace(/\D/g, '').slice(0, 10))} dir="ltr" inputMode="numeric" maxLength={10} />
               <Input
                 label={t('auth.economicCode')}
                 value={economicCode}
-                onChange={(e) => setEconomicCode(e.target.value)}
+                onChange={(e) => setEconomicCode(e.target.value.replace(/\D/g, ''))}
                 dir="ltr"
+                inputMode="numeric"
               />
             </>
           )}
@@ -729,14 +742,16 @@ export function SignupPage() {
               <Input
                 label={t('auth.phoneOptional')}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 dir="ltr"
+                inputMode="numeric"
+                maxLength={11}
               />
             </>
           ) : (
             <>
               <Input label={t('auth.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
-              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
+              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
             </>
           )}
 
@@ -761,7 +776,7 @@ export function SignupPage() {
           {!otpSent ? (
             <form onSubmit={(e) => void onRequestOtp(e)} className="space-y-3">
               <p className="text-sm text-rc-muted">{t('auth.verifyPhoneHint')}</p>
-              <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
+              <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
               <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} />
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => void saveSignupStep('identity')}>
@@ -824,7 +839,7 @@ export function SignupPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-900">جزئیات ثبت‌شده</h3><dl className="mt-4 grid gap-3 sm:grid-cols-2">{reviewDetails.map(([label, value]) => <div key={label} className="border-s-2 border-sky-500 bg-slate-50 px-3 py-2.5"><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 break-words text-sm font-bold text-slate-900">{value}</dd></div>)}</dl><h3 className="mt-6 font-black text-slate-900">مدارک بارگذاری‌شده</h3><div className="mt-3 grid gap-3 sm:grid-cols-3">{docTypes.filter((doc) => uploads[doc.id]).map((doc) => <a key={doc.id} href={uploads[doc.id]} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"><img src={uploads[doc.id]} alt={doc.label_fa} className="aspect-[4/3] w-full object-cover"/><span className="block p-2 text-xs font-bold text-slate-700">{doc.label_fa}</span></a>)}</div></section>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black text-slate-900">بررسی نهایی اطلاعات</h2><p className="mt-2 text-sm leading-7 text-slate-500">پیش از ثبت نهایی، مشخصات و مدارک خود را مرور کنید. در صورت نیاز با دکمه بازگشت اطلاعات را اصلاح کنید.</p><dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نوع حساب</dt><dd className="mt-1 font-black">{accountType === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام</dt><dd className="mt-1 font-black">{firstNameFa} {lastNameFa}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام انگلیسی</dt><dd className="mt-1 font-black" dir="ltr">{firstNameEn} {lastNameEn}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-black" dir="ltr">{birthDate}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">شماره تماس</dt><dd className="mt-1 font-black" dir="ltr">{phone}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تعداد مدارک</dt><dd className="mt-1 font-black">{Object.keys(uploads).length.toLocaleString('fa-IR')}</dd></div></dl></div>
         <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={confirmAccuracy} onChange={(event) => setConfirmAccuracy(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span>تأیید می‌کنم اطلاعات واردشده صحیح و متعلق به این حساب است.</span></label><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span><Link to="/terms" target="_blank" className="text-rc-blue underline">قوانین و مقررات</Link> را مطالعه کرده‌ام و می‌پذیرم.</span></label></div>
-        <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep('docs')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
+        <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep(documentsEnabled ? 'docs' : 'identity')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
       </div> : null}
     </div>
   )

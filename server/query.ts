@@ -177,6 +177,7 @@ function returningClause(select: string | undefined): SQL {
 async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   if (!TABLES.has(spec.table)) throw new Error('table_not_allowed')
   const sectionByTable: Record<string, string> = {
+    leagues: 'leagues', league_attendance_settings: 'leagues', league_team_document_types: 'leagues',
     invoice_finance_view: 'finance', finance_deposit_view: 'finance', finance_transactions: 'finance',
     live_chat_messages: 'chat', live_chat_sessions: 'chat',
     ticket_departments: 'tickets', ticket_messages: 'tickets', ticket_reads: 'tickets', tickets: 'tickets',
