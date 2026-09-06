@@ -372,7 +372,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     status={selected.status}
                     label={t(`team.statuses.${selected.status}`, { defaultValue: selected.status })}
                   />
-                  {profile?.role === 'super_admin' ? <><Link to={`/team/${selected.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800">ویرایش کامل در صفحه جدید</Link><Button type="button" variant="danger" disabled={busy} onClick={() => void onDeleteTeam()}>حذف تیم</Button></> : null}
+                  {profile?.role === 'super_admin' ? <><Link to={`/team/${selected.id}?edit=all`} className="inline-flex min-h-9 items-center rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800">ویرایش کلی</Link><Button type="button" variant="danger" disabled={busy} onClick={() => void onDeleteTeam()}>حذف تیم</Button></> : null}
                 </div>
 
                 <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-6 text-sky-900">اکنون در پرونده همین تیم هستید. مدارک و اعضا در ادامه بررسی می‌شوند؛ تیکت‌ها بخش مستقلی در منوی پنل دارند و با انتخاب تیم به‌صورت ناخواسته باز نمی‌شوند.</p>

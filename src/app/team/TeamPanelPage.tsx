@@ -42,6 +42,7 @@ export function TeamPanelPage() {
   const { teamId } = useParams()
   const [searchParams] = useSearchParams()
   const editMemberId = searchParams.get('editMember')
+  const editAllRequested = searchParams.get('edit') === 'all'
   const { user, profile, loading: authLoading } = useAuth()
   const [teams, setTeams] = useState<Team[]>([])
   const [team, setTeam] = useState<Team | null>(null)
@@ -62,6 +63,7 @@ export function TeamPanelPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null)
 
   useEffect(() => { if (editMemberId && members.some((member) => member.id === editMemberId && member.review_status === 'rejected')) setEditing(true) }, [editMemberId, members])
+  useEffect(() => { if (editAllRequested && profile?.role === 'super_admin') setEditing(true) }, [editAllRequested, profile?.role])
 
   useEffect(() => {
     if (!user || authLoading) return
@@ -129,6 +131,8 @@ export function TeamPanelPage() {
   }
 
   if (teamId && team) {
+    const isParticipantView = profile?.role === 'company_admin' || profile?.role === 'team_captain'
+    const isManagementView = profile?.role === 'super_admin'
     const hasRejectedMember = members.some((member) => member.review_status === 'rejected')
     const editLocked = profile?.role !== 'super_admin' && !hasRejectedMember && Boolean(league?.team_edit_deadline && new Date(league.team_edit_deadline).getTime() < Date.now())
     const permitIssued = attendance?.stage === 'confirmed'
@@ -138,7 +142,7 @@ export function TeamPanelPage() {
       setSaving(true)
       setError(null)
       try {
-        const editableMembers = team.status === 'draft' ? memberEdits : memberEdits.filter((member) => member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))
+        const editableMembers = isManagementView || team.status === 'draft' ? memberEdits : memberEdits.filter((member) => member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))
         for (const member of editableMembers) {
           const { error: updateError } = await backend.from('team_members').update({
             first_name: member.first_name,
@@ -188,7 +192,7 @@ export function TeamPanelPage() {
         }
       >
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        <nav className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-500" aria-label="موقعیت فعلی"><Link to="/company/teams" className="text-sky-700">تیم‌های ما</Link><span>←</span><strong className="text-slate-800">پرونده تیم {team.name}</strong></nav>
+        <nav className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-500" aria-label="موقعیت فعلی"><Link to={isManagementView ? '/super-admin/review' : '/company/teams'} className="text-sky-700">{isManagementView ? 'بررسی تیم‌ها' : 'تیم‌های ما'}</Link><span>←</span><strong className="text-slate-800">پرونده تیم {team.name}</strong></nav>
 
         <PanelCard title={t('liveResults.teamResult')}>
           {result ? (
@@ -210,10 +214,10 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={editLocked || (team.status !== 'draft' && !members.some((member) => member.review_status === 'rejected'))} onClick={() => setEditing((value) => !value)}>{editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : team.status !== 'draft' ? 'اصلاح اعضای ردشده' : 'ویرایش اطلاعات'}</Button>}>
+        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={!isManagementView && (editLocked || (team.status !== 'draft' && !members.some((member) => member.review_status === 'rejected')))} onClick={() => setEditing((value) => !value)}>{!isManagementView && editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : isManagementView ? 'ویرایش کلی' : team.status !== 'draft' ? 'اصلاح اعضای ردشده' : 'ویرایش اطلاعات'}</Button>}>
           {league?.team_edit_deadline ? <p className="mb-3 text-xs text-rc-muted">مهلت ویرایش: {formatAppDate(league.team_edit_deadline, i18n.language, { withTime: true })}</p> : null}
           {editing ? <div className="space-y-4">
-            {memberEdits.filter((member) => team.status === 'draft' || (member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))).map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
+            {memberEdits.filter((member) => isManagementView || team.status === 'draft' || (member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))).map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
               <Input label="نام فارسی" value={member.first_name_fa ?? member.first_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_fa: event.target.value, first_name: event.target.value } : row))} />
               <Input label="نام خانوادگی فارسی" value={member.last_name_fa ?? member.last_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_fa: event.target.value, last_name: event.target.value } : row))} />
               <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />
@@ -258,11 +262,11 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title="پشتیبانی این تیم" description="تیکت‌ها در بخش مستقل پشتیبانی نگهداری می‌شوند تا با پرونده و مدارک تیم مخلوط نشوند."><Link to="/account/tickets" className="inline-flex min-h-10 items-center rounded-xl bg-sky-700 px-4 text-sm font-bold text-white">مشاهده و ارسال تیکت</Link></PanelCard>
+        {isParticipantView ? <PanelCard title="پشتیبانی این تیم" description="از این بخش می‌توانید درخواست خود را برای کارشناسان پشتیبانی ارسال و وضعیت پاسخ را پیگیری کنید."><Link to="/account/tickets" className="inline-flex min-h-10 items-center rounded-xl bg-sky-700 px-4 text-sm font-bold text-white">مشاهده و ارسال تیکت</Link></PanelCard> : null}
 
         {viewerUrl ? <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerUrl('') }}><div className="relative max-h-[90dvh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2"><button type="button" className="absolute end-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-slate-950/70 text-xl text-white" onClick={() => setViewerUrl('')}>×</button><img src={viewerUrl} alt="نمایش بزرگ تصویر" className="max-h-[86dvh] max-w-full rounded-xl object-contain" /></div></div> : null}
 
-        <Link to="/team" className="inline-block text-sm text-rc-blue hover:underline">
+        <Link to={isManagementView ? '/super-admin/review' : '/team'} className="inline-block text-sm text-rc-blue hover:underline">
           ← {t('team.backToList')}
         </Link>
       </PanelPage>
