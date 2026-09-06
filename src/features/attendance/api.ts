@@ -20,7 +20,9 @@ export type AttendanceClearance = {
   team_id: string; league_id: string; stage: 'members'|'technical'|'rules'|'payment'|'confirmed'
   technical_status: 'locked'|'draft'|'pending'|'approved'|'rejected'
   technical_rejection_reason?: string|null; participant_note?: string|null; rules_accepted_at?: string|null; confirmed_at?: string|null
+  edit_reopened_at?: string|null
 }
+export type TeamRegistrationChange = { id:string; team_id:string; entity_type:'team'|'member'|'document'|'flow'; entity_id?:string|null; change_kind:string; before_data?:Record<string,unknown>|null; after_data?:Record<string,unknown>|null; changed_at:string }
 export type TechnicalFile = { id:string; team_id:string; kind:'article'|'robot_video'; file_path:string; original_name:string; mime_type:string; size_bytes:number; created_at:string }
 
 export async function fetchAttendance(teamId:string, leagueId:string) {
@@ -53,4 +55,6 @@ export async function uploadTechnicalFile(teamId:string, kind:'article'|'robot_v
 export async function submitTechnical(teamId:string){const r=await backend.rpc('submit_team_technical_files',{p_team_id:teamId});if(r.error)throw new Error(r.error.message);return r.data as AttendanceClearance}
 export async function reviewTechnical(teamId:string,approved:boolean,reason?:string){const r=await backend.rpc('review_team_technical_files',{p_team_id:teamId,p_approved:approved,p_reason:reason??null});if(r.error)throw new Error(r.error.message);return r.data as AttendanceClearance}
 export async function acceptAttendanceRules(teamId:string,note:string){const r=await backend.rpc('accept_team_attendance_rules',{p_team_id:teamId,p_accepted:true,p_note:note||null});if(r.error)throw new Error(r.error.message);return r.data as AttendanceClearance}
+export async function reopenTeamRegistration(teamId:string){const r=await backend.rpc('reopen_team_registration_for_edit',{p_team_id:teamId});if(r.error)throw new Error(r.error.message);return r.data}
+export async function fetchTeamRegistrationChanges(teamId:string){const r=await backend.from('team_registration_change_log').select('*').eq('team_id',teamId).order('changed_at',{ascending:false}).limit(50);if(r.error)throw new Error(r.error.message);return (r.data??[]) as TeamRegistrationChange[]}
 export async function technicalSignedUrl(path:string){const r=await backend.storage.from('technical-submissions').createSignedUrl(path,600);if(r.error)throw new Error(r.error.message);return r.data.signedUrl}

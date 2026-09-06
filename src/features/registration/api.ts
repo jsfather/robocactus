@@ -254,8 +254,9 @@ export async function loadRegistrationDraft(teamId: string): Promise<TeamWizardD
     national_id_doc_path: member.national_id_doc_path ?? undefined,
   })) : undefined
   const saved = team.registration_draft as TeamWizardDraft | undefined
-  if (saved && Object.keys(saved).length) return { ...saved, ...(members ? { members } : {}), teamId: team.id, companyId: team.company_id, leagueId: team.league_id, step: Math.max(0, Number(team.last_completed_step ?? -1) + 1) }
-  return { ...emptyTeamDraft(team.company_id, team.league_id), ...(members ? { members } : {}), teamId: team.id, name: team.name, nameEn: team.name_en ?? '', mottoFa: team.motto_fa ?? '', mottoEn: team.motto_en ?? '', province: team.province ?? '', city: team.city ?? '', step: Math.max(0, Number(team.last_completed_step ?? -1) + 1) }
+  const resumeStep = persistedMembers.length ? Math.max(0, Number(team.last_completed_step ?? -1) + 1) : 1
+  if (saved && Object.keys(saved).length) return { ...saved, ...(members ? { members } : {}), teamId: team.id, companyId: team.company_id, leagueId: team.league_id, step: resumeStep }
+  return { ...emptyTeamDraft(team.company_id, team.league_id), ...(members ? { members } : {}), teamId: team.id, name: team.name, nameEn: team.name_en ?? '', mottoFa: team.motto_fa ?? '', mottoEn: team.motto_en ?? '', province: team.province ?? '', city: team.city ?? '', step: resumeStep }
 }
 
 export async function findResumableRegistration(companyId: string, leagueId?: string): Promise<Team | null> {

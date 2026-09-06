@@ -17,10 +17,11 @@ import {
 import { fetchTeamPublishedResult } from '@/features/live-results/api'
 import { PodiumCup } from '@/components/live-results/PodiumCup'
 import { ageFromBirthDate, formatAppDate } from '@/lib/dates'
-import type { DocumentRow, ResultRow, Team, TeamMember } from '@/types/database'
+import type { DocumentRow, Invoice, ResultRow, Team, TeamMember } from '@/types/database'
 import type { League } from '@/types/database'
 import { backend } from '@/lib/backend'
 import { safeSameOriginUrl } from '@/lib/safe-url'
+import { fetchAttendance, type AttendanceClearance } from '@/features/attendance/api'
 
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -57,6 +58,8 @@ export function TeamPanelPage() {
   const [photoFiles, setPhotoFiles] = useState<Record<string, File | null>>({})
   const [idFiles, setIdFiles] = useState<Record<string, File | null>>({})
   const [viewerUrl, setViewerUrl] = useState('')
+  const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
+  const [invoice, setInvoice] = useState<Invoice | null>(null)
 
   useEffect(() => { if (editMemberId && members.some((member) => member.id === editMemberId && member.review_status === 'rejected')) setEditing(true) }, [editMemberId, members])
 
@@ -77,11 +80,13 @@ export function TeamPanelPage() {
             setDocs([])
             setResult(null)
           } else {
-            const [m, d, r, leagueResponse] = await Promise.all([
+            const [m, d, r, leagueResponse, attendanceResponse, invoiceResponse] = await Promise.all([
               fetchTeamMembers(row.id),
               fetchTeamDocuments(row.id),
               fetchTeamPublishedResult(row.id).catch(() => null),
               backend.from('leagues').select('*').eq('id', row.league_id).maybeSingle(),
+              fetchAttendance(row.id,row.league_id).catch(()=>null),
+              backend.from('invoices').select('*').eq('team_id',row.id).is('archived_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle(),
             ])
             const safeMembers = m.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))
             setMembers(safeMembers)
@@ -89,6 +94,8 @@ export function TeamPanelPage() {
             setDocs(d)
             setResult(r)
             setLeague((leagueResponse.data as League | null) ?? null)
+            setAttendance(attendanceResponse?.flow??null)
+            setInvoice((invoiceResponse.data as Invoice|null)??null)
           }
         } else {
           setTeams(await fetchCaptainTeams(user.id))
@@ -124,6 +131,9 @@ export function TeamPanelPage() {
   if (teamId && team) {
     const hasRejectedMember = members.some((member) => member.review_status === 'rejected')
     const editLocked = profile?.role !== 'super_admin' && !hasRejectedMember && Boolean(league?.team_edit_deadline && new Date(league.team_edit_deadline).getTime() < Date.now())
+    const permitIssued = attendance?.stage === 'confirmed'
+    const paymentPaid = invoice?.status === 'paid'
+    const hasNoMembers = members.length === 0
     const saveMemberEdits = async () => {
       setSaving(true)
       setError(null)
@@ -168,15 +178,12 @@ export function TeamPanelPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge
-              status={team.status}
-              label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
+              status={permitIssued?'approved':hasNoMembers?'draft':team.status}
+              label={permitIssued?'تأییدشده و مجاز به حضور':hasNoMembers?'نیازمند تکمیل اعضای تیم':t(`team.statuses.${team.status}`, { defaultValue: team.status })}
             />
-            {team.status !== 'draft' ? <Link to={`/team/${team.id}/attendance`}><Button type="button">ادامه ثبت‌نام و مشاهده مجوز</Button></Link> : null}
-            <Link to={`/payments/teams/${team.id}`}>
-              <Button type="button" variant={team.status === 'draft' ? 'primary' : 'secondary'}>
-                {team.status === 'draft' ? t('payment.payCta') : t('payment.viewInvoice')}
-              </Button>
-            </Link>
+            {permitIssued?<span className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white"><span aria-hidden="true">✓</span> مجوز حضور صادر شده</span>:null}
+            <Link to={hasNoMembers?`/company/teams?resume=${team.id}`:`/team/${team.id}/attendance`}><Button type="button">{hasNoMembers?'تکمیل اطلاعات اعضای تیم':permitIssued?'مشاهده مجوز و اطلاعات لیگ':'ادامه ثبت‌نام'}</Button></Link>
+            {invoice?<Link to={`/payments/teams/${team.id}`}><Button type="button" variant={paymentPaid?'secondary':'primary'}>{paymentPaid?'مشاهده فاکتور':'پرداخت فاکتور'}</Button></Link>:null}
           </div>
         }
       >

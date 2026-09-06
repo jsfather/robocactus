@@ -24,7 +24,6 @@ import {
   publishOfficialTeamResult,
   fetchTeamsForReview,
   getDocumentSignedUrl,
-  reviewTeam,
   adminDeleteTeam,
 } from '@/features/judging/api'
 import {
@@ -35,8 +34,8 @@ import { setLeagueResultsStatus } from '@/features/live-results/api'
 import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
 import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
-import type { DocumentRow, JudgeSubmissionProgress, League, RegistrationStatus, Team, TeamMember } from '@/types/database'
-import { fetchAttendance, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TechnicalFile } from '@/features/attendance/api'
+import type { DocumentRow, JudgeSubmissionProgress, League, Team, TeamMember } from '@/types/database'
+import { fetchAttendance, fetchTeamRegistrationChanges, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TechnicalFile } from '@/features/attendance/api'
 import { backend } from '@/lib/backend'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
@@ -56,8 +55,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [docs, setDocs] = useState<DocumentRow[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
-  const [rejectReason, setRejectReason] = useState('')
-  const [memberRejectReason, setMemberRejectReason] = useState('')
+  const [memberRejectReasons, setMemberRejectReasons] = useState<Record<string,string>>({})
   const [rank, setRank] = useState('')
   const [score, setScore] = useState('')
   const [criterionScores, setCriterionScores] = useState<Record<string, number>>({})
@@ -77,6 +75,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
   const [technicalFiles, setTechnicalFiles] = useState<TechnicalFile[]>([])
   const [technicalRejectReason, setTechnicalRejectReason] = useState('')
+  const [registrationChanges,setRegistrationChanges]=useState<TeamRegistrationChange[]>([])
   const [clearedTeamIds, setClearedTeamIds] = useState<Set<string>>(new Set())
   const tab = section
 
@@ -154,7 +153,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       .then(setMembers)
       .catch(() => setMembers([]))
     const selectedTeam = teams.find((team) => team.id === selectedId)
-    if (selectedTeam) void fetchAttendance(selectedId, selectedTeam.league_id).then((data) => { setAttendance(data.flow); setTechnicalFiles(data.files) }).catch(() => { setAttendance(null); setTechnicalFiles([]) })
+    if (selectedTeam) { void fetchAttendance(selectedId, selectedTeam.league_id).then((data) => { setAttendance(data.flow); setTechnicalFiles(data.files) }).catch(() => { setAttendance(null); setTechnicalFiles([]) }); void fetchTeamRegistrationChanges(selectedId).then(setRegistrationChanges).catch(()=>setRegistrationChanges([])) }
 
     const year = Number(seasonYear) || new Date().getFullYear()
     void Promise.all([fetchTeamResult(selectedId, year), user ? fetchMyJudgeScore(selectedId, year, user.id) : Promise.resolve(null), fetchJudgeProgress(selectedId, year)])
@@ -184,32 +183,12 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       const updated = await reviewTeamMember(
         memberId,
         status,
-        status === 'rejected' ? memberRejectReason : undefined,
+        status === 'rejected' ? memberRejectReasons[memberId] : undefined,
       )
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
       if (selected) { const data = await fetchAttendance(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const onReview = async (status: Extract<RegistrationStatus, 'approved' | 'rejected' | 'waitlisted' | 'under_review'>) => {
-    if (!selected) return
-    setBusy(true)
-    setError(null)
-    try {
-      const updated = await reviewTeam({
-        teamId: selected.id,
-        status,
-        rejectionReason: status === 'rejected' ? rejectReason : undefined,
-      })
-      setTeams((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
-      const data = await fetchAttendance(updated.id, updated.league_id); setAttendance(data.flow); setTechnicalFiles(data.files)
-      void dispatchPendingSms()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : t('common.error')
-      setError(message.includes('team_members_not_approved') ? 'برای تأیید نهایی تیم، ابتدا باید تمام اعضای تیم تأیید شده باشند.' : message)
     } finally {
       setBusy(false)
     }
@@ -413,13 +392,6 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                 </ul>
 
                 <h3 className="mb-2 text-sm font-medium">{t('team.membersTitle')}</h3>
-                <div className="mb-3">
-                  <Input
-                    label={t('team.memberRejectReason')}
-                    value={memberRejectReason}
-                    onChange={(e) => setMemberRejectReason(e.target.value)}
-                  />
-                </div>
                 <ul className="mb-4 space-y-3">
                   {members.length === 0 ? (
                     <li className="text-sm text-rc-muted">{t('team.noMembers')}</li>
@@ -452,6 +424,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-1">
+                              <Input label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} />
                               {m.national_id_doc_path ? (
                                 <ReviewThumbnail path={m.national_id_doc_path} label={t('team.memberNationalIdCard')} onOpen={setViewerUrl} />
                               ) : null}
@@ -466,7 +439,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                               <Button
                                 type="button"
                                 variant="danger"
-                                disabled={busy}
+                                disabled={busy||!(memberRejectReasons[m.id]??'').trim()}
                                 onClick={() => void onMemberReview(m.id, 'rejected')}
                               >
                                 {t('judging.reject')}
@@ -483,44 +456,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
                 {attendance ? <section className="mb-5 rounded-2xl border border-sky-200 bg-sky-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">مقاله و فیلم ربات</h3><p className="mt-1 text-xs leading-6 text-slate-500">پس از تأیید کامل اعضا و تیم، فایل‌های ارسالی شرکت‌کننده در این بخش بررسی می‌شوند.</p></div><StatusBadge status={attendance.technical_status} label={attendance.technical_status==='approved'?'تأییدشده':attendance.technical_status==='rejected'?'نیازمند اصلاح':attendance.technical_status==='pending'?'در انتظار بررسی':'هنوز ارسال نشده'} /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{technicalFiles.map(file=><TechnicalReviewFile key={file.id} file={file} />)}{technicalFiles.length===0?<p className="text-sm text-slate-500">هنوز فایل فنی ارسال نشده است.</p>:null}</div>{attendance.technical_status==='pending'?<div className="mt-4 space-y-3"><Input label="دلیل عدم تأیید (برای رد الزامی)" value={technicalRejectReason} onChange={e=>setTechnicalRejectReason(e.target.value)} /><div className="flex gap-2"><Button type="button" disabled={busy} onClick={()=>void onTechnicalReview(true)}>تأیید مقاله و فیلم</Button><Button type="button" variant="danger" disabled={busy||!technicalRejectReason.trim()} onClick={()=>void onTechnicalReview(false)}>رد و درخواست اصلاح</Button></div></div>:null}</section>:null}
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => void onReview('under_review')}
-                  >
-                    {t('judging.underReview')}
-                  </Button>
-                  <Button type="button" disabled={busy} onClick={() => void onReview('approved')}>
-                    {t('judging.approve')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => void onReview('waitlisted')}
-                  >
-                    {t('judging.waitlist')}
-                  </Button>
-                </div>
-
-                <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
-                  <Input
-                    label={t('judging.rejectReason')}
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="self-end"
-                    disabled={busy}
-                    onClick={() => void onReview('rejected')}
-                  >
-                    {t('judging.reject')}
-                  </Button>
-                </div>
+                <aside className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-7 text-sky-900"><strong className="block">وضعیت تیم به‌صورت خودکار تعیین می‌شود</strong>با تأیید تمام اعضا و مستندات، پذیرش قوانین و تأیید پرداخت، تیم خودکار تأیید و مجوز صادر می‌شود. رد هر عضو یا فایل نیز وضعیت پرونده را به «نیازمند اصلاح» تغییر می‌دهد.</aside>
+                {registrationChanges.length?<section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-black text-slate-900">تاریخچه ویرایش پرونده</h3><p className="mt-1 text-xs text-slate-500">تغییرات پس از شروع بررسی برای شفافیت بازبینی ثبت می‌شوند.</p><ol className="mt-3 max-h-52 space-y-2 overflow-y-auto">{registrationChanges.map(change=><li key={change.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 text-xs"><span className="font-bold text-slate-700">{change.change_kind==='reopened_for_edit'?'بازگشایی پرونده برای ویرایش':change.entity_type==='member'?'ویرایش اطلاعات عضو':change.entity_type==='document'?'تغییر مدرک':'تغییر پرونده'}</span><time className="shrink-0 text-slate-400">{formatAppDateTime(change.changed_at,i18n.language)}</time></li>)}</ol></section>:null}
               </PanelCard></div>
 
               <div className={tab === 'scores' ? '' : 'hidden'}><PanelCard title={t('judging.resultsTitle')} description={t('judging.resultsHint')}>

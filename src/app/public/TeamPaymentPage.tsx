@@ -181,7 +181,7 @@ export function TeamPaymentPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
-      <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#087eb8] to-[#087a58] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.2)] sm:p-8"><p className="text-xs font-black tracking-[.2em] text-cyan-200">CHECKOUT · {invoice?.invoice_number}</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">{t('payment.title')}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{t('payment.subtitle')}</p></section>
+      <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#087eb8] to-[#087a58] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.2)] sm:p-8"><p className="text-xs font-black tracking-[.2em] text-cyan-200">{isPaid?'PAID INVOICE':'CHECKOUT'} · {invoice?.invoice_number}</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">{isPaid?'فاکتور پرداخت‌شده':t('payment.title')}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{isPaid?'پرداخت این فاکتور تأیید شده است؛ جزئیات مالی و نسخه قابل دریافت فاکتور در ادامه قرار دارد.':t('payment.subtitle')}</p></section>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">

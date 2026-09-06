@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
@@ -26,6 +26,7 @@ export function CompanyPanelPage({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
   const [companies, setCompanies] = useState<Company[]>([])
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null)
@@ -97,6 +98,15 @@ export function CompanyPanelPage({
       .then((result) => setMemberCount(result.data?.length ?? 0))
       .catch(() => setMemberCount(0))
   }, [teams])
+
+  useEffect(() => {
+    if (section !== 'teams') return
+    const requestedTeamId=searchParams.get('resume')
+    if (!requestedTeamId || !teams.some((team)=>team.id===requestedTeamId)) return
+    setResumeTeamId(requestedTeamId)
+    setSelectedLeagueId(teams.find((team)=>team.id===requestedTeamId)?.league_id??null)
+    setShowWizard(true)
+  },[searchParams,section,teams])
 
   useEffect(() => {
     if (!editingProfile) return

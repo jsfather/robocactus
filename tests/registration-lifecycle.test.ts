@@ -6,6 +6,7 @@ import { classifyOtpChallenge } from '../server/otp-state.ts'
 
 const migration = readFileSync(new URL('../db/migrations/0044_registration_lifecycle.sql', import.meta.url), 'utf8')
 const unifiedEnrollmentMigration = readFileSync(new URL('../db/migrations/0072_unified_team_enrollment_flow.sql', import.meta.url), 'utf8')
+const clearanceStateMigration = readFileSync(new URL('../db/migrations/0073_team_clearance_status_and_reopen.sql', import.meta.url), 'utf8')
 const appRoutes = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const wizard = readFileSync(new URL('../src/features/registration/TeamRegistrationWizard.tsx', import.meta.url), 'utf8')
 const liveResultsAdmin = readFileSync(new URL('../src/app/league-admin/LeagueAdminPage.tsx', import.meta.url), 'utf8')
@@ -40,6 +41,14 @@ test('unified enrollment enforces technical approval and rules before payment', 
   assert.match(unifiedEnrollmentMigration, /technical_status='approved' and rules_accepted_at is not null/)
   assert.match(unifiedEnrollmentMigration, /v_flow\.stage not in \('payment','confirmed'\)/)
   assert.match(unifiedEnrollmentMigration, /registration_incomplete:approval/)
+})
+
+test('clearance status is automatic and editing can only be reopened before deadline', () => {
+  assert.match(clearanceStateMigration, /team_status_is_automatic/)
+  assert.match(clearanceStateMigration, /stage='confirmed' then 'approved'/)
+  assert.match(clearanceStateMigration, /team_edit_deadline_passed/)
+  assert.match(clearanceStateMigration, /team_registration_change_log/)
+  assert.match(clearanceStateMigration, /edit_reopened_at=null/)
 })
 
 test('registration stage is clamped for corrupt persisted step values', () => {
