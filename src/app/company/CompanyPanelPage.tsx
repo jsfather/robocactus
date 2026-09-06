@@ -123,7 +123,7 @@ export function CompanyPanelPage({
 
   if (!companies.length) {
     return (
-      <PanelPage title="پروفایل مجموعه" description={profile?.account_type === 'individual' ? 'مجموعه شخصی شما برای مدیریت تیم‌ها و حضور در لیگ‌ها با نام خودتان ساخته می‌شود.' : 'اطلاعات مجموعه خود را برای مدیریت تیم‌ها و حضور در لیگ‌ها تکمیل کنید.'} index="ORG.00">
+      <PanelPage title="پروفایل مجموعه" description="اطلاعات مجموعه خود را برای مدیریت تیم‌ها و حضور در لیگ‌ها تکمیل کنید." index="ORG.00">
         <div className="mx-auto max-w-3xl">
         <CompanyForm
           onSaved={(company) => {
@@ -171,7 +171,7 @@ export function CompanyPanelPage({
     >
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-      {section === 'overview' && activeCompany ? <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-emerald-200">داشبورد مدیریت مجموعه</p><h2 className="mt-2 text-2xl font-black text-white">مجموعه: {activeCompany.name}{activeCompany.entity_type === 'individual' ? ' (شخص حقیقی)' : ''}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">تیم‌ها، ثبت‌نام لیگ‌ها، پرداخت‌ها و افتخارات مجموعه را از این فضای یکپارچه دنبال کنید.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{teams.length} تیم</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{memberCount} عضو</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{companyResults.filter((result) => result.rank != null && result.rank <= 3).length} مقام</span></div></div> : null}
+      {section === 'overview' && activeCompany ? <div className="role-welcome relative overflow-hidden rounded-[1.75rem] bg-gradient-to-l from-[#0a4964] to-[#0b9365] p-6 text-white shadow-[0_22px_60px_rgb(8_126_184/0.18)] sm:p-8"><p className="text-sm font-black text-emerald-200">داشبورد مدیریت مجموعه</p><h2 className="mt-2 text-2xl font-black text-white">خوش آمدید، {profile?.gender === 'female' ? 'خانم' : 'آقای'} {profile?.full_name}؛ مدیر مجموعه {activeCompany.name}</h2><p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-100">تیم‌ها، ثبت‌نام لیگ‌ها، پرداخت‌ها و افتخارات مجموعه را از این فضای یکپارچه دنبال کنید.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{teams.length} تیم</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{memberCount} عضو</span><span className="rounded-xl bg-[#ffffff16] px-3 py-2 text-xs font-bold text-white">{companyResults.filter((result) => result.rank != null && result.rank <= 3).length} مقام</span></div></div> : null}
 
       {section === 'overview' ? (
         <>

@@ -128,6 +128,7 @@ export type Profile = {
   staff_department?: 'support' | 'finance' | 'operations' | 'content' | null
   signup_step?: string | null
   signup_completed_at?: string | null
+  requires_account_approval?: boolean
 }
 
 export type Company = {

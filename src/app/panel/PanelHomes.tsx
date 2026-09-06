@@ -97,9 +97,11 @@ export function SuperAdminHomePage() {
           backend.from('companies').select('id, name, slug, created_at').order('created_at', { ascending: false }).limit(6),
           backend.from('teams').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(6),
           backend
-            .from('teams')
+            .from('profiles')
             .select('id', { count: 'exact', head: true })
-            .in('status', ['submitted', 'under_review']),
+            .eq('requires_account_approval', true)
+            .eq('account_status', 'pending')
+            .not('signup_completed_at', 'is', null),
         ])
         if (cancelled) return
         setSnap(s)

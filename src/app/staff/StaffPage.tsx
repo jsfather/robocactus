@@ -20,6 +20,7 @@ import { fetchLatestInvoiceForTeam } from '@/features/payments/api'
 import { safeSameOriginUrl } from '@/lib/safe-url'
 
 type TriageDossier = { team: Team; members: TeamMember[]; documents: DocumentRow[]; invoice: Invoice | null; company: Company | null; league: League | null }
+type ProfileDocument = { id: string; doc_type_id: string; file_url: string; label: string }
 
 function DossierAsset({ path, bucket, label, onOpen }: { path?: string | null; bucket: 'team-documents' | 'payment-receipts'; label: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -52,6 +53,8 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const [deptFilter, setDeptFilter] = useState('')
   const [showDeptSettings, setShowDeptSettings] = useState(false)
   const [pendingAccounts, setPendingAccounts] = useState<Profile[]>([])
+  const [selectedAccount, setSelectedAccount] = useState<Profile | null>(null)
+  const [profileDocuments, setProfileDocuments] = useState<ProfileDocument[]>([])
   const [canActivateAccounts, setCanActivateAccounts] = useState(false)
   const [canTriageTeams, setCanTriageTeams] = useState(false)
   const [dossier, setDossier] = useState<TriageDossier | null>(null)
@@ -78,10 +81,10 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
       const roleKey = profile?.role === 'super_admin' ? null : profile?.role === 'league_admin' ? 'judge' : profile?.staff_department ?? 'operations'
       void (async () => {
         const permissionRows = profile?.role === 'super_admin' ? ['triage', 'account_activation'] : ((await backend.from('role_section_permissions').select('section_key').eq('role_key', roleKey).in('section_key', ['triage', 'account_activation']).eq('is_enabled', true)).data ?? []).map((row: { section_key: string }) => row.section_key)
-        const allowAccounts = permissionRows.includes('account_activation'); const allowTeams = permissionRows.includes('triage')
+        const allowAccounts = permissionRows.includes('account_activation'); const allowTeams = false
         setCanActivateAccounts(allowAccounts); setCanTriageTeams(allowTeams)
         if (allowTeams) void loadTriage(); else setTeams([])
-        if (allowAccounts) { const { data, error: profileError } = await backend.from('profiles').select('*').eq('account_status', 'pending').order('created_at', { ascending: true }); if (profileError) throw new Error(profileError.message); setPendingAccounts((data ?? []) as Profile[]) } else setPendingAccounts([])
+        if (allowAccounts) { const { data, error: profileError } = await backend.from('profiles').select('*').eq('requires_account_approval', true).eq('account_status', 'pending').not('signup_completed_at', 'is', null).order('created_at', { ascending: true }); if (profileError) throw new Error(profileError.message); setPendingAccounts((data ?? []) as Profile[]) } else setPendingAccounts([])
       })().catch((err: Error) => setError(err.message))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,6 +98,18 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
     setBusy(false)
     if (reviewError) { setError(reviewError.message); return }
     setPendingAccounts((current) => current.filter((item) => item.id !== account.id))
+    setSelectedAccount(null)
+  }
+
+  const openAccount = async (account: Profile) => {
+    setSelectedAccount(account); setProfileDocuments([]); setError(null)
+    const [{ data: docs, error: docsError }, { data: types, error: typesError }] = await Promise.all([
+      backend.from('profile_documents').select('id,doc_type_id,file_url').eq('user_id', account.id),
+      backend.from('registration_doc_types').select('id,label_fa,label_en'),
+    ])
+    if (docsError || typesError) { setError(docsError?.message ?? typesError?.message ?? t('common.error')); return }
+    const labels = new Map((types ?? []).map((item: { id: string; label_fa: string; label_en: string }) => [item.id, isEn ? item.label_en : item.label_fa]))
+    setProfileDocuments((docs ?? []).map((item: { id: string; doc_type_id: string; file_url: string }) => ({ ...item, label: labels.get(item.doc_type_id) ?? (isEn ? 'Identity document' : 'مدرک هویتی') })))
   }
 
   useEffect(() => {
@@ -216,7 +231,7 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         </>
       ) : (
         <div className="space-y-5">
-          {canActivateAccounts ? <PanelCard title="فعال‌سازی حساب شرکت‌کنندگان" description="این صف فقط مربوط به هویت صاحب حساب حقیقی یا حقوقی است؛ تیم، داوری و پرداخت در صف‌های جدا بررسی می‌شوند."><div className="space-y-3">{pendingAccounts.map((account) => <article key={account.id} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-slate-900">{account.full_name}</h3><span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">در انتظار فعال‌سازی</span></div><p className="mt-2 text-xs text-slate-500">{account.account_type === 'legal' ? `حقوقی · ${account.company_name || 'نام مجموعه ثبت نشده'}` : 'شخص حقیقی'} · <span dir="ltr">{account.phone}</span></p><p className="mt-1 text-xs text-slate-500">کد ملی/شناسه: {account.account_type === 'legal' ? account.company_national_id : account.national_id || '—'} · {account.city || 'شهر ثبت نشده'}</p></div><div className="flex gap-2"><Button type="button" disabled={busy} onClick={() => void reviewAccount(account, true)}>تأیید و فعال‌سازی</Button><Button type="button" variant="danger" disabled={busy} onClick={() => void reviewAccount(account, false)}>رد حساب</Button></div></article>)}{!pendingAccounts.length ? <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-8 text-center text-sm font-bold text-emerald-800">حسابی در انتظار بررسی نیست.</div> : null}</div></PanelCard> : null}
+          {canActivateAccounts ? <PanelCard title="تأیید حساب کاربری" description="برای مشاهده اطلاعات هویتی و مدارک، پرونده متقاضی را باز کنید. تیم‌ها مستقیماً در بخش بررسی تیم‌ها ارزیابی می‌شوند."><div className="space-y-3">{pendingAccounts.map((account) => <button type="button" key={account.id} onClick={() => void openAccount(account)} className="grid w-full gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-start transition hover:border-sky-300 hover:bg-sky-50/40 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black text-slate-900">{account.full_name}</h3><span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">در انتظار بررسی هویت</span></div><p className="mt-2 text-xs text-slate-500">{account.account_type === 'legal' ? `حقوقی · ${account.company_name || 'نام مجموعه ثبت نشده'}` : 'شخص حقیقی'} · <span dir="ltr">{account.phone}</span></p><p className="mt-1 text-xs text-slate-500">کد ملی/شناسه: {account.account_type === 'legal' ? account.company_national_id : account.national_id || '—'} · {account.city || 'شهر ثبت نشده'}</p></div><span className="text-xs font-black text-sky-700">مشاهده پرونده ←</span></button>)}{!pendingAccounts.length ? <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-8 text-center text-sm font-bold text-emerald-800">حسابی در انتظار بررسی نیست.</div> : null}</div></PanelCard> : null}
           {canTriageTeams ? <><section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#0873a0] to-[#087b61] p-6 text-white shadow-[0_20px_60px_rgb(8_126_184/0.18)] sm:p-8">
             <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
               <div><p className="text-xs font-black tracking-widest text-emerald-200">{isEn ? 'INITIAL TRIAGE' : 'کنترل ورودی پرونده'}</p><h2 className="mt-2 text-2xl font-black">{isEn ? 'A quick completeness check before technical review' : 'بررسی سریع کامل‌بودن پرونده، پیش از ارزیابی تخصصی'}</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-sky-50/85">{isEn ? 'Check that the team has submitted the required identity details, people and documents. This stage does not approve technical eligibility and does not record scores.' : 'در این مرحله فقط وجود اطلاعات هویتی، اعضا و مدارک ضروری کنترل می‌شود. تأیید صلاحیت فنی، داوری و امتیازدهی در «بررسی تیم‌ها» انجام می‌شود.'}</p></div>
@@ -263,6 +278,16 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
         </PanelCard></> : null}
         </div>
       )}
+      {selectedAccount ? <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedAccount(null) }}>
+        <div className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl">
+          <header className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4"><div><p className="text-xs font-black text-sky-700">تأیید حساب کاربری ← پرونده هویتی</p><h2 className="mt-1 text-xl font-black text-slate-950">{selectedAccount.full_name}</h2></div><button type="button" onClick={() => setSelectedAccount(null)} className="grid size-10 place-items-center rounded-full border border-slate-200 text-xl" aria-label="بستن">×</button></header>
+          <div className="overflow-y-auto p-5 sm:p-7"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[
+            ['نوع حساب', selectedAccount.account_type === 'legal' ? 'حقوقی' : 'حقیقی'], ['نام مجموعه', selectedAccount.company_name || selectedAccount.full_name], ['شماره موبایل', selectedAccount.phone || '—'], ['ایمیل', selectedAccount.email || '—'], ['کد ملی', selectedAccount.national_id || '—'], ['شناسه ملی مجموعه', selectedAccount.company_national_id || '—'], ['نماینده قانونی', selectedAccount.legal_representative_national_id || '—'], ['تاریخ تولد', selectedAccount.birth_date || '—'], ['کد پستی', selectedAccount.postal_code || '—'], ['استان و شهر', [selectedAccount.province, selectedAccount.city].filter(Boolean).join('، ') || '—'],
+          ].map(([label, value]) => <div key={label} className="border-s-4 border-sky-500 bg-white px-4 py-3"><span className="block text-[11px] text-slate-500">{label}</span><strong className="mt-1 block break-words text-sm text-slate-900">{value}</strong></div>)}</div><div className="mt-3 border-s-4 border-emerald-500 bg-white px-4 py-3"><span className="block text-[11px] text-slate-500">نشانی</span><strong className="mt-1 block text-sm leading-7 text-slate-900">{selectedAccount.address || '—'}</strong></div>
+          <section className="mt-6"><div className="mb-3 flex items-center justify-between"><h3 className="font-black text-slate-900">مدارک هویتی</h3><span className="text-xs text-slate-500">برای مشاهده، تصویر را انتخاب کنید</span></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{profileDocuments.map((doc) => { const url = safeSameOriginUrl(doc.file_url); return <button type="button" key={doc.id} disabled={!url} onClick={() => url && setViewerUrl(url)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-start"><span className="block aspect-[4/3] bg-slate-100">{url ? <img src={url} alt={doc.label} className="size-full object-cover" /> : null}</span><strong className="block p-3 text-xs text-slate-800">{doc.label}</strong></button>})}{!profileDocuments.length ? <p className="rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">مدرکی برای این پرونده ثبت نشده است.</p> : null}</div></section></div>
+          <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4"><Button type="button" variant="secondary" onClick={() => setSelectedAccount(null)}>بستن</Button><Button type="button" variant="danger" disabled={busy} onClick={() => void reviewAccount(selectedAccount, false)}>اعلام نقص</Button><Button type="button" disabled={busy} onClick={() => void reviewAccount(selectedAccount, true)}>تأیید و فعال‌سازی</Button></footer>
+        </div>
+      </div> : null}
       {dossier ? <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setDossier(null) }}>
         <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl">
           <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-7"><div className="min-w-0"><p className="text-xs font-black text-sky-700">بررسی اولیه ← پرونده کامل تیم</p><h2 className="mt-1 truncate text-xl font-black text-slate-950">{dossier.team.name}</h2><p className="mt-1 text-xs text-slate-500">{dossier.league?.name ?? 'لیگ نامشخص'} · {dossier.company?.name ?? 'مجموعه نامشخص'}</p></div><button type="button" onClick={() => setDossier(null)} className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-xl" aria-label="بستن">×</button></header>

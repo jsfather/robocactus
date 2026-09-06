@@ -17,7 +17,10 @@ type Notification = {
 
 const eventTokenOrder: Record<string, string[]> = {
   auth_otp: ['code'],
-  account_approved: ['full_name', 'user_id'],
+  account_approved: ['full_name', 'organization_name'],
+  attendance_permit_issued: ['team_name', 'league_name', 'permit_code'],
+  team_correction_required: ['team_name', 'league_name', 'reason'],
+  team_review_approved: ['team_name', 'league_name', 'next_step'],
   registration_submitted: ['team_name', 'league_name', 'tracking_code'],
   league_joined: ['team_name', 'league_name', 'invoice_id'],
   payment_confirmed: ['amount', 'invoice_number', 'team_name'],
@@ -38,6 +41,23 @@ function templateValues(row: Notification): string[] {
   return ordered.length ? ordered : Object.entries(meta).filter(([key]) => !['provider_template', 'token_order'].includes(key)).map(([, value]) => String(value))
 }
 
+function fallbackSmsText(row: Notification): string {
+  const meta = row.meta ?? {}
+  const value = (key: string, fallback = '') => String(meta[key] ?? fallback)
+  switch (row.template_key) {
+    case 'account_approved':
+      return `جام تبرستان\n${value('full_name', 'شرکت‌کننده')} عزیز، حساب کاربری شما تأیید و فعال شد.`
+    case 'attendance_permit_issued':
+      return `جام تبرستان\nعضویت تیم ${value('team_name')} در ${value('league_name')} تأیید و مجوز حضور صادر شد.`
+    case 'team_correction_required':
+      return `جام تبرستان\nپرونده تیم ${value('team_name')} در ${value('league_name')} نیاز به اصلاح دارد: ${value('reason')}`
+    case 'team_review_approved':
+      return `جام تبرستان\nتیم و مدارک ${value('team_name')} تأیید شد. برای ادامه ثبت‌نام وارد پنل شوید.`
+    default:
+      return `جام تبرستان\n${Object.entries(meta).filter(([key]) => !['provider_template', 'token_order'].includes(key)).map(([, item]) => String(item)).join('\n')}`
+  }
+}
+
 async function sendSms(row: Notification): Promise<string> {
   if (!row.phone) throw new Error('missing_phone')
   const settings = await getAuthSettings(true)
@@ -52,8 +72,7 @@ async function sendSms(row: Notification): Promise<string> {
   if (provider === 'kavenegar') {
     const values = templateValues(row)
     const template = String(row.meta?.provider_template ?? patterns[row.template_key] ?? '')
-    const publicMeta = Object.entries(row.meta ?? {}).filter(([key]) => !['provider_template', 'token_order'].includes(key))
-    const plainMessage = `جام تبرستان\n${row.template_key}\n${publicMeta.map(([key, value]) => `${key}: ${String(value)}`).join('\n')}`
+    const plainMessage = fallbackSmsText(row)
     let result
     if (!template) {
       result = await sendKavenegarText({ receptor: row.phone, message: plainMessage })

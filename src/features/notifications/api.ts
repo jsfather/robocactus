@@ -68,6 +68,9 @@ export type SmsSettings = {
   enable_results: boolean
   enable_incomplete_profile: boolean
   enable_account_issue: boolean
+  enable_attendance_permit_issued?: boolean
+  enable_team_correction_required?: boolean
+  enable_team_review_approved?: boolean
   provider?: 'ippanel' | 'kavenegar'
   kavenegar_sender?: string | null
   kavenegar_api_key_hint?: string | null

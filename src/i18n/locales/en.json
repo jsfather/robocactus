@@ -687,13 +687,13 @@
   },
   "staff": {
     "title": "Support staff panel",
-    "subtitle": "General tickets and initial registration triage",
+    "subtitle": "General tickets and participant identity verification",
     "tabTickets": "General tickets",
-    "tabTriage": "Registration triage",
-    "triageTitle": "Submitted teams",
-    "triageHint": "After a quick check, mark under_review for the league committee.",
-    "triageEmpty": "No newly submitted teams.",
-    "markUnderReview": "Send to technical committee"
+    "tabTriage": "Account verification",
+    "triageTitle": "Accounts awaiting verification",
+    "triageHint": "Review the account holder's identity details and documents, then record the decision.",
+    "triageEmpty": "No account is awaiting verification.",
+    "markUnderReview": "Record review decision"
   },
   "tickets": {
     "inbox": "Ticket inbox",

@@ -69,6 +69,7 @@ export function AuthCallbackPage() {
           patch.auth_channel = draft.authChannel ?? 'email'
           patch.account_type = draft.accountType
           patch.account_status = 'pending'
+          patch.requires_account_approval = true
           patch.national_id = draft.accountType === 'individual' ? draft.nationalId ?? null : null
           patch.company_name = draft.accountType === 'legal' ? draft.companyName ?? null : null
           patch.company_national_id =

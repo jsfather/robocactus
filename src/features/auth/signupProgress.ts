@@ -3,8 +3,9 @@ import { backend } from '@/lib/backend'
 
 export type SignupStep = 'type' | 'channel' | 'identity' | 'verify' | 'docs' | 'review'
 
-export function isSignupIncomplete(profile: Pick<Profile, 'signup_completed_at' | 'identity_completed_at' | 'signup_step' | 'account_status' | 'first_name_fa' | 'national_id' | 'account_type'> | null | undefined): boolean {
+export function isSignupIncomplete(profile: Pick<Profile, 'signup_completed_at' | 'identity_completed_at' | 'signup_step' | 'account_status' | 'first_name_fa' | 'national_id' | 'account_type' | 'requires_account_approval'> | null | undefined): boolean {
   if (!profile) return false
+  if (profile.requires_account_approval && profile.account_status === 'rejected') return true
   if (profile.signup_completed_at || profile.identity_completed_at) return false
   if (profile.signup_step) return true
   if (profile.account_status === 'pending' && Boolean(profile.first_name_fa?.trim() || profile.national_id?.trim() || profile.account_type)) {

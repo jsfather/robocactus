@@ -264,6 +264,8 @@ export function SignupPage() {
       .update({
         account_type: accountType,
         account_status: 'pending',
+        requires_account_approval: true,
+        ...(profile?.requires_account_approval && profile.account_status === 'rejected' ? { signup_completed_at: null } : {}),
         auth_channel: authChannel,
         email: email.trim().toLowerCase(),
         national_id: accountType === 'individual' ? nationalId.trim() : null,
@@ -509,6 +511,9 @@ export function SignupPage() {
     const { error: finishError } = await backend.from('profiles').update({
       signup_step: 'review',
       signup_completed_at: new Date().toISOString(),
+      account_status: 'pending',
+      rejection_reason: null,
+      requires_account_approval: true,
     }).eq('id', uid)
     setSubmitting(false)
     if (finishError) {

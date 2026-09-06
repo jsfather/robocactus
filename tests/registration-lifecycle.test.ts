@@ -8,6 +8,7 @@ const migration = readFileSync(new URL('../db/migrations/0044_registration_lifec
 const unifiedEnrollmentMigration = readFileSync(new URL('../db/migrations/0072_unified_team_enrollment_flow.sql', import.meta.url), 'utf8')
 const clearanceStateMigration = readFileSync(new URL('../db/migrations/0073_team_clearance_status_and_reopen.sql', import.meta.url), 'utf8')
 const recursionFixMigration = readFileSync(new URL('../db/migrations/0074_fix_attendance_status_recursion.sql', import.meta.url), 'utf8')
+const accountApprovalMigration = readFileSync(new URL('../db/migrations/0075_account_approval_and_team_sms.sql', import.meta.url), 'utf8')
 const appRoutes = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const wizard = readFileSync(new URL('../src/features/registration/TeamRegistrationWizard.tsx', import.meta.url), 'utf8')
 const liveResultsAdmin = readFileSync(new URL('../src/app/league-admin/LeagueAdminPage.tsx', import.meta.url), 'utf8')
@@ -56,6 +57,16 @@ test('attendance synchronization cannot recurse through team status triggers', (
   assert.match(recursionFixMigration, /drop trigger if exists attendance_sync_derived_team_status/)
   assert.match(recursionFixMigration, /old\.status is distinct from new\.status/)
   assert.match(recursionFixMigration, /perform public\._sync_team_status_from_clearance/)
+})
+
+test('new participant accounts are server-gated and lifecycle messages are idempotent', () => {
+  assert.match(accountApprovalMigration, /requires_account_approval boolean not null default false/)
+  assert.match(accountApprovalMigration, /registration_not_ready_for_review/)
+  assert.match(accountApprovalMigration, /account_approval_required/)
+  assert.match(accountApprovalMigration, /attendance_permit_issued:/)
+  assert.match(accountApprovalMigration, /team_correction_required:/)
+  assert.match(accountApprovalMigration, /team_review_approved:/)
+  assert.match(accountApprovalMigration, /on conflict do nothing/)
 })
 
 test('registration stage is clamped for corrupt persisted step values', () => {

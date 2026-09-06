@@ -10,7 +10,7 @@ import type { League, Profile, UserRole } from '@/types/database'
 type Department = NonNullable<Profile['staff_department']>
 const departments: Array<[Department, string]> = [['support', 'پشتیبانی'], ['finance', 'امور مالی'], ['operations', 'اجرایی و عملیات'], ['content', 'محتوا و رسانه']]
 const accessRoles = [['support', 'پشتیبانی'], ['finance', 'حسابداری'], ['operations', 'کارشناس ثبت‌نام'], ['judge', 'داوران']] as const
-const accessSections = [['tickets', 'تیکت‌ها'], ['chat', 'چت آنلاین'], ['triage', 'بررسی اولیه تیم'], ['account_activation', 'فعال‌سازی حساب‌ها'], ['finance', 'حسابداری و پرداخت‌ها'], ['team_review', 'بررسی فنی و داوری']] as const
+const accessSections = [['tickets', 'تیکت‌ها'], ['chat', 'چت آنلاین'], ['account_activation', 'تأیید حساب‌های کاربری'], ['finance', 'حسابداری و پرداخت‌ها'], ['team_review', 'بررسی تیم‌ها و مدارک فنی']] as const
 
 export function SuperAdminCollaboratorsPage() {
   const toast = useToast()

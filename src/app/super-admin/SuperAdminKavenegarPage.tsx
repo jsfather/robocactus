@@ -26,6 +26,9 @@ type ProviderTemplate = { id?: number; name: string; smsmessage?: string; approv
 const siteEvents = [
   ['auth_otp', 'کد ورود و احراز هویت', '%token = کد شش‌رقمی'],
   ['account_approved', 'تأیید حساب کاربری', '%token = نام کاربر'],
+  ['attendance_permit_issued', 'تأیید عضویت و صدور مجوز حضور', '%token = تیم، %token2 = لیگ، %token3 = کد مجوز'],
+  ['team_correction_required', 'اعلام نقص تیم یا مدارک', '%token = تیم، %token2 = لیگ، %token3 = دلیل نقص'],
+  ['team_review_approved', 'تأیید تیم و مدارک برای ادامه ثبت‌نام', '%token = تیم، %token2 = لیگ، %token3 = مرحله بعد'],
   ['registration_submitted', 'ثبت پرونده شرکت در لیگ', '%token = تیم، %token2 = لیگ، %token3 = کد پیگیری'],
   ['league_joined', 'قطعی‌شدن عضویت در لیگ', '%token = تیم، %token2 = لیگ'],
   ['payment_confirmed', 'پرداخت موفق', '%token = مبلغ، %token2 = شماره فاکتور، %token3 = تیم'],

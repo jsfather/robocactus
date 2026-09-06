@@ -176,6 +176,12 @@ export function PanelShell() {
     void enqueueIncompleteProfileSms(profile.id).catch(() => undefined)
   }, [profile])
 
+  useEffect(() => {
+    if (!profile?.requires_account_approval || profile.account_status !== 'pending' || !profile.signup_completed_at) return
+    const timer = window.setInterval(() => { void refreshProfile() }, 15_000)
+    return () => window.clearInterval(timer)
+  }, [profile?.requires_account_approval, profile?.account_status, profile?.signup_completed_at, refreshProfile])
+
   if (loading || (user && !profile && profileLoading)) {
     return (
       <div className="flex min-h-dvh items-center justify-center font-mono text-sm text-rc-muted">
@@ -208,8 +214,33 @@ export function PanelShell() {
 
   const role = profile.role
   const identityRequired = role === 'company_admin' || role === 'team_captain'
+  const approvalRequired = identityRequired && profile.requires_account_approval === true
+  if (approvalRequired && profile.signup_completed_at && profile.account_status === 'rejected') {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-slate-50 px-4" dir={i18n.language.startsWith('en') ? 'ltr' : 'rtl'}>
+        <section className="w-full max-w-lg rounded-3xl border border-red-100 bg-white p-7 text-center shadow-xl shadow-slate-200/50">
+          <span className="mx-auto grid size-16 place-items-center rounded-full bg-red-50 text-2xl text-red-600">!</span>
+          <h1 className="mt-5 text-xl font-black text-slate-900">{i18n.language.startsWith('en') ? 'Your profile needs correction' : 'پرونده شما نیاز به اصلاح دارد'}</h1>
+          <p className="mt-3 rounded-2xl bg-red-50 p-4 text-sm leading-7 text-red-800">{profile.rejection_reason || (i18n.language.startsWith('en') ? 'Please correct your registration information and submit it again.' : 'لطفاً اطلاعات ثبت‌نام را اصلاح و دوباره برای بررسی ارسال کنید.')}</p>
+          <Link to="/signup?correction=1" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-5 text-sm font-bold text-white hover:bg-sky-800">{i18n.language.startsWith('en') ? 'Edit registration' : 'اصلاح اطلاعات ثبت‌نام'}</Link>
+        </section>
+      </div>
+    )
+  }
   if (identityRequired && isSignupIncomplete(profile) && location.pathname !== '/signup') {
     return <Navigate to="/signup" replace />
+  }
+  if (approvalRequired && profile.signup_completed_at && profile.account_status === 'pending') {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-slate-50 px-4" dir={i18n.language.startsWith('en') ? 'ltr' : 'rtl'}>
+        <section className="w-full max-w-lg rounded-3xl border border-amber-100 bg-white p-8 text-center shadow-xl shadow-slate-200/50" role="status" aria-live="polite">
+          <span className="mx-auto block size-14 animate-spin rounded-full border-4 border-amber-100 border-t-amber-500 motion-reduce:animate-none" />
+          <h1 className="mt-6 text-xl font-black text-slate-900">{i18n.language.startsWith('en') ? 'Your account is awaiting verification' : 'حساب شما در انتظار تأیید است'}</h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">{i18n.language.startsWith('en') ? 'Our support team is reviewing your identity information and documents. You will receive a message after approval.' : 'کارشناس پشتیبانی در حال بررسی اطلاعات هویتی و مدارک شماست. پس از تأیید، نتیجه از طریق پیامک اطلاع‌رسانی می‌شود.'}</p>
+          <Link to="/" className="mt-6 inline-flex text-sm font-bold text-sky-700 hover:text-sky-900">{i18n.language.startsWith('en') ? 'Return to website' : 'بازگشت به سایت'}</Link>
+        </section>
+      </div>
+    )
   }
   if (identityRequired && profileLooksIncomplete(profile) && location.pathname !== '/account/profile') {
     return <Navigate to="/account/profile" replace />
@@ -232,7 +263,7 @@ export function PanelShell() {
 
   const dateLabel = formatAppDate(now.toISOString(), i18n.language, { withTime: true })
   const participantManagerLabel = (role === 'company_admin' || role === 'team_captain')
-    ? `مدیریت مجموعه ${participantOrganizationName && participantOrganizationName.trim() !== profile.full_name.trim() ? participantOrganizationName : (profile.account_type === 'legal' ? profile.company_name : '') || 'شخصی'}`
+    ? `مدیریت مجموعه ${participantOrganizationName || profile.company_name || profile.full_name}`
     : t(`dashboard.roles.${role}`)
 
   return (
