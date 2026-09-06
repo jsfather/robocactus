@@ -289,16 +289,38 @@ class StorageBucket {
     this.bucket = bucket
   }
 
-  async upload(path: string, file: File, options?: { upsert?: boolean; contentType?: string }) {
+  async upload(path: string, file: File, options?: { upsert?: boolean; contentType?: string; onProgress?: (percent: number) => void }) {
     try {
       const form = new FormData()
       form.append('file', file)
       form.append('path', path)
       form.append('upsert', String(options?.upsert ?? false))
-      const data = await apiRequest<Record<string, unknown>>(`/storage/${encodeURIComponent(this.bucket)}`, {
-        method: 'POST',
-        body: form,
-      })
+      const data = options?.onProgress
+        ? await new Promise<Record<string, unknown>>((resolve, reject) => {
+            const request = new XMLHttpRequest()
+            request.open('POST', `${apiBase}/api/storage/${encodeURIComponent(this.bucket)}`)
+            request.withCredentials = true
+            request.upload.onprogress = (event) => {
+              if (event.lengthComputable) options.onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+            }
+            request.onerror = () => reject(new Error('network_error'))
+            request.onload = () => {
+              let body: Record<string, unknown> = {}
+              try { body = JSON.parse(request.responseText || '{}') as Record<string, unknown> } catch { /* handled below */ }
+              if (request.status < 200 || request.status >= 300) {
+                const error = body.error as { message?: string } | string | undefined
+                reject(new Error(typeof error === 'string' ? error : error?.message ?? `HTTP ${request.status}`))
+                return
+              }
+              options.onProgress?.(100)
+              resolve(body)
+            }
+            request.send(form)
+          })
+        : await apiRequest<Record<string, unknown>>(`/storage/${encodeURIComponent(this.bucket)}`, {
+            method: 'POST',
+            body: form,
+          })
       return { data, error: null }
     } catch (error) {
       return { data: null, error: { message: error instanceof Error ? error.message : String(error) } }

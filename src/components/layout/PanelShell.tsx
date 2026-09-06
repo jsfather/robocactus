@@ -88,9 +88,11 @@ function PanelNavIcon({ path }: { path: string }) {
 function SidebarNav({
   role,
   onNavigate,
+  accountLocked = false,
 }: {
   role: UserRole
   onNavigate?: () => void
+  accountLocked?: boolean
 }) {
   const { t } = useTranslation()
   const { profile } = useAuth()
@@ -107,8 +109,10 @@ function SidebarNav({
   return (
     <nav className="panel-nav-scroll flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
       <ul className="space-y-1">
-        {items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => (
-          <li key={item.to}>
+        {items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => {
+          const disabled = accountLocked && !item.to.includes('/tickets')
+          return <li key={item.to}>
+            {disabled ? <span aria-disabled="true" className="panel-nav-link flex cursor-not-allowed items-center gap-3 border border-transparent px-3 py-2.5 text-[13px] font-semibold text-slate-400 grayscale opacity-60"><span className="grid size-7 shrink-0 place-items-center"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span> :
             <NavLink
               to={item.to}
               end={item.end}
@@ -129,8 +133,9 @@ function SidebarNav({
                 </span>
               ) : null}
             </NavLink>
+            }
           </li>
-        ))}
+        })}
       </ul>
     </nav>
   )
@@ -209,6 +214,7 @@ export function PanelShell() {
   const role = profile.role
   const identityRequired = role === 'company_admin' || role === 'team_captain'
   const approvalRequired = identityRequired && profile.requires_account_approval === true
+  const accountAwaitingApproval = Boolean(approvalRequired && profile.signup_completed_at && profile.account_status === 'pending')
   if (approvalRequired && profile.signup_completed_at && profile.account_status === 'rejected') {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-50 px-4" dir={i18n.language.startsWith('en') ? 'ltr' : 'rtl'}>
@@ -224,7 +230,7 @@ export function PanelShell() {
   if (identityRequired && isSignupIncomplete(profile) && location.pathname !== '/signup') {
     return <Navigate to="/signup" replace />
   }
-  if (approvalRequired && profile.signup_completed_at && profile.account_status === 'pending') {
+  if (accountAwaitingApproval && location.pathname === '/account/pending-legacy') {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-50 px-4" dir={i18n.language.startsWith('en') ? 'ltr' : 'rtl'}>
         <section className="w-full max-w-lg rounded-3xl border border-amber-100 bg-white p-8 text-center shadow-xl shadow-slate-200/50" role="status" aria-live="polite">
@@ -269,7 +275,7 @@ export function PanelShell() {
             <span><span className="block text-base font-black text-slate-900">جام تبرستان</span><span className="mt-0.5 block text-[10px] font-bold tracking-wide text-slate-500">PANEL</span></span>
           </Link>
         </div>
-        <SidebarNav role={role} />
+        <SidebarNav role={role} accountLocked={accountAwaitingApproval} />
         <div className="panel-sidebar-profile m-3 border-t border-slate-200 pt-3.5">
           <div className="flex items-center gap-3"><span className="grid size-9 overflow-hidden place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-700"><ProfileAvatar src={profile.avatar_url} name={profile.full_name} fallback={user?.email} /></span><span className="min-w-0"><p className="truncate text-xs font-bold text-slate-900">{profile?.full_name ?? user?.email}</p><p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">{participantManagerLabel}</p></span></div>
         </div>
@@ -294,7 +300,7 @@ export function PanelShell() {
                 <MenuIcon open />
               </button>
             </div>
-            <SidebarNav role={role} onNavigate={() => setMobileOpen(false)} />
+            <SidebarNav role={role} accountLocked={accountAwaitingApproval} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       ) : null}
@@ -336,11 +342,7 @@ export function PanelShell() {
 
         <main data-panel-section={active?.id ?? 'account'} className="relative min-w-0 max-w-full flex-1 overflow-x-clip px-4 py-6 sm:px-6 md:py-8 lg:px-8">
           <div className="relative">
-            <AccountPendingBanner />
-            <AccountIssuesPanel />
-            <PanelErrorBoundary key={location.pathname}>
-              <Outlet />
-            </PanelErrorBoundary>
+            {accountAwaitingApproval && !location.pathname.includes('/tickets') ? <section className="mx-auto mt-8 w-full max-w-2xl rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-10" role="status" aria-live="polite"><span className="mx-auto block size-14 animate-spin rounded-full border-4 border-amber-100 border-t-amber-500 motion-reduce:animate-none"/><h1 className="mt-6 text-xl font-black text-slate-900">{i18n.language.startsWith('en') ? 'Your account is awaiting verification' : 'حساب شما در انتظار تأیید است'}</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">{i18n.language.startsWith('en') ? 'Our support team is reviewing your identity information and documents. You will receive a message after approval. Support tickets remain available.' : 'کارشناس پشتیبانی در حال بررسی اطلاعات هویتی و مدارک شماست. پس از تأیید، نتیجه از طریق پیامک اطلاع‌رسانی می‌شود. در این مدت می‌توانید از بخش پشتیبانی تیکت ارسال کنید.'}</p><Link to="/account/tickets" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-sky-700 px-5 text-sm font-bold text-white hover:bg-sky-800">{i18n.language.startsWith('en') ? 'Contact support' : 'ارسال تیکت پشتیبانی'}</Link></section> : <><AccountPendingBanner /><AccountIssuesPanel /><PanelErrorBoundary key={location.pathname}><Outlet /></PanelErrorBoundary></>}
           </div>
         </main>
       </div>

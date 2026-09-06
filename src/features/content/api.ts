@@ -351,7 +351,7 @@ export async function uploadContentMedia(userId: string, file: File): Promise<st
   return data.publicUrl
 }
 
-export async function uploadProfileDocument(userId: string, file: File): Promise<string> {
+export async function uploadProfileDocument(userId: string, file: File, onProgress?: (percent: number) => void): Promise<string> {
   const validation = validateDocumentFile(file)
   if (validation) throw new Error(validation)
   const extension = file.name.split('.').pop() ?? 'bin'
@@ -359,6 +359,7 @@ export async function uploadProfileDocument(userId: string, file: File): Promise
   const { error } = await backend.storage.from('profile-documents').upload(path, file, {
     contentType: file.type,
     upsert: false,
+    onProgress,
   })
   if (error) throw new Error(error.message)
   return backend.storage.from('profile-documents').getPrivateUrl(path).data.privateUrl

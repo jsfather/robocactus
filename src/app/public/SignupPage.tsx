@@ -71,6 +71,8 @@ export function SignupPage() {
   const [emailCheckInbox, setEmailCheckInbox] = useState(false)
   const [docTypes, setDocTypes] = useState<RegistrationDocType[]>([])
   const [uploads, setUploads] = useState<Record<string, string>>({})
+  const [uploadPreviews, setUploadPreviews] = useState<Record<string, string>>({})
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -169,9 +171,6 @@ export function SignupPage() {
       setStep(resumedStep)
       if (resumedStep === 'verify' && profile.auth_channel === 'email' && profile.email_verified_at) {
         setEmailCheckInbox(true)
-      }
-      if (resumedStep === 'verify' && profile.auth_channel === 'phone' && profile.phone_verified_at) {
-        setStep('docs')
       }
       setResumeReady(true)
       toast.info(t('auth.resumeSignup'))
@@ -291,6 +290,16 @@ export function SignupPage() {
     if (profileError) throw new Error(mapSignupError(profileError.message, t) ?? profileError.message)
   }
 
+  const persistIdentityDraft = () => saveSignupDraft({
+    accountType, fullName: fullName.trim(), username: username.trim(),
+    firstNameFa: firstNameFa.trim(), lastNameFa: lastNameFa.trim(),
+    firstNameEn: firstNameEn.trim(), lastNameEn: lastNameEn.trim(), birthDate,
+    postalCode: postalCode.trim(), representativeNationalId: representativeNationalId.trim(),
+    nationalId: nationalId.trim(), companyName: companyName.trim(),
+    companyNationalId: companyNationalId.trim(), economicCode: economicCode.trim(),
+    address: address.trim(), email: email.trim().toLowerCase(), phone: phone.trim(), authChannel,
+  })
+
   const saveSignupStep = async (nextStep: Step) => {
     setStep(nextStep)
     const uid = userId ?? user?.id
@@ -355,7 +364,9 @@ export function SignupPage() {
       void saveSignupStep('docs')
     } catch (err) {
       setOtpState('error')
-      setError(mapSignupError(err instanceof Error ? err.message : t('common.error'), t))
+      const mapped = mapSignupError(err instanceof Error ? err.message : t('common.error'), t)
+      setError(mapped)
+      if (mapped && [t('auth.duplicateEmail'), t('auth.duplicatePhone'), t('auth.duplicateNationalId'), t('auth.duplicateUsername')].includes(mapped)) setStep('identity')
       window.setTimeout(() => setOtpState('idle'), 650)
     } finally {
       verifyInFlight.current = false
@@ -471,8 +482,11 @@ export function SignupPage() {
     const uid = userId ?? user?.id
     if (!uid) return
     setSubmitting(true)
+    setUploadProgress((current) => ({ ...current, [docId]: 0 }))
+    const localPreview = URL.createObjectURL(file)
+    setUploadPreviews((current) => ({ ...current, [docId]: localPreview }))
     try {
-      const url = await uploadProfileDocument(uid, file)
+      const url = await uploadProfileDocument(uid, file, (percent) => setUploadProgress((current) => ({ ...current, [docId]: percent })))
       setUploads((prev) => ({ ...prev, [docId]: url }))
       await backend.from('profile_documents').delete().eq('user_id', uid).eq('doc_type_id', docId)
       await backend.from('profile_documents').insert({
@@ -485,7 +499,29 @@ export function SignupPage() {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setSubmitting(false)
+      window.setTimeout(() => {
+        setUploadProgress((current) => { const next = { ...current }; delete next[docId]; return next })
+        setUploadPreviews((current) => { const next = { ...current }; delete next[docId]; return next })
+        URL.revokeObjectURL(localPreview)
+      }, 350)
     }
+  }
+
+  const openFinalReview = async () => {
+    const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id])
+    if (missing) { setError(t('auth.docsRequired')); return }
+    const uid = userId ?? user?.id
+    if (!uid) return
+    setError(null)
+    setSubmitting(true)
+    try {
+      await persistProfileFields(uid)
+      await saveSignupStep('review')
+    } catch (err) {
+      const mapped = mapSignupError(err instanceof Error ? err.message : t('common.error'), t)
+      setError(mapped)
+      if (mapped && [t('auth.duplicateEmail'), t('auth.duplicatePhone'), t('auth.duplicateNationalId'), t('auth.duplicateUsername')].includes(mapped)) setStep('identity')
+    } finally { setSubmitting(false) }
   }
 
   const removeUpload = async (docId: string) => {
@@ -536,6 +572,13 @@ export function SignupPage() {
     docs: t('auth.registrationSteps.docs'),
     review: 'تأیید اطلاعات',
   }
+
+  const reviewDetails = [
+    ['ایمیل', email], ['نام کاربری', username],
+    [accountType === 'legal' ? 'شناسه ملی مجموعه' : 'کد ملی', accountType === 'legal' ? companyNationalId : nationalId],
+    ['کد پستی', postalCode], ['نشانی', address],
+    ...(accountType === 'legal' ? [['نام مجموعه', companyName], ['کد اقتصادی', economicCode], ['کد ملی نماینده قانونی', representativeNationalId]] : []),
+  ].filter(([, value]) => Boolean(value?.trim()))
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -629,6 +672,7 @@ export function SignupPage() {
               void onEmailRegister(e)
               return
             }
+            persistIdentityDraft()
             void saveSignupStep('verify')
           }}
         >
@@ -769,14 +813,15 @@ export function SignupPage() {
             <p className="text-sm text-rc-muted">{t('auth.noDocsConfigured')}</p>
           ) : (
             docTypes.map((d) => (
-              <DocumentUploadField key={d.id} label={d.label_fa} required={d.is_required} value={uploads[d.id]} busy={submitting} onSelect={(file) => void onUploadDoc(d.id, file)} onRemove={() => void removeUpload(d.id)} />
+              <DocumentUploadField key={d.id} label={d.label_fa} required={d.is_required} value={uploadPreviews[d.id] ?? uploads[d.id]} busy={uploadProgress[d.id] != null} progress={uploadProgress[d.id]} onSelect={(file) => void onUploadDoc(d.id, file)} onRemove={() => void removeUpload(d.id)} />
             ))
           )}
-          <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep(isPhoneOnboarding ? 'identity' : 'verify')}>{t('team.back')}</Button><Button type="button" disabled={submitting} onClick={() => { const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id]); if (missing) { setError(t('auth.docsRequired')); return } setError(null); void saveSignupStep('review') }}>{t('team.next')}</Button></div>
+          <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep(isPhoneOnboarding ? 'identity' : 'verify')}>{t('team.back')}</Button><Button type="button" disabled={submitting} onClick={() => void openFinalReview()}>{t('team.next')}</Button></div>
         </div>
       ) : null}
 
       {step === 'review' ? <div className="mt-6 space-y-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-900">جزئیات ثبت‌شده</h3><dl className="mt-4 grid gap-3 sm:grid-cols-2">{reviewDetails.map(([label, value]) => <div key={label} className="border-s-2 border-sky-500 bg-slate-50 px-3 py-2.5"><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 break-words text-sm font-bold text-slate-900">{value}</dd></div>)}</dl><h3 className="mt-6 font-black text-slate-900">مدارک بارگذاری‌شده</h3><div className="mt-3 grid gap-3 sm:grid-cols-3">{docTypes.filter((doc) => uploads[doc.id]).map((doc) => <a key={doc.id} href={uploads[doc.id]} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"><img src={uploads[doc.id]} alt={doc.label_fa} className="aspect-[4/3] w-full object-cover"/><span className="block p-2 text-xs font-bold text-slate-700">{doc.label_fa}</span></a>)}</div></section>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black text-slate-900">بررسی نهایی اطلاعات</h2><p className="mt-2 text-sm leading-7 text-slate-500">پیش از ثبت نهایی، مشخصات و مدارک خود را مرور کنید. در صورت نیاز با دکمه بازگشت اطلاعات را اصلاح کنید.</p><dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نوع حساب</dt><dd className="mt-1 font-black">{accountType === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام</dt><dd className="mt-1 font-black">{firstNameFa} {lastNameFa}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">نام انگلیسی</dt><dd className="mt-1 font-black" dir="ltr">{firstNameEn} {lastNameEn}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-black" dir="ltr">{birthDate}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">شماره تماس</dt><dd className="mt-1 font-black" dir="ltr">{phone}</dd></div><div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-400">تعداد مدارک</dt><dd className="mt-1 font-black">{Object.keys(uploads).length.toLocaleString('fa-IR')}</dd></div></dl></div>
         <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={confirmAccuracy} onChange={(event) => setConfirmAccuracy(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span>تأیید می‌کنم اطلاعات واردشده صحیح و متعلق به این حساب است.</span></label><label className="flex cursor-pointer items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={acceptTerms} onChange={(event) => setAcceptTerms(event.target.checked)} className="mt-1 size-5 accent-emerald-600" /><span><Link to="/terms" target="_blank" className="text-rc-blue underline">قوانین و مقررات</Link> را مطالعه کرده‌ام و می‌پذیرم.</span></label></div>
         <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void saveSignupStep('docs')}>{t('team.back')}</Button><Button type="button" disabled={submitting || !confirmAccuracy || !acceptTerms} onClick={() => void finish()}>{t('auth.finishSignup')}</Button></div>
