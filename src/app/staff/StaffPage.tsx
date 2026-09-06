@@ -65,9 +65,9 @@ export function StaffPage({ section = 'tickets' }: { section?: 'tickets' | 'tria
   const isSa = profile?.role === 'super_admin'
 
   const loadPendingAccounts = useCallback(async () => {
-    const { data, error: profileError } = await backend.from('profiles').select('*').eq('requires_account_approval', true).eq('account_status', 'pending').not('signup_completed_at', 'is', null).order('created_at', { ascending: true })
+    const { data, error: profileError } = await backend.from('profiles').select('*').eq('account_status', 'pending').order('created_at', { ascending: true })
     if (profileError) throw new Error(profileError.message)
-    setPendingAccounts((data ?? []) as Profile[])
+    setPendingAccounts(((data ?? []) as Profile[]).filter((account) => !account.requires_account_approval || Boolean(account.signup_completed_at)))
   }, [])
 
   const loadTriage = async () => {

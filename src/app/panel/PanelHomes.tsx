@@ -99,9 +99,7 @@ export function SuperAdminHomePage() {
           backend
             .from('profiles')
             .select('id', { count: 'exact', head: true })
-            .eq('requires_account_approval', true)
-            .eq('account_status', 'pending')
-            .not('signup_completed_at', 'is', null),
+            .eq('account_status', 'pending'),
         ])
         if (cancelled) return
         setSnap(s)

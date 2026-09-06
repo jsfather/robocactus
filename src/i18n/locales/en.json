@@ -300,7 +300,7 @@
         "review": "Approve/reject teams & members, enter rank/score, and set live/final board for /live.",
         "tickets": "Answer support tickets and escalate to a league.",
         "chat": "Live chat with site visitors.",
-        "triage": "Soft review of newly submitted teams; send to under_review for tech committee.",
+        "triage": "Review identity details and documents for accounts awaiting verification, then record the decision.",
         "leagues": "Create/edit leagues, calendar, rules, and live results mode on Basics.",
         "companies": "List and edit registered companies.",
         "users": "Roles, account activation, assign league admins.",

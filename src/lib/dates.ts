@@ -14,6 +14,9 @@ export function formatAppDate(
 
   if (isFa) {
     return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      calendar: 'persian',
+      numberingSystem: 'arabext',
+      timeZone: 'Asia/Tehran',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -22,6 +25,7 @@ export function formatAppDate(
   }
 
   return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Tehran',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -39,6 +43,8 @@ export function formatAppTime(iso: string | null | undefined, language: string):
   if (Number.isNaN(date.getTime())) return '—'
   const isFa = language.toLowerCase().startsWith('fa')
   return new Intl.DateTimeFormat(isFa ? 'fa-IR-u-ca-persian' : 'en-GB', {
+    ...(isFa ? { calendar: 'persian', numberingSystem: 'arabext' } : {}),
+    timeZone: 'Asia/Tehran',
     hour: '2-digit', minute: '2-digit',
   }).format(date)
 }

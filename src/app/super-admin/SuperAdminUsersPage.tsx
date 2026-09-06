@@ -13,11 +13,13 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
 import { normalizeIranMobile, participantDisplayName } from '@/features/participants/identity'
+import { formatAppDate } from '@/lib/dates'
 
 export function SuperAdminUsersPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [organizationNames, setOrganizationNames] = useState<Record<string, string[]>>({})
   const [editing, setEditing] = useState<Profile | null>(null)
   const [editForm, setEditForm] = useState({
     full_name: '',
@@ -58,8 +60,21 @@ export function SuperAdminUsersPage() {
     setLoading(true)
     setError(null)
     try {
-      const p = await fetchAllProfiles()
+      const [p, membershipsResult, companiesResult] = await Promise.all([
+        fetchAllProfiles(),
+        backend.from('company_members').select('user_id,company_id'),
+        backend.from('companies').select('id,name'),
+      ])
       setProfiles(p)
+      if (membershipsResult.error) throw new Error(membershipsResult.error.message)
+      if (companiesResult.error) throw new Error(companiesResult.error.message)
+      const companyNames = new Map<string, string>(((companiesResult.data ?? []) as Array<{ id: string; name: string }>).map((company) => [company.id, company.name]))
+      const nextOrganizations: Record<string, string[]> = {}
+      for (const membership of (membershipsResult.data ?? []) as Array<{ user_id: string; company_id: string }>) {
+        const name = companyNames.get(membership.company_id)
+        if (name) nextOrganizations[membership.user_id] = [...(nextOrganizations[membership.user_id] ?? []), name]
+      }
+      setOrganizationNames(nextOrganizations)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -237,12 +252,14 @@ export function SuperAdminUsersPage() {
           <p className="text-sm text-rc-muted">{t('app.loading')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="panel-data-table w-full min-w-[720px] text-sm">
+            <table className="panel-data-table w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-rc-muted">
                   <th className="px-2 py-2 text-start">{t('auth.fullName')}</th>
                   <th className="px-2 py-2 text-start">{t('auth.phone')}</th>
+                  <th className="px-2 py-2 text-start">مجموعه</th>
                   <th className="px-2 py-2 text-start">نوع شرکت‌کننده</th>
+                  <th className="px-2 py-2 text-start">تاریخ ثبت</th>
                   <th className="px-2 py-2 text-start">{t('admin.users.status')}</th>
                   <th className="px-2 py-2 text-start">{t('admin.users.actions')}</th>
                 </tr>
@@ -250,17 +267,23 @@ export function SuperAdminUsersPage() {
               <tbody>
                 {filteredParticipants.map((profile) => (
                   <tr key={profile.id} className="border-b border-white/5">
-                    <td className="px-2 py-2">{profile.account_type === 'legal' ? `شرکت ${profile.company_name || participantDisplayName(profile)}` : `${profile.gender === 'female' ? 'خانم' : profile.gender === 'male' ? 'آقای' : ''} ${participantDisplayName(profile)}`.trim()}</td>
+                    <td className="px-2 py-2">{`${profile.gender === 'female' ? 'خانم' : profile.gender === 'male' ? 'آقای' : ''} ${participantDisplayName(profile)}`.trim()}</td>
                     <td className="px-2 py-2 font-mono text-xs" dir="ltr">
                       {profile.phone}
                     </td>
+                    <td className="px-2 py-2"><span className="block max-w-52 truncate font-bold text-slate-700" title={(organizationNames[profile.id] ?? []).join('، ')}>{(organizationNames[profile.id] ?? [profile.company_name].filter(Boolean) as string[]).join('، ') || 'ثبت نشده'}</span></td>
                     <td className="px-2 py-2">
                       <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${profile.account_type === 'legal' ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800'}`}>
                         {profile.account_type === 'legal' ? 'شخص حقوقی' : 'شخص حقیقی'}
                       </span>
                     </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-600">{formatAppDate(profile.created_at, i18n.language, { withTime: true })}</td>
                     <td className="px-2 py-2 text-xs font-bold">
-                      <span className={`inline-flex rounded-full px-3 py-1 ${profile.account_status === 'active' && profile.identity_completed_at ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{!profile.identity_completed_at ? 'پرونده ناقص' : accountStatusLabel[profile.account_status ?? 'active'] ?? profile.account_status}</span>
+                      {profile.requires_account_approval && !profile.signup_completed_at ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-rose-800"><span className="size-1.5 rounded-full bg-rose-500" />ثبت‌نام اولیه ناقص</span>
+                      ) : (
+                        <span className={`inline-flex rounded-full px-3 py-1 ${profile.account_status === 'active' && profile.identity_completed_at ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{!profile.identity_completed_at ? 'پرونده هویتی ناقص' : accountStatusLabel[profile.account_status ?? 'active'] ?? profile.account_status}</span>
+                      )}
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap gap-1">
@@ -274,7 +297,7 @@ export function SuperAdminUsersPage() {
                         </Button>
                         <Button type="button" variant="ghost" disabled={busy || !profile.email} onClick={() => void backend.auth.adminRequestPasswordReset(profile.id).then(({ error }) => error ? toast.error(error.message) : toast.success('پیوند بازنشانی رمز به ایمیل کاربر ارسال شد.'))}>بازنشانی رمز</Button>
                         <Button type="button" variant="ghost" disabled={busy} onClick={() => { setPasswordTarget(profile); setAdminPassword({ next: '', repeat: '' }) }}>تعیین رمز جدید</Button>
-                        {profile.account_status === 'pending' ? (
+                        {profile.account_status === 'pending' && !(profile.requires_account_approval && !profile.signup_completed_at) ? (
                           <Button
                             type="button"
                             variant="secondary"
