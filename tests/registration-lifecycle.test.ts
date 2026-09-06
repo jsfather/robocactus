@@ -7,6 +7,7 @@ import { classifyOtpChallenge } from '../server/otp-state.ts'
 const migration = readFileSync(new URL('../db/migrations/0044_registration_lifecycle.sql', import.meta.url), 'utf8')
 const unifiedEnrollmentMigration = readFileSync(new URL('../db/migrations/0072_unified_team_enrollment_flow.sql', import.meta.url), 'utf8')
 const clearanceStateMigration = readFileSync(new URL('../db/migrations/0073_team_clearance_status_and_reopen.sql', import.meta.url), 'utf8')
+const recursionFixMigration = readFileSync(new URL('../db/migrations/0074_fix_attendance_status_recursion.sql', import.meta.url), 'utf8')
 const appRoutes = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const wizard = readFileSync(new URL('../src/features/registration/TeamRegistrationWizard.tsx', import.meta.url), 'utf8')
 const liveResultsAdmin = readFileSync(new URL('../src/app/league-admin/LeagueAdminPage.tsx', import.meta.url), 'utf8')
@@ -49,6 +50,12 @@ test('clearance status is automatic and editing can only be reopened before dead
   assert.match(clearanceStateMigration, /team_edit_deadline_passed/)
   assert.match(clearanceStateMigration, /team_registration_change_log/)
   assert.match(clearanceStateMigration, /edit_reopened_at=null/)
+})
+
+test('attendance synchronization cannot recurse through team status triggers', () => {
+  assert.match(recursionFixMigration, /drop trigger if exists attendance_sync_derived_team_status/)
+  assert.match(recursionFixMigration, /old\.status is distinct from new\.status/)
+  assert.match(recursionFixMigration, /perform public\._sync_team_status_from_clearance/)
 })
 
 test('registration stage is clamped for corrupt persisted step values', () => {

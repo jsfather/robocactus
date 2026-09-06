@@ -35,6 +35,7 @@ export function CompanyPanelPage({
   const [companyResults, setCompanyResults] = useState<RankingsRow[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [memberCount, setMemberCount] = useState(0)
+  const [,setClearedTeamIds]=useState<Set<string>>(new Set())
   const [showWizard, setShowWizard] = useState(false)
   const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
@@ -82,7 +83,7 @@ export function CompanyPanelPage({
       return
     }
     void fetchCompanyTeams(activeCompanyId)
-      .then(setTeams)
+      .then(async(rows)=>{if(!rows.length){setTeams([]);setClearedTeamIds(new Set());return}const result=await backend.from('team_attendance_clearances').select('team_id').in('team_id',rows.map(team=>team.id)).eq('stage','confirmed');const cleared=new Set<string>((result.data??[]).map((row:{team_id:string})=>row.team_id));setClearedTeamIds(cleared);setTeams(rows.map(team=>cleared.has(team.id)?{...team,status:'approved',lifecycle_status:'completed',registration_stage:'completed',registration_progress:100}:team))})
       .catch((err: Error) => setError(err.message))
     void fetchCompanyPublishedResults(activeCompanyId)
       .then(setCompanyResults)

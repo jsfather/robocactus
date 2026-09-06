@@ -8,6 +8,15 @@ import { fetchActiveLeagues, fetchCompanyTeams, fetchMyCompanies } from '@/featu
 import { TeamRegistrationWizard } from '@/features/registration/TeamRegistrationWizard'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import type { Company, League, Team } from '@/types/database'
+import { backend } from '@/lib/backend'
+
+async function withConfirmedClearance(rows:Team[]){
+  if(!rows.length)return rows
+  const result=await backend.from('team_attendance_clearances').select('team_id').in('team_id',rows.map(team=>team.id)).eq('stage','confirmed')
+  if(result.error)return rows
+  const cleared=new Set<string>((result.data??[]).map((row:{team_id:string})=>row.team_id))
+  return rows.map(team=>cleared.has(team.id)?{...team,status:'approved' as const,lifecycle_status:'completed' as const,registration_stage:'completed' as const,registration_progress:100}:team)
+}
 
 export function CompanyCompetitionsPage() {
   const navigate = useNavigate()
@@ -41,7 +50,7 @@ export function CompanyCompetitionsPage() {
         cid ? fetchCompanyTeams(cid) : Promise.resolve([] as Team[]),
       ])
       setLeagues(allLeagues)
-      setTeams(companyTeams)
+      setTeams(await withConfirmedClearance(companyTeams))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -60,6 +69,7 @@ export function CompanyCompetitionsPage() {
       return
     }
     void fetchCompanyTeams(activeCompanyId)
+      .then(withConfirmedClearance)
       .then(setTeams)
       .catch((err: Error) => setError(err.message))
   }, [activeCompanyId])
