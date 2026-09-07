@@ -39,7 +39,7 @@ const TABLES = new Set([
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
   'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files', 'review_audit_log', 'team_withdrawal_requests',
-  'league_cycle_archives', 'public_competition_podium', 'public_league_participants',
+  'league_cycle_archives', 'public_competition_podium', 'public_league_participants', 'public_company_team_history',
 ])
 
 const RPCS = new Set([

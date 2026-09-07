@@ -9,8 +9,8 @@ export function HeroBanner({ banners }: { banners: HomeBanner[] }) {
   return (
     <section className="relative min-h-[min(94dvh,880px)] overflow-hidden bg-[#061624]">
       <img
-        src="/images/tabarestan-hero.png"
-        alt="چشم‌انداز جنگل‌های هیرکانی و دماوند در هویت جام تبرستان"
+        src={cmsBanner?.image_url || '/images/tabarestan-hero.png'}
+        alt={cmsBanner?.title || 'چشم‌انداز جام تبرستان'}
         className="absolute inset-0 h-full w-full object-cover object-[62%_center]"
         fetchPriority="high"
       />
@@ -24,11 +24,10 @@ export function HeroBanner({ banners }: { banners: HomeBanner[] }) {
             از قلب مازندران، رو به آینده
           </div>
           <p className="mb-3 font-mono text-xs tracking-[0.28em] text-sky-300 uppercase sm:text-sm">TABARESTAN CUP · AMOL</p>
-          <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">
-            جام تبرستان
-            <span className="mt-2 block text-2xl font-bold text-emerald-300 sm:text-3xl">برگزارکننده مسابقات ملی و بین‌المللی</span>
+          <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">{cmsBanner?.title || 'جام تبرستان'}
+            {!cmsBanner ? <span className="mt-2 block text-2xl font-bold text-emerald-300 sm:text-3xl">برگزارکننده مسابقات ملی و بین‌المللی</span> : null}
           </h1>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">مرجع برگزاری رقابت‌های حرفه‌ای رباتیک در سطح کشور و عرصه بین‌المللی؛ از آمل و مازندران، میزبان تیم‌ها و قهرمانان ایران و جهان.</p>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{cmsBanner?.subtitle || 'مرجع برگزاری رقابت‌های حرفه‌ای رباتیک در سطح کشور و عرصه بین‌المللی؛ از آمل و مازندران، میزبان تیم‌ها و قهرمانان ایران و جهان.'}</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Link to={cmsBanner?.link_url || '/signup'} className="tabarestan-button-primary">ثبت‌نام در مسابقات <span aria-hidden="true">←</span></Link>
             <Link to="/leagues" className="tabarestan-button-secondary">مشاهده لیگ‌ها</Link>

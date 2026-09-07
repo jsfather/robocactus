@@ -278,6 +278,15 @@ export async function upsertRegistrationDocType(
   return data as RegistrationDocType
 }
 
+export async function deleteRegistrationDocType(id: string): Promise<void> {
+  const { error } = await backend.from('registration_doc_types').delete().eq('id', id)
+  if (!error) return
+  if (error.message.includes('foreign key') || error.message.includes('violates')) {
+    throw new Error('این نوع مدرک قبلاً استفاده شده است؛ برای حفظ سوابق آن را غیرفعال کنید.')
+  }
+  throw new Error(error.message)
+}
+
 export async function createAccountIssue(input: {
   userId: string
   title: string

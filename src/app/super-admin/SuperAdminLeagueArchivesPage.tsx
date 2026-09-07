@@ -45,7 +45,7 @@ export function SuperAdminLeagueArchivesPage() {
     <div className="grid gap-3 border border-slate-200 bg-white p-4 md:grid-cols-3">
       <Input label="جست‌وجوی نام لیگ" value={q} onChange={(event) => setQ(event.target.value)} />
       <Select label="سال" value={year} onChange={(event) => setYear(event.target.value)}><option value="">همه سال‌ها</option>{years.map((value) => <option key={value} value={value}>{formatSeasonYear(value, 'fa')}</option>)}</Select>
-      <Select label="ماه میلادی دوره" value={month} onChange={(event) => setMonth(event.target.value)}><option value="">همه ماه‌ها</option>{monthsFa.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</Select>
+      <Select label="ماه" value={month} onChange={(event) => setMonth(event.target.value)}><option value="">همه ماه‌ها</option>{monthsFa.map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</Select>
     </div>
     {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
     {loading ? <p className="mt-8 text-slate-500">در حال بارگذاری…</p> : <div className="mt-5 overflow-x-auto border border-slate-200 bg-white"><table className="w-full min-w-[760px] text-sm">

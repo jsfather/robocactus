@@ -63,6 +63,7 @@ export function SuperAdminHomeContentPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<{ tab: Tab; id: string } | null>(null)
 
   const [banners, setBanners] = useState<HomeBanner[]>([])
   const [sponsors, setSponsors] = useState<HomeSponsor[]>([])
@@ -152,14 +153,19 @@ export function SuperAdminHomeContentPage() {
           items={sponsors.map((s) => ({
             id: s.id,
             label: s.name,
-            onDelete: () => deleteSponsor(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'sponsors', id: s.id }),
+            onDelete: () => deleteSponsor(s.id).then(reload).then(() => toast.success(t('common.saved'))),
           }))}
         >
           <SponsorForm
+            key={editing?.tab === 'sponsors' ? editing.id : 'new-sponsor'}
+            initial={editing?.tab === 'sponsors' ? sponsors.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -172,16 +178,21 @@ export function SuperAdminHomeContentPage() {
           items={stats.map((s) => ({
             id: s.id,
             label: `${s.label_fa} / ${s.value_num} · ${s.is_active ? 'فعال' : 'غیرفعال'}`,
-            onDelete: () => deleteStatCard(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'stats', id: s.id }),
+            onDelete: () => deleteStatCard(s.id).then(reload).then(() => toast.success(t('common.saved'))),
             actionLabel: s.is_active ? 'غیرفعال کردن' : 'فعال کردن',
             onAction: () => upsertStatCard({ ...s, is_active: !s.is_active }).then(reload),
           }))}
         >
           <StatForm
+            key={editing?.tab === 'stats' ? editing.id : 'new-stat'}
+            initial={editing?.tab === 'stats' ? stats.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -194,14 +205,19 @@ export function SuperAdminHomeContentPage() {
           items={why.map((s) => ({
             id: s.id,
             label: s.title_fa,
-            onDelete: () => deleteWhyCard(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'why', id: s.id }),
+            onDelete: () => deleteWhyCard(s.id).then(reload).then(() => toast.success(t('common.saved'))),
           }))}
         >
           <WhyForm
+            key={editing?.tab === 'why' ? editing.id : 'new-why'}
+            initial={editing?.tab === 'why' ? why.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -214,14 +230,19 @@ export function SuperAdminHomeContentPage() {
           items={events.map((s) => ({
             id: s.id,
             label: `${s.title_fa} · ${s.event_date}`,
-            onDelete: () => deleteEvent(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'events', id: s.id }),
+            onDelete: () => deleteEvent(s.id).then(reload).then(() => toast.success(t('common.saved'))),
           }))}
         >
           <EventForm
+            key={editing?.tab === 'events' ? editing.id : 'new-event'}
+            initial={editing?.tab === 'events' ? events.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -234,14 +255,19 @@ export function SuperAdminHomeContentPage() {
           items={partners.map((s) => ({
             id: s.id,
             label: s.name_fa,
-            onDelete: () => deletePartner(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'partners', id: s.id }),
+            onDelete: () => deletePartner(s.id).then(reload).then(() => toast.success(t('common.saved'))),
           }))}
         >
           <PartnerForm
+            key={editing?.tab === 'partners' ? editing.id : 'new-partner'}
+            initial={editing?.tab === 'partners' ? partners.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -254,14 +280,19 @@ export function SuperAdminHomeContentPage() {
           items={faqs.map((s) => ({
             id: s.id,
             label: s.question_fa,
-            onDelete: () => deleteFaq(s.id).then(reload),
+            onEdit: () => setEditing({ tab: 'faqs', id: s.id }),
+            onDelete: () => deleteFaq(s.id).then(reload).then(() => toast.success(t('common.saved'))),
           }))}
         >
           <FaqForm
+            key={editing?.tab === 'faqs' ? editing.id : 'new-faq'}
+            initial={editing?.tab === 'faqs' ? faqs.find((row) => row.id === editing.id) : undefined}
+            onCancel={() => setEditing(null)}
             busy={busy}
             setBusy={setBusy}
             onSaved={() => {
               toast.success(t('common.saved'))
+              setEditing(null)
               void reload()
             }}
           />
@@ -297,10 +328,14 @@ function SimpleCrud({
   children,
 }: {
   title: string
-  items: Array<{ id: string; label: string; onDelete: () => Promise<unknown>; actionLabel?: string; onAction?: () => Promise<unknown> }>
+  items: Array<{ id: string; label: string; onDelete: () => Promise<unknown>; onEdit?: () => void; actionLabel?: string; onAction?: () => Promise<unknown> }>
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
+  const toast = useToast()
+  const run = async (action: () => Promise<unknown>) => {
+    try { await action() } catch (err) { toast.error(err instanceof Error ? err.message : t('common.error')) }
+  }
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <PanelCard title={title}>{children}</PanelCard>
@@ -312,7 +347,7 @@ function SimpleCrud({
             items.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span>{item.label}</span>
-                <div className="flex gap-2">{item.onAction ? <Button type="button" variant="secondary" onClick={() => void item.onAction?.()}>{item.actionLabel}</Button> : null}<Button type="button" variant="danger" onClick={() => void item.onDelete()}>{t('common.delete')}</Button></div>
+                <div className="flex flex-wrap gap-2">{item.onEdit ? <Button type="button" variant="ghost" onClick={item.onEdit}>{t('common.edit')}</Button> : null}{item.onAction ? <Button type="button" variant="secondary" onClick={() => void run(item.onAction!)}>{item.actionLabel}</Button> : null}<Button type="button" variant="danger" onClick={() => void run(item.onDelete)}>{t('common.delete')}</Button></div>
               </li>
             ))
           )}
@@ -338,6 +373,7 @@ function BannersTab({
   onReload: () => Promise<void>
 }) {
   const { t } = useTranslation()
+  const toast = useToast()
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -374,8 +410,11 @@ function BannersTab({
       await upsertBanner({ id: editingId, title, subtitle, image_url: imageUrl, link_url: linkUrl, sort_order: sortOrder, is_active: isActive })
       reset()
       await onReload()
+      toast.success(t('common.saved'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -427,31 +466,37 @@ function BannersTab({
 }
 
 function SponsorForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomeSponsor
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
-  const [logo, setLogo] = useState('')
-  const [link, setLink] = useState('')
+  const toast = useToast()
+  const [name, setName] = useState(initial?.name ?? '')
+  const [logo, setLogo] = useState(initial?.logo_url ?? '')
+  const [link, setLink] = useState(initial?.link_url ?? '')
   return (
     <form
       className="space-y-3"
       onSubmit={(e) => {
         e.preventDefault()
         setBusy(true)
-        void upsertSponsor({ name, logo_url: logo, link_url: link || null })
+        void upsertSponsor({ id: initial?.id, name, logo_url: logo, link_url: link || null })
           .then(onSaved)
           .then(() => {
             setName('')
             setLogo('')
             setLink('')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
@@ -461,24 +506,30 @@ function SponsorForm({
       <Button type="submit" disabled={busy || !logo}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }
 
 function StatForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomeStatCard
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [labelFa, setLabelFa] = useState('')
-  const [labelEn, setLabelEn] = useState('')
-  const [value, setValue] = useState('0')
-  const [active, setActive] = useState(true)
+  const toast = useToast()
+  const [labelFa, setLabelFa] = useState(initial?.label_fa ?? '')
+  const [labelEn, setLabelEn] = useState(initial?.label_en ?? '')
+  const [value, setValue] = useState(String(initial?.value_num ?? 0))
+  const [active, setActive] = useState(initial?.is_active ?? true)
   return (
     <form
       className="space-y-3"
@@ -486,6 +537,7 @@ function StatForm({
         e.preventDefault()
         setBusy(true)
         void upsertStatCard({
+          id: initial?.id,
           label_fa: labelFa,
           label_en: labelEn,
           value_num: Number(value) || 0,
@@ -497,6 +549,7 @@ function StatForm({
             setLabelEn('')
             setValue('0')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
@@ -507,25 +560,31 @@ function StatForm({
       <Button type="submit" disabled={busy}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }
 
 function WhyForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomeWhyCard
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [titleFa, setTitleFa] = useState('')
-  const [titleEn, setTitleEn] = useState('')
-  const [bodyFa, setBodyFa] = useState('')
-  const [bodyEn, setBodyEn] = useState('')
-  const [icon, setIcon] = useState('star')
+  const toast = useToast()
+  const [titleFa, setTitleFa] = useState(initial?.title_fa ?? '')
+  const [titleEn, setTitleEn] = useState(initial?.title_en ?? '')
+  const [bodyFa, setBodyFa] = useState(initial?.body_fa ?? '')
+  const [bodyEn, setBodyEn] = useState(initial?.body_en ?? '')
+  const [icon, setIcon] = useState(initial?.icon_key ?? 'star')
   return (
     <form
       className="space-y-3"
@@ -533,6 +592,7 @@ function WhyForm({
         e.preventDefault()
         setBusy(true)
         void upsertWhyCard({
+          id: initial?.id,
           title_fa: titleFa,
           title_en: titleEn,
           body_fa: bodyFa,
@@ -546,6 +606,7 @@ function WhyForm({
             setBodyFa('')
             setBodyEn('')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
@@ -563,25 +624,37 @@ function WhyForm({
       <Button type="submit" disabled={busy}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }
 
 function EventForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomeEvent
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [titleFa, setTitleFa] = useState('')
-  const [titleEn, setTitleEn] = useState('')
-  const [date, setDate] = useState('')
-  const [locFa, setLocFa] = useState('')
-  const [descFa, setDescFa] = useState('')
+  const toast = useToast()
+  const [groupTitleFa, setGroupTitleFa] = useState(initial?.group_title_fa ?? '')
+  const [groupTitleEn, setGroupTitleEn] = useState(initial?.group_title_en ?? '')
+  const [titleFa, setTitleFa] = useState(initial?.title_fa ?? '')
+  const [titleEn, setTitleEn] = useState(initial?.title_en ?? '')
+  const [date, setDate] = useState(initial?.event_date ?? '')
+  const [endDate, setEndDate] = useState(initial?.end_date ?? '')
+  const [locFa, setLocFa] = useState(initial?.location_fa ?? '')
+  const [locEn, setLocEn] = useState(initial?.location_en ?? '')
+  const [descFa, setDescFa] = useState(initial?.description_fa ?? '')
+  const [descEn, setDescEn] = useState(initial?.description_en ?? '')
+  const [icon, setIcon] = useState<HomeEvent['icon_key']>(initial?.icon_key ?? 'calendar')
   return (
     <form
       className="space-y-3"
@@ -589,50 +662,70 @@ function EventForm({
         e.preventDefault()
         setBusy(true)
         void upsertEvent({
+          id: initial?.id,
+          group_title_fa: groupTitleFa || null,
+          group_title_en: groupTitleEn || null,
           title_fa: titleFa,
           title_en: titleEn || titleFa,
           event_date: date,
+          end_date: endDate || null,
           location_fa: locFa || null,
+          location_en: locEn || null,
           description_fa: descFa || null,
-          description_en: descFa || null,
+          description_en: descEn || descFa || null,
+          icon_key: icon,
         })
           .then(onSaved)
           .then(() => {
             setTitleFa('')
             setTitleEn('')
             setDate('')
+            setEndDate('')
             setLocFa('')
             setDescFa('')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
+      <Input label="عنوان رویداد مادر" value={groupTitleFa} onChange={(e) => setGroupTitleFa(e.target.value)} placeholder="مسابقات فصل پاییز جام تبرستان" />
+      <Input label="Event group title (EN)" value={groupTitleEn} onChange={(e) => setGroupTitleEn(e.target.value)} dir="ltr" />
       <Input label="Title FA" value={titleFa} onChange={(e) => setTitleFa(e.target.value)} required />
       <Input label="Title EN" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
       <DateTimeField label={t('home.eventDate')} withTime={false} value={date ? `${date}T12:00:00.000Z` : null} onChange={(iso) => setDate(iso?.slice(0, 10) ?? '')} />
+      <DateTimeField label="تاریخ پایان" withTime={false} value={endDate ? `${endDate}T12:00:00.000Z` : null} onChange={(iso) => setEndDate(iso?.slice(0, 10) ?? '')} />
+      <Select label="آیکن مرحله" value={icon} onChange={(e) => setIcon(e.target.value as HomeEvent['icon_key'])}><option value="registration">ثبت‌نام</option><option value="payment">پرداخت</option><option value="team_review">تأیید تیم</option><option value="trophy">مسابقه</option><option value="calendar">تقویم</option></Select>
       <Input label={t('home.eventLocation')} value={locFa} onChange={(e) => setLocFa(e.target.value)} />
+      <Input label="Location (EN)" value={locEn} onChange={(e) => setLocEn(e.target.value)} dir="ltr" />
       <Textarea label={t('content.body')} value={descFa} onChange={(e) => setDescFa(e.target.value)} />
+      <Textarea label="Description (EN)" value={descEn} onChange={(e) => setDescEn(e.target.value)} dir="ltr" />
       <Button type="submit" disabled={busy || !date}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }
 
 function PartnerForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomePartner
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [nameFa, setNameFa] = useState('')
-  const [nameEn, setNameEn] = useState('')
-  const [kind, setKind] = useState<'university' | 'scientific' | 'organization'>('university')
-  const [logo, setLogo] = useState('')
+  const toast = useToast()
+  const [nameFa, setNameFa] = useState(initial?.name_fa ?? '')
+  const [nameEn, setNameEn] = useState(initial?.name_en ?? '')
+  const [kind, setKind] = useState<'university' | 'scientific' | 'organization'>(initial?.kind ?? 'university')
+  const [logo, setLogo] = useState(initial?.logo_url ?? '')
   return (
     <form
       className="space-y-3"
@@ -640,6 +733,7 @@ function PartnerForm({
         e.preventDefault()
         setBusy(true)
         void upsertPartner({
+          id: initial?.id,
           name_fa: nameFa,
           name_en: nameEn || nameFa,
           kind,
@@ -651,6 +745,7 @@ function PartnerForm({
             setNameEn('')
             setLogo('')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
@@ -669,24 +764,30 @@ function PartnerForm({
       <Button type="submit" disabled={busy}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }
 
 function FaqForm({
+  initial,
+  onCancel,
   busy,
   setBusy,
   onSaved,
 }: {
+  initial?: HomeFaq
+  onCancel: () => void
   busy: boolean
   setBusy: (v: boolean) => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
-  const [qFa, setQFa] = useState('')
-  const [qEn, setQEn] = useState('')
-  const [aFa, setAFa] = useState('')
-  const [aEn, setAEn] = useState('')
+  const toast = useToast()
+  const [qFa, setQFa] = useState(initial?.question_fa ?? '')
+  const [qEn, setQEn] = useState(initial?.question_en ?? '')
+  const [aFa, setAFa] = useState(initial?.answer_fa ?? '')
+  const [aEn, setAEn] = useState(initial?.answer_en ?? '')
   return (
     <form
       className="space-y-3"
@@ -694,6 +795,7 @@ function FaqForm({
         e.preventDefault()
         setBusy(true)
         void upsertFaq({
+          id: initial?.id,
           question_fa: qFa,
           question_en: qEn || qFa,
           answer_fa: aFa,
@@ -706,6 +808,7 @@ function FaqForm({
             setAFa('')
             setAEn('')
           })
+          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : t('common.error')))
           .finally(() => setBusy(false))
       }}
     >
@@ -716,6 +819,7 @@ function FaqForm({
       <Button type="submit" disabled={busy}>
         {t('common.save')}
       </Button>
+      {initial ? <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button> : null}
     </form>
   )
 }

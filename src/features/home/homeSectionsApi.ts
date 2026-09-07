@@ -21,6 +21,9 @@ export type HomeEvent = {
   location_en: string | null
   sort_order: number
   is_active: boolean
+  group_title_fa?: string | null
+  group_title_en?: string | null
+  icon_key?: 'calendar' | 'registration' | 'payment' | 'team_review' | 'trophy'
 }
 
 export type HomePartner = {

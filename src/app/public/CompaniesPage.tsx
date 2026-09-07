@@ -6,7 +6,8 @@ import { fetchPublicCompanies } from '@/features/rankings/api'
 import type { Company } from '@/types/database'
 
 export function CompaniesPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isEn = i18n.language.startsWith('en')
   const [companies, setCompanies] = useState<Company[]>([])
   const [q, setQ] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -72,12 +73,12 @@ export function CompaniesPage() {
                     />
                   ) : (
                     <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-emerald-50 font-mono font-black text-rc-blue">
-                      CO
+                      ORG
                     </div>
                   )}
                   <div>
                     <h2 className="font-black text-slate-900 transition group-hover:text-sky-700">{company.name}</h2>
-                    <p className="font-mono text-xs text-rc-muted">{company.slug}</p>
+                    <p className="mt-1 text-xs font-bold text-rc-muted">{organizationTypeLabel(company.entity_type, isEn)}</p>
                   </div>
                 </div>
                 {company.bio ? (
@@ -92,4 +93,10 @@ export function CompaniesPage() {
       )}
     </main></div>
   )
+}
+
+function organizationTypeLabel(type: Company['entity_type'], isEn: boolean) {
+  const fa = { individual: 'شخص حقیقی', company: 'شرکت', institute: 'مؤسسه', school: 'مدرسه', university: 'دانشگاه', academy: 'آموزشگاه', club: 'باشگاه', other: 'سایر' }
+  const en = { individual: 'Individual', company: 'Company', institute: 'Institute', school: 'School', university: 'University', academy: 'Academy', club: 'Club', other: 'Other' }
+  return (isEn ? en : fa)[type ?? 'company']
 }

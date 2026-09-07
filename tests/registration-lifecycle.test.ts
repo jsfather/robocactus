@@ -35,6 +35,9 @@ const rankingsPage = readFileSync(new URL('../src/app/public/RankingsPage.tsx', 
 const dashboardTicketMigration = readFileSync(new URL('../db/migrations/0081_dashboard_channels_ticket_management.sql', import.meta.url), 'utf8')
 const companyDashboard = readFileSync(new URL('../src/app/company/CompanyPanelPage.tsx', import.meta.url), 'utf8')
 const ticketInbox = readFileSync(new URL('../src/features/chat/TicketInbox.tsx', import.meta.url), 'utf8')
+const homePublicMigration = readFileSync(new URL('../db/migrations/0082_home_event_groups_public_teams.sql', import.meta.url), 'utf8')
+const publicCompanyProfile = readFileSync(new URL('../src/app/public/CompanyPublicProfilePage.tsx', import.meta.url), 'utf8')
+const announcementsSlider = readFileSync(new URL('../src/components/home/AnnouncementsSlider.tsx', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
   assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 8, lifecycleStatus: 'incomplete' })
@@ -296,4 +299,18 @@ test('ticket management is permission checked and responses retain reviewer iden
   assert.match(ticketInbox, /changeTicketStatus/)
   assert.match(ticketInbox, /deleteManagedTicket/)
   assert.match(ticketInbox, /msg\.sender_name/)
+})
+
+test('public organization history excludes member identity data', () => {
+  assert.match(homePublicMigration, /public_company_team_history/)
+  assert.doesNotMatch(homePublicMigration, /national_id_doc_path|photo_url|birth_date/)
+  assert.doesNotMatch(publicCompanyProfile, /public_members|photo_url/)
+  assert.match(publicCompanyProfile, /member_count/)
+  assert.match(publicCompanyProfile, /captain_name_fa/)
+})
+
+test('home announcements use a responsive snap slider and valid public routes', () => {
+  assert.match(announcementsSlider, /snap-mandatory/)
+  assert.match(announcementsSlider, /\/news\//)
+  assert.match(announcementsSlider, /to="\/news"/)
 })

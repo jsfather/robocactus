@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { StatusBadge } from '@/components/ui/FormControls'
 import { usePageSeo } from '@/components/seo/SeoManager'
 import {
   championshipsFromResults,
@@ -88,12 +87,12 @@ export function CompanyPublicProfilePage() {
               />
             ) : (
               <div className="flex size-24 items-center justify-center border border-rc-blue/40 bg-rc-blue/10 font-mono text-xl text-rc-blue">
-                CO
+                ORG
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="font-mono text-[10px] tracking-[0.28em] text-rc-blue uppercase">
-                COMPANY DOSSIER · {company.slug}
+                ORGANIZATION PROFILE · {company.slug}
               </p>
               <h1 className="mt-1 text-4xl font-black tracking-tight text-white sm:text-6xl">{company.name}</h1>
               {company.tagline ? (
@@ -166,11 +165,17 @@ export function CompanyPublicProfilePage() {
           <p className="font-mono text-[10px] tracking-[0.22em] text-rc-blue uppercase">
             {t('companies.activeTeams')}
           </p>
-          <ul className="mt-4 divide-y divide-rc-line border border-rc-line">
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
             {activeTeams.map((team) => (
-                <li key={team.id} className="px-5 py-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-lg font-black">{team.name}{team.name_en ? <span className="ms-2 text-sm font-medium text-slate-400" dir="ltr">{team.name_en}</span> : null}</p><p className="mt-1 text-xs font-bold text-sky-700">{team.league_name}</p>{team.motto_fa || team.motto_en ? <p className="mt-2 text-sm italic text-slate-500">{team.motto_fa || team.motto_en}</p> : null}</div><StatusBadge status={team.status} label={t(`team.statuses.${team.status}`, { defaultValue: team.status })} /></div>
-                  <div className="mt-4 flex flex-wrap gap-3">{team.public_members.map((person) => <div key={person.id} className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2"><span className="grid size-10 overflow-hidden place-items-center rounded-xl bg-slate-200 text-sm font-black text-slate-500">{person.photo_url ? <img src={person.photo_url} alt="" className="size-full object-cover" /> : person.full_name.slice(0, 1)}</span><span><b className="block text-sm">{person.full_name}</b><small className="text-slate-500">{person.role === 'captain' ? 'سرپرست' : person.role === 'coach' ? 'مربی' : 'عضو'}</small></span></div>)}</div>
+                <li key={team.id} className="border border-rc-line bg-rc-surface p-5">
+                  <p className="text-lg font-black">{i18n.language === 'fa' ? team.team_name : team.team_name_en || team.team_name}</p>
+                  <p className="mt-1 text-xs font-bold text-sky-700">{i18n.language === 'fa' ? team.league_name : team.league_name_en || team.league_name}</p>
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                    <div><dt className="text-xs text-rc-muted">{t('rankings.year')}</dt><dd className="mt-1 font-bold">{formatSeasonYear(team.season_year, i18n.language)}</dd></div>
+                    <div><dt className="text-xs text-rc-muted">{i18n.language === 'fa' ? 'تعداد اعضا' : 'Team size'}</dt><dd className="mt-1 font-bold">{team.member_count.toLocaleString(i18n.language === 'fa' ? 'fa-IR' : 'en-US')}</dd></div>
+                    <div><dt className="text-xs text-rc-muted">{i18n.language === 'fa' ? 'سرپرست' : 'Team captain'}</dt><dd className="mt-1 font-bold">{i18n.language === 'fa' ? team.captain_name_fa || '—' : team.captain_name_en || team.captain_name_fa || '—'}</dd></div>
+                    <div><dt className="text-xs text-rc-muted">{i18n.language === 'fa' ? 'کشور' : 'Country'}</dt><dd className="mt-1 font-bold" dir="ltr">{team.country_code || 'IR'}</dd></div>
+                  </dl>
                 </li>
               ))}
           </ul>

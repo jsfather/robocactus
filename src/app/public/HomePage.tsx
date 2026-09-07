@@ -10,6 +10,7 @@ import { HomeFaqSection } from '@/components/home/HomeFaqSection'
 import { LeagueCards } from '@/components/home/LeagueCards'
 import { TopCompanies } from '@/components/home/TopCompanies'
 import { LatestNews } from '@/components/home/LatestNews'
+import { AnnouncementsSlider } from '@/components/home/AnnouncementsSlider'
 import { LiveResultsTeaser } from '@/components/home/LiveResultsTeaser'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import {
@@ -37,6 +38,8 @@ import {
   type LiveLeagueBoard,
 } from '@/features/live-results/api'
 import type { BlogPost, HomeBanner, League } from '@/types/database'
+import type { Announcement } from '@/types/database'
+import { fetchPublishedAnnouncements } from '@/features/content/api'
 import { Link } from 'react-router-dom'
 
 function TabarestanStory() {
@@ -84,6 +87,7 @@ export function HomePage() {
   const [leagues, setLeagues] = useState<League[]>([])
   const [companies, setCompanies] = useState<TopCompany[]>([])
   const [posts, setPosts] = useState<BlogPost[]>([])
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [liveBoards, setLiveBoards] = useState<LiveLeagueBoard[]>([])
   const [liveResultsEnabled, setLiveResultsEnabled] = useState(false)
 
@@ -100,6 +104,7 @@ export function HomePage() {
     loadSection(fetchActiveLeagues, setLeagues, [])
     loadSection(fetchTopCompanies, setCompanies, [])
     loadSection(fetchLatestNews, setPosts, [])
+    loadSection(fetchPublishedAnnouncements, setAnnouncements, [])
     void backend.auth.getOptions().then(({ data }) => {
       const enabled = data?.live_results_enabled === true
       setLiveResultsEnabled(enabled)
@@ -120,6 +125,7 @@ export function HomePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'results' }, () => loadSection(fetchLiveResultsBoards, setLiveBoards, []))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => loadSection(fetchTopCompanies, setCompanies, []))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blog_posts' }, () => loadSection(fetchLatestNews, setPosts, []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => loadSection(fetchPublishedAnnouncements, setAnnouncements, []))
       .subscribe()
     return () => { void backend.removeChannel(channel) }
   }, [])
@@ -136,6 +142,7 @@ export function HomePage() {
       <TopCompanies companies={companies} />
       <ScientificPartners partners={partners} />
       <SponsorsSlider sponsors={sponsors} />
+      <AnnouncementsSlider announcements={announcements} />
       <LatestNews posts={posts} />
       <HomeFaqSection faqs={faqs} />
       <HomeFinalCta />

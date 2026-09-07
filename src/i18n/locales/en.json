@@ -16,7 +16,7 @@
     "leagues": "Leagues",
     "rankings": "Competition archive",
     "liveResults": "Live results",
-    "companies": "Companies",
+    "companies": "Organizations",
     "blog": "News",
     "gallery": "Gallery",
     "about": "About",
@@ -140,7 +140,7 @@
     },
     "leaguesTitle": "Competition leagues",
     "leaguesSubtitle": "Each league has its own technical committee and scoring path",
-    "topCompaniesTitle": "Top companies",
+    "topCompaniesTitle": "Top organizations",
     "topCompaniesSubtitle": "Organizations with the most published podium finishes",
     "podiumCount": "{{count}} podium finishes",
     "newsTitle": "Latest news",
@@ -876,7 +876,7 @@
     "noCompanyResults": "No published results yet."
   },
   "companies": {
-    "title": "Companies",
+    "title": "Organizations",
     "subtitle": "Public profiles of participating organizations",
     "searchPlaceholder": "Company name or slug…",
     "empty": "No companies yet.",

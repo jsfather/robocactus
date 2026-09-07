@@ -1,5 +1,5 @@
 import { backend } from '@/lib/backend'
-import type { Company, CompanyAchievement, League, ResultRow, Team, TeamMember } from '@/types/database'
+import type { Company, CompanyAchievement, League, ResultRow } from '@/types/database'
 
 export type RankingsRow = ResultRow & {
   team_name: string
@@ -56,7 +56,23 @@ export type CompanyProfileBundle = {
   company: Company
   achievements: CompanyAchievement[]
   results: RankingsRow[]
-  activeTeams: Array<Team & { league_name: string; public_members: TeamMember[] }>
+  activeTeams: PublicCompanyTeamHistory[]
+}
+
+export type PublicCompanyTeamHistory = {
+  id: string
+  company_id: string
+  team_name: string
+  team_name_en: string | null
+  season_year: number
+  season_month: number | null
+  league_name: string
+  league_name_en: string | null
+  league_slug: string
+  country_code: string
+  captain_name_fa: string | null
+  captain_name_en: string | null
+  member_count: number
 }
 
 export async function fetchPublishedRankings(filters?: {
@@ -188,7 +204,7 @@ export async function fetchCompanyProfile(slug: string): Promise<CompanyProfileB
   const company = await fetchCompanyBySlug(slug)
   if (!company) return null
 
-  const [achievementsRes, results, teamsRes, leagues] = await Promise.all([
+  const [achievementsRes, results, teamsRes] = await Promise.all([
     backend
       .from('company_achievements')
       .select('*')
@@ -196,28 +212,21 @@ export async function fetchCompanyProfile(slug: string): Promise<CompanyProfileB
       .order('year', { ascending: false }),
     fetchPublishedRankings({}),
     backend
-      .from('teams')
+      .from('public_company_team_history')
       .select('*')
       .eq('company_id', company.id)
-      .in('status', ['submitted', 'under_review', 'approved', 'waitlisted'])
-      .order('created_at', { ascending: false }),
-    backend.from('leagues').select('id, name'),
+      .order('season_year', { ascending: false }),
   ])
 
   if (achievementsRes.error) throw new Error(achievementsRes.error.message)
-
-  const leagueMap = new Map(
-    ((leagues.data ?? []) as Array<{ id: string; name: string }>).map((l) => [l.id, l.name]),
-  )
+  if (teamsRes.error) throw new Error(teamsRes.error.message)
 
   const companyResults = results.filter((r) => r.company_id === company.id)
-  const teamRows = teamsRes.error ? [] : ((teamsRes.data ?? []) as Team[])
-  const peopleResponse = teamRows.length ? await backend.from('public_team_people').select('*').in('team_id', teamRows.map((team) => team.id)) : { data: [], error: null }
-  const publicPeople = (peopleResponse.data ?? []) as TeamMember[]
-  const activeTeams = teamRows.map((team) => ({
+  const activeTeams = ((teamsRes.data ?? []) as PublicCompanyTeamHistory[]).map((team) => ({
     ...team,
-    league_name: leagueMap.get(team.league_id) ?? team.league_id.slice(0, 8),
-    public_members: publicPeople.filter((person) => person.team_id === team.id),
+    season_year: Number(team.season_year),
+    season_month: team.season_month == null ? null : Number(team.season_month),
+    member_count: Number(team.member_count),
   }))
 
   return {

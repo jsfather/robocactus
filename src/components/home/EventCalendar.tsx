@@ -8,9 +8,10 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
   const { t, i18n } = useTranslation()
   const isEn = i18n.language.startsWith('en')
   if (!events.length) return null
+  const groupTitle = isEn ? events[0]?.group_title_en : events[0]?.group_title_fa
 
   return (
-    <HomeSection index="04" title={t('home.calendarTitle')} subtitle={t('home.calendarSubtitle')}>
+    <HomeSection index="04" title={groupTitle || t('home.calendarTitle')} subtitle={t('home.calendarSubtitle')}>
       <div className="overflow-hidden rounded-[2.25rem] border border-sky-100 bg-gradient-to-br from-white via-sky-50/55 to-emerald-50/50 shadow-[0_28px_80px_rgb(18_76_98/0.10)]">
         <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="relative overflow-hidden bg-gradient-to-br from-[#063d59] via-[#0873a0] to-[#087b61] p-7 text-white sm:p-9">
@@ -29,7 +30,7 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
                   {index < events.length - 1 ? <span className="absolute start-[1.18rem] top-10 h-[calc(100%-1rem)] w-px bg-gradient-to-b from-sky-300 to-emerald-200 sm:start-[1.68rem]" aria-hidden="true" /> : null}
                   <span className="absolute start-0 top-6 grid size-10 place-items-center rounded-2xl border-4 border-white bg-sky-600 text-xs font-black text-white shadow-[0_8px_24px_rgb(2_132_199/0.24)] transition group-hover:scale-110 sm:size-14">{String(index + 1).padStart(2, '0')}</span>
                   <article className="mb-4 rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-[0_14px_38px_rgb(18_76_98/0.06)] transition duration-300 group-hover:-translate-y-0.5 group-hover:border-sky-200 group-hover:shadow-[0_18px_48px_rgb(18_76_98/0.11)] sm:p-6">
-                    <div className="flex flex-wrap items-center gap-3"><time className="inline-flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-xs font-black text-sky-800 ring-1 ring-sky-100" dir="ltr"><span aria-hidden="true">●</span>{formatAppDate(event.event_date, i18n.language)}{event.end_date ? ` → ${formatAppDate(event.end_date, i18n.language)}` : ''}</time>{location ? <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">{location}</span> : null}</div>
+                    <div className="flex flex-wrap items-center gap-3"><time className="inline-flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-xs font-black text-sky-800 ring-1 ring-sky-100" dir={isEn ? 'ltr' : 'rtl'}><span aria-hidden="true">{eventIcon(event.icon_key)}</span><span>{formatAppDate(event.event_date, i18n.language)}{event.end_date ? ` ${isEn ? 'to' : 'الی'} ${formatAppDate(event.end_date, i18n.language)}` : ''}</span></time>{location ? <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">{location}</span> : null}</div>
                     <h3 className="mt-4 text-lg font-black text-slate-900">{isEn ? event.title_en : event.title_fa}</h3>
                     {description ? <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p> : null}
                   </article>
@@ -41,4 +42,8 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
       </div>
     </HomeSection>
   )
+}
+
+function eventIcon(icon?: HomeEvent['icon_key']) {
+  return ({ registration: '✎', payment: '◈', team_review: '✓', trophy: '♛', calendar: '●' })[icon ?? 'calendar']
 }

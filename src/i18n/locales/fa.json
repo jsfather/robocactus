@@ -16,7 +16,7 @@
     "leagues": "لیگ‌ها",
     "rankings": "آرشیو مسابقات",
     "liveResults": "نتایج زنده",
-    "companies": "شرکت‌ها",
+    "companies": "مجموعه‌ها",
     "blog": "اخبار",
     "gallery": "گالری",
     "about": "درباره ما",
@@ -140,7 +140,7 @@
     },
     "leaguesTitle": "لیگ‌های مسابقه",
     "leaguesSubtitle": "هر لیگ کمیته فنی و مسیر داوری خودش را دارد",
-    "topCompaniesTitle": "شرکت‌های برتر",
+    "topCompaniesTitle": "مجموعه‌های برتر",
     "topCompaniesSubtitle": "مجموعه‌هایی با بیشترین سکوهای منتشرشده",
     "podiumCount": "{{count}} سکو",
     "newsTitle": "آخرین اخبار",
@@ -875,8 +875,8 @@
     "noCompanyResults": "نتیجه منتشرشده‌ای نیست."
   },
   "companies": {
-    "title": "شرکت‌ها و مجموعه‌ها",
-    "subtitle": "پروفایل عمومی شرکت‌های شرکت‌کننده",
+    "title": "مجموعه‌ها",
+    "subtitle": "پروفایل عمومی مجموعه‌های حقیقی و حقوقی شرکت‌کننده",
     "searchPlaceholder": "نام یا شناسه شرکت…",
     "empty": "شرکتی ثبت نشده است.",
     "noBio": "بدون معرفی",

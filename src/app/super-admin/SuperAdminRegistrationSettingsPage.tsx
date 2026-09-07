@@ -5,6 +5,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
 import { useToast } from '@/components/ui/Toast'
 import {
+  deleteRegistrationDocType,
   fetchAllRegistrationDocTypes,
   upsertRegistrationDocType,
   type RegistrationDocType,
@@ -28,6 +29,7 @@ export function SuperAdminRegistrationSettingsPage() {
   const [accountType, setAccountType] = useState<'individual' | 'legal' | 'both'>('both')
   const [docScope, setDocScope] = useState<'profile' | 'team'>('profile')
   const [docRequired, setDocRequired] = useState(false)
+  const [editingDocId, setEditingDocId] = useState<string | undefined>()
   const [msgFa, setMsgFa] = useState('')
   const [msgEn, setMsgEn] = useState('')
   const [supportPhone, setSupportPhone] = useState('')
@@ -77,6 +79,7 @@ export function SuperAdminRegistrationSettingsPage() {
     setBusy(true)
     try {
       await upsertRegistrationDocType({
+        id: editingDocId,
         code: slugify(code || labelEn || labelFa),
         label_fa: labelFa,
         label_en: labelEn,
@@ -87,8 +90,34 @@ export function SuperAdminRegistrationSettingsPage() {
       setLabelFa('')
       setLabelEn('')
       setCode('')
+      setEditingDocId(undefined)
       toast.success(t('common.saved'))
       await reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const editDoc = (doc: RegistrationDocType) => {
+    setEditingDocId(doc.id)
+    setLabelFa(doc.label_fa)
+    setLabelEn(doc.label_en)
+    setCode(doc.code)
+    setAccountType(doc.account_type)
+    setDocScope(doc.scope ?? 'profile')
+    setDocRequired(doc.is_required)
+  }
+
+  const removeDoc = async (doc: RegistrationDocType) => {
+    if (!window.confirm(`نوع مدرک «${doc.label_fa}» حذف شود؟`)) return
+    setBusy(true)
+    try {
+      await deleteRegistrationDocType(doc.id)
+      if (editingDocId === doc.id) setEditingDocId(undefined)
+      await reload()
+      toast.success('نوع مدرک حذف شد.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -226,6 +255,7 @@ export function SuperAdminRegistrationSettingsPage() {
       <HudFrame className="space-y-3 p-4">
         <SectionLabel index="DOC.02" title={t('registrationSettings.docTypes')} hint={t('registrationSettings.docHint')} />
         <form className="grid gap-3 md:grid-cols-2" onSubmit={(e) => void onAddDoc(e)}>
+          {editingDocId ? <p className="md:col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-bold text-sky-800">در حال ویرایش نوع مدرک؛ پس از اصلاح، ذخیره را بزنید.</p> : null}
           <Input label={t('registrationSettings.labelFa')} required value={labelFa} onChange={(e) => setLabelFa(e.target.value)} />
           <Input label={t('registrationSettings.labelEn')} required value={labelEn} onChange={(e) => setLabelEn(e.target.value)} />
           <Input label={t('content.slug')} value={code} onChange={(e) => setCode(e.target.value)} dir="ltr" />
@@ -243,6 +273,7 @@ export function SuperAdminRegistrationSettingsPage() {
           <Button type="submit" disabled={busy}>
             {t('common.save')}
           </Button>
+          {editingDocId ? <Button type="button" variant="secondary" onClick={() => { setEditingDocId(undefined); setLabelFa(''); setLabelEn(''); setCode('') }}>{t('common.cancel')}</Button> : null}
         </form>
         <ul className="mt-4 divide-y divide-rc-line">
           {docs.map((d) => (
@@ -255,17 +286,15 @@ export function SuperAdminRegistrationSettingsPage() {
                   {d.code} · {d.scope === 'team' ? 'مدرک تیم' : 'مدرک پروفایل'} · {d.is_required ? 'الزامی' : 'اختیاری'}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={() => void upsertRegistrationDocType({ ...d, is_required: !d.is_required }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_required ? 'اختیاری‌کردن' : 'الزامی‌کردن'}</Button><Button
-                type="button"
-                variant="secondary"
-                onClick={() =>
-                  void upsertRegistrationDocType({ ...d, is_active: !d.is_active })
-                    .then(reload)
-                    .then(() => toast.success(t('common.saved')))
-                }
-              >
-                {d.is_active ? t('common.delete') : t('content.statusPublished')}
-              </Button></div>
+              <details className="relative">
+                <summary className="cursor-pointer list-none rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">عملیات</summary>
+                <div className="absolute end-0 z-20 mt-2 grid min-w-44 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => editDoc(d)}>ویرایش</button>
+                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => void upsertRegistrationDocType({ ...d, is_required: !d.is_required }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_required ? 'اختیاری‌کردن' : 'الزامی‌کردن'}</button>
+                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => void upsertRegistrationDocType({ ...d, is_active: !d.is_active }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_active ? 'غیرفعال‌کردن' : 'فعال‌کردن'}</button>
+                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => void removeDoc(d)}>حذف</button>
+                </div>
+              </details>
             </li>
           ))}
         </ul>

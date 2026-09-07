@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -66,6 +66,8 @@ export function SuperAdminLeaguesPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const formRef = useRef<HTMLDivElement | null>(null)
 
   const reload = async () => {
     setLoading(true)
@@ -84,6 +86,7 @@ export function SuperAdminLeaguesPage() {
   }, [])
 
   const startEdit = (league: League) => {
+    setShowForm(true)
     setEditingId(league.id)
     setForm({
       name: league.name,
@@ -117,11 +120,13 @@ export function SuperAdminLeaguesPage() {
       contact_email: league.contact_email ?? '',
       is_active: league.is_active,
     })
+    window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   const resetForm = () => {
     setEditingId(null)
     setForm(emptyForm())
+    setShowForm(false)
   }
 
   const onSubmit = async (event: FormEvent) => {
@@ -173,8 +178,8 @@ export function SuperAdminLeaguesPage() {
   }
 
   return (
-    <PanelPage index="REG.01" title={t('admin.leagues.title')} description={t('admin.leagues.subtitle')}>
-      <PanelCard
+    <PanelPage index="REG.01" title={t('admin.leagues.title')} description={t('admin.leagues.subtitle')} actions={<Button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); setShowForm((value) => !value); window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>{showForm && !editingId ? 'بستن فرم' : 'افزودن لیگ جدید'}</Button>}>
+      {showForm ? <div ref={formRef} className="scroll-mt-28"><PanelCard
         title={editingId ? t('admin.leagues.editTitle') : t('admin.leagues.createTitle')}
         actions={
           editingId ? (
@@ -292,7 +297,7 @@ export function SuperAdminLeaguesPage() {
             <FieldError message={error ?? undefined} />
           </div>
         </form>
-      </PanelCard>
+      </PanelCard></div> : null}
 
       <PanelCard title={t('admin.leagues.listTitle')}>
         {loading ? (
