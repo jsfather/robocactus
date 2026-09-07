@@ -42,6 +42,19 @@ export async function fetchAttendance(teamId:string, leagueId:string) {
   return { flow: flow.data as AttendanceClearance, settings: settings.data as AttendanceSettings, members: (members.data??[]) as TeamMember[], files:(files.data??[]) as TechnicalFile[] }
 }
 
+/** Read-only variant for realtime refreshes and list/detail rendering. */
+export async function fetchAttendanceSnapshot(teamId:string, leagueId:string) {
+  const [flow, settings, members, files] = await Promise.all([
+    backend.from('team_attendance_clearances').select('*').eq('team_id',teamId).maybeSingle(),
+    backend.from('league_attendance_settings').select('*').eq('league_id',leagueId).maybeSingle(),
+    backend.from('team_members').select('*').eq('team_id',teamId),
+    backend.from('team_technical_files').select('*').eq('team_id',teamId),
+  ])
+  const error = flow.error || settings.error || members.error || files.error
+  if (error) throw new Error(error.message)
+  return { flow: flow.data as AttendanceClearance|null, settings: settings.data as AttendanceSettings|null, members: (members.data??[]) as TeamMember[], files:(files.data??[]) as TechnicalFile[] }
+}
+
 export async function uploadTechnicalFile(teamId:string, kind:'article'|'robot_video', file:File, maxBytes=90*1024*1024, previousPath?:string) {
   const allowed = kind==='article' ? ['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'] : ['video/mp4','video/webm','video/quicktime']
   if (!allowed.includes(file.type)) throw new Error('invalid_file_type')

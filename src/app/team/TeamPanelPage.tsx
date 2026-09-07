@@ -21,7 +21,7 @@ import type { DocumentRow, Invoice, ResultRow, Team, TeamMember } from '@/types/
 import type { League } from '@/types/database'
 import { backend } from '@/lib/backend'
 import { safeSameOriginUrl } from '@/lib/safe-url'
-import { fetchAttendance, type AttendanceClearance } from '@/features/attendance/api'
+import { fetchAttendanceSnapshot, type AttendanceClearance } from '@/features/attendance/api'
 
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -87,7 +87,7 @@ export function TeamPanelPage() {
               fetchTeamDocuments(row.id),
               fetchTeamPublishedResult(row.id).catch(() => null),
               backend.from('leagues').select('*').eq('id', row.league_id).maybeSingle(),
-              fetchAttendance(row.id,row.league_id).catch(()=>null),
+              fetchAttendanceSnapshot(row.id,row.league_id).catch(()=>null),
               backend.from('invoices').select('*').eq('team_id',row.id).is('archived_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle(),
             ])
             const safeMembers = m.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))

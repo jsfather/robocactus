@@ -5,7 +5,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { Button, Textarea } from '@/components/ui/FormControls'
 import { useToast } from '@/components/ui/Toast'
 import { fetchTeamById } from '@/features/registration/api'
-import { acceptAttendanceRules, fetchAttendance, fetchTeamWithdrawal, reopenTeamRegistration, requestTeamWithdrawal, submitTechnical, technicalSignedUrl, uploadTechnicalFile, type AttendanceClearance, type AttendanceSettings, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
+import { acceptAttendanceRules, fetchAttendance, fetchAttendanceSnapshot, fetchTeamWithdrawal, reopenTeamRegistration, requestTeamWithdrawal, submitTechnical, technicalSignedUrl, uploadTechnicalFile, type AttendanceClearance, type AttendanceSettings, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
 import type { Team, TeamMember } from '@/types/database'
 import { formatAppDateTime } from '@/lib/dates'
 import { backend } from '@/lib/backend'
@@ -22,14 +22,17 @@ export function TeamAttendancePage(){
   const load=useCallback(async()=>{setError('');try{const nextTeam=await fetchTeamById(teamId);if(!nextTeam)throw new Error('team_not_found');setTeam(nextTeam);const [data,leagueResult]=await Promise.all([fetchAttendance(teamId,nextTeam.league_id),backend.from('leagues').select('team_edit_deadline').eq('id',nextTeam.league_id).maybeSingle()]);setFlow(data.flow);setSettings(data.settings);setMembers(data.members);setFiles(data.files);setNote(data.flow.participant_note??'');setEditDeadline(leagueResult.data?.team_edit_deadline??null)}catch(e){setError(e instanceof Error?e.message:'خطا در دریافت اطلاعات')}},[teamId])
   useEffect(()=>{void load()},[load])
   useEffect(()=>{void fetchTeamWithdrawal(teamId).then(setWithdrawal).catch(()=>setWithdrawal(null))},[teamId])
-  useEffect(()=>{if(!teamId)return;const channel=backend.channel(`attendance:${teamId}`)
-    .on('postgres_changes',{event:'*',schema:'public',table:'team_attendance_clearances',filter:`team_id=eq.${teamId}`},()=>{void load()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'team_members',filter:`team_id=eq.${teamId}`},()=>{void load()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'team_technical_files',filter:`team_id=eq.${teamId}`},()=>{void load()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'league_attendance_settings'},()=>{void load()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`team_id=eq.${teamId}`},()=>{void load()})
-    .on('postgres_changes',{event:'*',schema:'public',table:'teams',filter:`id=eq.${teamId}`},()=>{void load()})
-    .subscribe();return()=>{void backend.removeChannel(channel)}},[teamId,load])
+  useEffect(()=>{if(!teamId)return;let timer:number|undefined;let running=false;let queued=false
+    const refresh=async()=>{if(running){queued=true;return}running=true;try{const nextTeam=await fetchTeamById(teamId);if(!nextTeam)return;const data=await fetchAttendanceSnapshot(teamId,nextTeam.league_id);setTeam(nextTeam);setFlow(data.flow);setSettings(data.settings);setMembers(data.members);setFiles(data.files);if(data.flow)setNote(data.flow.participant_note??'')}finally{running=false;if(queued){queued=false;schedule()}}}
+    const schedule=()=>{if(timer)window.clearTimeout(timer);timer=window.setTimeout(()=>{void refresh()},180)}
+    const channel=backend.channel(`attendance:${teamId}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_attendance_clearances',filter:`team_id=eq.${teamId}`},schedule)
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_members',filter:`team_id=eq.${teamId}`},schedule)
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_technical_files',filter:`team_id=eq.${teamId}`},schedule)
+    .on('postgres_changes',{event:'*',schema:'public',table:'league_attendance_settings'},schedule)
+    .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`team_id=eq.${teamId}`},schedule)
+    .on('postgres_changes',{event:'*',schema:'public',table:'teams',filter:`id=eq.${teamId}`},schedule)
+    .subscribe();return()=>{if(timer)window.clearTimeout(timer);void backend.removeChannel(channel)}},[teamId])
   const stageIndex=flow?.stage==='confirmed'?steps.length:Math.max(1,steps.findIndex(([key])=>key===flow?.stage)); const allMembersApproved=members.length>0&&members.every(m=>m.review_status==='approved')
   const fileMap=useMemo(()=>Object.fromEntries(files.map(file=>[file.kind,file])),[files]) as Partial<Record<'article'|'robot_video',TechnicalFile>>
   const editExpired=Boolean(editDeadline&&new Date(editDeadline).getTime()<Date.now())

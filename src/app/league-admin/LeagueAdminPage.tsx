@@ -27,7 +27,6 @@ import {
   adminDeleteTeam,
 } from '@/features/judging/api'
 import {
-  fetchTeamMembers,
   reviewTeamMember,
 } from '@/features/registration/api'
 import { setLeagueResultsStatus } from '@/features/live-results/api'
@@ -35,7 +34,7 @@ import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
 import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, Team, TeamMember } from '@/types/database'
-import { fetchAttendance, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
+import { fetchAttendanceSnapshot, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
 import { backend } from '@/lib/backend'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
@@ -156,11 +155,8 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     void fetchTeamDocuments(selectedId)
       .then(setDocs)
       .catch((err: Error) => setError(err.message))
-    void fetchTeamMembers(selectedId)
-      .then(async rows=>{setMembers(rows);const ids=[...new Set(rows.map(row=>row.reviewed_by).filter(Boolean))] as string[];if(ids.length){const people=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',ids);setReviewerProfiles(Object.fromEntries((people.data??[]).map((p:{id:string;full_name:string;staff_department?:string;role:string})=>[p.id,`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`])))}})
-      .catch(() => setMembers([]))
     const selectedTeam = teams.find((team) => team.id === selectedId)
-    if (selectedTeam) { void fetchAttendance(selectedId, selectedTeam.league_id).then((data) => { setAttendance(data.flow); setTechnicalFiles(data.files) }).catch(() => { setAttendance(null); setTechnicalFiles([]) }); void fetchTeamRegistrationChanges(selectedId).then(setRegistrationChanges).catch(()=>setRegistrationChanges([])) }
+    if (selectedTeam) { void fetchAttendanceSnapshot(selectedId, selectedTeam.league_id).then(async(data) => { setAttendance(data.flow); setTechnicalFiles(data.files);setMembers(data.members);const ids=[...new Set(data.members.map(row=>row.reviewed_by).filter(Boolean))] as string[];if(ids.length){const people=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',ids);setReviewerProfiles(Object.fromEntries((people.data??[]).map((p:{id:string;full_name:string;staff_department?:string;role:string})=>[p.id,`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`])))}}).catch(() => { setAttendance(null); setTechnicalFiles([]);setMembers([]) }); void fetchTeamRegistrationChanges(selectedId).then(setRegistrationChanges).catch(()=>setRegistrationChanges([])) }
 
     const year = Number(seasonYear) || new Date().getFullYear()
     void Promise.all([fetchTeamResult(selectedId, year), user ? fetchMyJudgeScore(selectedId, year, user.id) : Promise.resolve(null), fetchJudgeProgress(selectedId, year)])
@@ -182,21 +178,32 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
   useEffect(() => {
     if (!selected) return
+    let timer: number | undefined
+    let running = false
+    let queued = false
     const refreshReview = async () => {
-      const [memberRows, attendanceData] = await Promise.all([
-        fetchTeamMembers(selected.id),
-        fetchAttendance(selected.id, selected.league_id),
-      ])
-      setMembers(memberRows)
+      if (running) { queued = true; return }
+      running = true
+      try {
+      const attendanceData = await fetchAttendanceSnapshot(selected.id, selected.league_id)
+      setMembers(attendanceData.members)
       setAttendance(attendanceData.flow)
       setTechnicalFiles(attendanceData.files)
+      } finally {
+        running = false
+        if (queued) { queued = false; scheduleRefresh() }
+      }
+    }
+    const scheduleRefresh = () => {
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => { void refreshReview().catch(() => undefined) }, 180)
     }
     const channel = backend.channel(`team-review-live-${selected.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_attendance_clearances', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_technical_files', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_attendance_clearances', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_technical_files', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
       .subscribe()
-    return () => { void backend.removeChannel(channel) }
+    return () => { if (timer) window.clearTimeout(timer); void backend.removeChannel(channel) }
   }, [selected])
 
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
@@ -214,7 +221,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         status === 'rejected' ? memberRejectReasons[memberId] : undefined,
       )
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
-      if (selected) { const data = await fetchAttendance(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
+      if (selected) { const data = await fetchAttendanceSnapshot(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
       toast.success(status === 'approved' ? 'عضو تیم تأیید شد.' : status === 'rejected' ? 'عضو برای اصلاح بازگردانده شد.' : 'وضعیت عضو به‌روزرسانی شد.')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
