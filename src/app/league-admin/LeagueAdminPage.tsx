@@ -180,6 +180,25 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
   useEffect(()=>{const id=attendance?.technical_reviewed_by;if(!id||reviewerProfiles[id])return;void backend.from('profiles').select('id,full_name,staff_department,role').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;const p=data as {id:string;full_name:string;staff_department?:string;role:string};setReviewerProfiles(current=>({...current,[p.id]:`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`}))})},[attendance?.technical_reviewed_by,reviewerProfiles])
 
+  useEffect(() => {
+    if (!selected) return
+    const refreshReview = async () => {
+      const [memberRows, attendanceData] = await Promise.all([
+        fetchTeamMembers(selected.id),
+        fetchAttendance(selected.id, selected.league_id),
+      ])
+      setMembers(memberRows)
+      setAttendance(attendanceData.flow)
+      setTechnicalFiles(attendanceData.files)
+    }
+    const channel = backend.channel(`team-review-live-${selected.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_attendance_clearances', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_technical_files', filter: `team_id=eq.${selected.id}` }, () => { void refreshReview().catch(() => undefined) })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
+  }, [selected])
+
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
 
   const onMemberReview = async (
@@ -196,6 +215,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       )
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
       if (selected) { const data = await fetchAttendance(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
+      toast.success(status === 'approved' ? 'عضو تیم تأیید شد.' : status === 'rejected' ? 'عضو برای اصلاح بازگردانده شد.' : 'وضعیت عضو به‌روزرسانی شد.')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -440,27 +460,27 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                               {m.reviewed_by?<p className="mt-1 text-[10px] text-slate-500">بررسی توسط: <strong>{reviewerProfiles[m.reviewed_by]??'کارشناس سامانه'}</strong>{m.reviewed_at?` · ${formatAppDateTime(m.reviewed_at,i18n.language)}`:''}</p>:null}
                             </div>
                             <div className="min-w-0 space-y-2">
-                              <Input className="w-full" label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} />
+                              {m.review_status !== 'approved' ? <Input className="w-full" label="دلیل رد این عضو" value={memberRejectReasons[m.id]??''} onChange={(e)=>setMemberRejectReasons(current=>({...current,[m.id]:e.target.value}))} /> : null}
                               <div className="flex flex-wrap items-center gap-2">
                                 {m.national_id_doc_path ? (
                                   <ReviewThumbnail path={m.national_id_doc_path} label={t('team.memberNationalIdCard')} onOpen={setViewerUrl} />
                                 ) : null}
-                                <Button
+                                {m.review_status !== 'approved' ? <Button
                                 type="button"
                                 variant="secondary"
                                 disabled={busy}
                                 onClick={() => void onMemberReview(m.id, 'approved')}
                                 >
                                   {t('judging.approve')}
-                                </Button>
-                                <Button
+                                </Button> : <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700"><span aria-hidden>✓</span> تأیید نهایی شده</span>}
+                                {m.review_status !== 'approved' ? <Button
                                 type="button"
                                 variant="danger"
                                 disabled={busy||!(memberRejectReasons[m.id]??'').trim()}
                                 onClick={() => void onMemberReview(m.id, 'rejected')}
                                 >
                                   {t('judging.reject')}
-                                </Button>
+                                </Button> : null}
                               </div>
                             </div>
                           </div>

@@ -23,6 +23,7 @@ export type AttendanceClearance = {
   technical_status: 'locked'|'draft'|'pending'|'approved'|'rejected'
   technical_rejection_reason?: string|null; participant_note?: string|null; rules_accepted_at?: string|null; confirmed_at?: string|null
   technical_submitted_at?:string|null;technical_reviewed_at?:string|null;technical_reviewed_by?:string|null
+  technical_auto_approved?: boolean
   edit_reopened_at?: string|null
 }
 export type TeamRegistrationChange = { id:string; team_id:string; entity_type:'team'|'member'|'document'|'flow'; entity_id?:string|null; change_kind:string; before_data?:Record<string,unknown>|null; after_data?:Record<string,unknown>|null; changed_at:string }

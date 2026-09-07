@@ -27,7 +27,7 @@ export function SuperAdminRegistrationSettingsPage() {
   const [labelEn, setLabelEn] = useState('')
   const [code, setCode] = useState('')
   const [accountType, setAccountType] = useState<'individual' | 'legal' | 'both'>('both')
-  const [docScope, setDocScope] = useState<'profile' | 'team'>('profile')
+  const [docScope, setDocScope] = useState<'profile' | 'team' | 'member'>('profile')
   const [docRequired, setDocRequired] = useState(false)
   const [editingDocId, setEditingDocId] = useState<string | undefined>()
   const [msgFa, setMsgFa] = useState('')
@@ -268,7 +268,7 @@ export function SuperAdminRegistrationSettingsPage() {
             <option value="individual">{t('registrationSettings.individual')}</option>
             <option value="legal">{t('registrationSettings.legal')}</option>
           </Select>
-          <Select label="محل استفاده" value={docScope} onChange={(e) => setDocScope(e.target.value as 'profile' | 'team')}><option value="profile">مدارک هویتی حساب</option><option value="team">مدارک تیم در ثبت‌نام لیگ</option></Select>
+          <Select label="محل استفاده" value={docScope} onChange={(e) => setDocScope(e.target.value as 'profile' | 'team' | 'member')}><option value="profile">مدارک هویتی حساب</option><option value="member">مدارک هر عضو تیم</option><option value="team">مدارک عمومی تیم در ثبت‌نام لیگ</option></Select>
           <label className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700"><input type="checkbox" checked={docRequired} onChange={(e) => setDocRequired(e.target.checked)} />این مدرک الزامی باشد</label>
           <Button type="submit" disabled={busy}>
             {t('common.save')}

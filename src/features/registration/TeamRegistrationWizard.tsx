@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/FormControls'
 import { BirthDateField } from '@/components/ui/BirthDateField'
 import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
+import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { ageFromBirthDate } from '@/lib/dates'
@@ -32,18 +33,26 @@ import {
   type TeamWizardDraft,
 } from '@/features/registration/api'
 import { registrationLifecycleForStep } from '@/features/registration/lifecycle'
-import { fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
+import { fetchMemberRegistrationDocTypes, fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/api'
 import type { DocumentRow, League, Team } from '@/types/database'
 
-function MemberIdentityUpload({ label, file, storedUrl, busy, onChange }: { label: string; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
+function MemberIdentityUpload({ label, required, file, storedUrl, busy, onChange }: { label: string; required: boolean; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState(storedUrl ?? '')
   useEffect(() => {
     if (!file) { if (storedUrl && !/^https?:/i.test(storedUrl)) { void backend.storage.from('team-documents').createSignedUrl(storedUrl, 600).then(({ data }) => setPreview(data.signedUrl)); return }; setPreview(storedUrl ?? ''); return }
     const url = URL.createObjectURL(file); setPreview(url)
     return () => URL.revokeObjectURL(url)
   }, [file, storedUrl])
-  return <DocumentUploadField label={label} required value={preview} busy={busy} onSelect={(next) => { const error = validateIdentityImage(next); if (!error) onChange(next) }} onRemove={() => onChange(null)} />
+  return <DocumentUploadField label={label} required={required} value={preview} busy={busy} onSelect={(next) => { const error = validateIdentityImage(next); if (!error) onChange(next) }} onRemove={() => onChange(null)} />
+}
+
+function registrationSettingsSignature(league: League | null, settings: AttendanceSettings | null): string {
+  if (!league) return ''
+  return JSON.stringify({
+    league: [league.min_age, league.max_age, league.team_size_min, league.team_size_max, league.min_captains, league.min_coaches, league.auto_approve_team_members, league.payment_deadline, league.current_season_year, league.current_season_month],
+    attendance: settings ? [settings.enabled, settings.team_documents_enabled, settings.article_required, settings.video_required] : null,
+  })
 }
 
 function PrivateImage({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
@@ -74,6 +83,7 @@ export function TeamRegistrationWizard({
 }: TeamRegistrationWizardProps) {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const toast = useToast()
   const [leagues, setLeagues] = useState<League[]>([])
   const [draft, setDraft] = useState<TeamWizardDraft>(() => {
     const loaded = loadTeamDraft(companyId) ?? emptyTeamDraft(companyId, initialLeagueId ?? '')
@@ -92,6 +102,7 @@ export function TeamRegistrationWizard({
   const [draftHydrated, setDraftHydrated] = useState(!initialTeamId)
   const [nameAvailability, setNameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle')
   const [teamDocTypes, setTeamDocTypes] = useState<RegistrationDocType[]>([])
+  const [memberDocTypes, setMemberDocTypes] = useState<RegistrationDocType[]>([])
   const [teamDocType, setTeamDocType] = useState('')
   const [teamFile, setTeamFile] = useState<File | null>(null)
   const [teamFilePreview, setTeamFilePreview] = useState('')
@@ -99,6 +110,7 @@ export function TeamRegistrationWizard({
   const [companyName, setCompanyName] = useState('')
   const [openMemberIndex, setOpenMemberIndex] = useState<number | null>(0)
   const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
+  const [settingsChanged, setSettingsChanged] = useState(false)
 
   useEffect(() => {
     if (!initialTeamId) return
@@ -114,7 +126,16 @@ export function TeamRegistrationWizard({
       .catch((err: Error) => setError(err.message))
   }, [])
 
-  useEffect(() => { void fetchTeamRegistrationDocTypes().then((rows) => { setTeamDocTypes(rows); setTeamDocType((current) => current || rows[0]?.code || '') }).catch(() => setTeamDocTypes([])); void backend.from('companies').select('name').eq('id', companyId).maybeSingle().then(({ data }) => setCompanyName(data?.name ?? 'مجموعه شما')) }, [companyId])
+  useEffect(() => {
+    void Promise.all([fetchTeamRegistrationDocTypes(), fetchMemberRegistrationDocTypes()])
+      .then(([teamRows, memberRows]) => {
+        setTeamDocTypes(teamRows)
+        setMemberDocTypes(memberRows)
+        setTeamDocType((current) => current || teamRows[0]?.code || '')
+      })
+      .catch(() => { setTeamDocTypes([]); setMemberDocTypes([]) })
+    void backend.from('companies').select('name').eq('id', companyId).maybeSingle().then(({ data }) => setCompanyName(data?.name ?? 'مجموعه شما'))
+  }, [companyId])
   useEffect(() => { if (!teamFile || !teamFile.type.startsWith('image/')) { setTeamFilePreview(''); return }; const url = URL.createObjectURL(teamFile); setTeamFilePreview(url); return () => URL.revokeObjectURL(url) }, [teamFile])
 
   useEffect(() => {
@@ -140,12 +161,41 @@ export function TeamRegistrationWizard({
     () => leagues.find((l) => l.id === draft.leagueId) ?? null,
     [leagues, draft.leagueId],
   )
+  const memberPhotoType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_photo') ?? null, [memberDocTypes])
+  const memberIdentityType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_identity') ?? null, [memberDocTypes])
 
   useEffect(() => {
     if (!draft.leagueId) { setAttendanceSettings(null); return }
     void backend.from('league_attendance_settings').select('*').eq('league_id', draft.leagueId).maybeSingle()
       .then(({ data }) => setAttendanceSettings((data as AttendanceSettings | null) ?? null))
   }, [draft.leagueId])
+
+  const settingsSignature = useMemo(() => `${registrationSettingsSignature(selectedLeague, attendanceSettings)}:${memberDocTypes.map((item) => `${item.code}:${item.is_required}:${item.is_active}`).join('|')}`, [selectedLeague, attendanceSettings, memberDocTypes])
+
+  const verifyCurrentSettings = useCallback(async () => {
+    if (!draft.leagueId || !settingsSignature) return true
+    const [leagueResult, settingsResult, memberDocsResult] = await Promise.all([
+      backend.from('leagues').select('*').eq('id', draft.leagueId).maybeSingle(),
+      backend.from('league_attendance_settings').select('*').eq('league_id', draft.leagueId).maybeSingle(),
+      backend.from('registration_doc_types').select('*').eq('scope', 'member').eq('is_active', true).order('sort_order'),
+    ])
+    if (leagueResult.error || settingsResult.error || memberDocsResult.error || !leagueResult.data) return true
+    const freshDocs = (memberDocsResult.data ?? []) as RegistrationDocType[]
+    const freshSignature = `${registrationSettingsSignature(leagueResult.data as League, settingsResult.data as AttendanceSettings | null)}:${freshDocs.map((item) => `${item.code}:${item.is_required}:${item.is_active}`).join('|')}`
+    const current = freshSignature === settingsSignature
+    if (!current) setSettingsChanged(true)
+    return current
+  }, [draft.leagueId, settingsSignature])
+
+  useEffect(() => {
+    if (!draft.leagueId || !settingsSignature) return
+    const channel = backend.channel(`team-registration-settings-${draft.leagueId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leagues', filter: `id=eq.${draft.leagueId}` }, () => { void verifyCurrentSettings() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_attendance_settings', filter: `league_id=eq.${draft.leagueId}` }, () => { void verifyCurrentSettings() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registration_doc_types' }, () => { setSettingsChanged(true) })
+      .subscribe()
+    return () => { void backend.removeChannel(channel) }
+  }, [draft.leagueId, settingsSignature, verifyCurrentSettings])
 
   useEffect(() => {
     const name = draft.name.trim()
@@ -268,6 +318,7 @@ export function TeamRegistrationWizard({
     setError(null)
     setBusy(true)
     try {
+      if (settingsChanged || !await verifyCurrentSettings()) throw new Error(i18n.language.startsWith('en') ? 'League registration settings changed. Refresh this page before continuing.' : 'تنظیمات ثبت‌نام این لیگ تغییر کرده است؛ پیش از ادامه صفحه را تازه‌سازی کنید.')
       let persistedTeamId = draft.teamId
       if (step === 0) {
         if (!draft.name.trim() || !draft.nameEn.trim() || !draft.leagueId) {
@@ -297,16 +348,18 @@ export function TeamRegistrationWizard({
         if (invalidIranianIdentity) throw new Error('کد ملی هر عضو ایرانی باید دقیقاً ۱۰ رقم باشد.')
         const invalidContact = draft.members.some((member) => ['captain', 'coach'].includes(member.role) && !/^09\d{9}$/.test(member.phone))
         if (invalidContact) throw new Error('شماره موبایل سرپرست و مربی باید ۱۱ رقم و با 09 آغاز شود.')
-        const invalidAge = draft.members.some((member) => {
+        const invalidAgeMember = draft.members.find((member) => {
           const age = ageFromBirthDate(member.birth_date)
           if (age == null) return true
           if (selectedLeague?.min_age != null && age < selectedLeague.min_age) return true
           if (selectedLeague?.max_age != null && age > selectedLeague.max_age) return true
           return false
         })
-        if (invalidAge) throw new Error('سن یک یا چند عضو با محدودیت سنی لیگ سازگار نیست.')
-        const missingCards = draft.members.some((member, index) => !member.national_id_doc_path && !idFiles[index])
-        const missingPhotos = draft.members.some((member, index) => !member.photo_url && !photoFiles[index])
+        if (invalidAgeMember) throw new Error(`سن «${invalidAgeMember.first_name} ${invalidAgeMember.last_name}» با بازه مجاز این لیگ (${selectedLeague?.min_age ?? 'بدون حداقل'} تا ${selectedLeague?.max_age ?? 'بدون حداکثر'} سال) سازگار نیست.`)
+        const identityRequirement = memberDocTypes.find((item) => item.code === 'member_identity')
+        const photoRequirement = memberDocTypes.find((item) => item.code === 'member_photo')
+        const missingCards = identityRequirement?.is_required === true && draft.members.some((member, index) => !member.national_id_doc_path && !idFiles[index])
+        const missingPhotos = photoRequirement?.is_required === true && draft.members.some((member, index) => !member.photo_url && !photoFiles[index])
         if (missingPhotos) throw new Error('بارگذاری تصویر چهره سرپرست، مربی و همه اعضای تیم الزامی است.')
         if (missingCards) throw new Error('آپلود کارت ملی سرپرست و تمام اعضای تیم الزامی است.')
         const teamId = await ensureTeamRecord()
@@ -326,7 +379,16 @@ export function TeamRegistrationWizard({
       if (teamId) await persistRegistrationDraft(teamId, nextDraft, { ...registrationLifecycleForStep(nextStep), lastCompletedStep: step })
     } catch (err) {
       const message = err instanceof Error ? err.message : t('common.error')
-      setError(message.includes('team_name_already_exists') ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : message)
+      const ageBelow = message.match(/member_age_below_min:(\d+)/)
+      const ageAbove = message.match(/member_age_above_max:(\d+)/)
+      const friendlyMessage = message.includes('team_name_already_exists')
+        ? 'تیم دیگری با این نام در این لیگ وجود دارد.'
+        : ageBelow ? `سن عضو از حداقل سن مجاز این لیگ (${ageBelow[1]} سال) کمتر است.`
+          : ageAbove ? `سن عضو از حداکثر سن مجاز این لیگ (${ageAbove[1]} سال) بیشتر است.`
+            : message
+      setError(friendlyMessage)
+      toast.error(friendlyMessage)
+      window.requestAnimationFrame(() => document.getElementById('team-registration-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
     } finally {
       setBusy(false)
     }
@@ -399,7 +461,9 @@ export function TeamRegistrationWizard({
       if (fetchError) throw new Error(fetchError.message)
       onCompleted(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -408,6 +472,7 @@ export function TeamRegistrationWizard({
   return (
     <div className="overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_24px_70px_rgb(18_76_98/0.12)]">
       <div className="space-y-5 p-5 sm:p-7">
+      {settingsChanged ? <aside className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" role="alert"><div><strong className="block">تنظیمات ثبت‌نام لیگ تغییر کرده است</strong><p className="mt-1 text-xs leading-6">برای جلوگیری از ثبت اطلاعات با قوانین قدیمی، صفحه را تازه‌سازی کنید.</p></div><Button type="button" variant="secondary" onClick={() => window.location.reload()}>تازه‌سازی صفحه</Button></aside> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{t('team.wizardTitle')}</h2>
@@ -527,8 +592,8 @@ export function TeamRegistrationWizard({
                   ) : null}
                   <Select label={age != null && age < 18 ? 'مقطع تحصیلی فعلی' : 'آخرین مدرک تحصیلی'} required value={member.education_level} onChange={(e) => patchMember(index, { education_level: e.target.value })}><option value="">انتخاب کنید</option>{age != null && age < 18 ? <><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">متوسطه دوم</option></> : <><option value="high_school">دیپلم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></>}</Select>
                   <Input label="رشته تحصیلی" value={member.field_of_study} onChange={(e) => patchMember(index, { field_of_study: e.target.value })} />
-                  <MemberIdentityUpload label="تصویر چهره" file={photoFiles[index]} storedUrl={member.photo_url} busy={busy} onChange={(file) => setPhotoFiles((prev) => ({ ...prev, [index]: file }))} />
-                  <MemberIdentityUpload label={t('team.memberNationalIdCard')} file={idFiles[index]} storedUrl={member.national_id_doc_path} busy={busy} onChange={(file) => setIdFiles((prev) => ({ ...prev, [index]: file }))} />
+                  {memberPhotoType ? <MemberIdentityUpload label={i18n.language.startsWith('en') ? memberPhotoType.label_en : memberPhotoType.label_fa} required={memberPhotoType.is_required} file={photoFiles[index]} storedUrl={member.photo_url} busy={busy} onChange={(file) => setPhotoFiles((prev) => ({ ...prev, [index]: file }))} /> : null}
+                  {memberIdentityType ? <MemberIdentityUpload label={i18n.language.startsWith('en') ? memberIdentityType.label_en : memberIdentityType.label_fa} required={memberIdentityType.is_required} file={idFiles[index]} storedUrl={member.national_id_doc_path} busy={busy} onChange={(file) => setIdFiles((prev) => ({ ...prev, [index]: file }))} /> : null}
                 </div> : null}
               </article>
             )
@@ -554,7 +619,7 @@ export function TeamRegistrationWizard({
             {teamDocTypes.length ? <form className="grid gap-4 lg:grid-cols-[minmax(12rem,.65fr)_minmax(0,1fr)_auto] lg:items-end" onSubmit={(e) => void onUpload(e)}><Select label="نوع مدرک تیم" value={teamDocType} onChange={(e) => setTeamDocType(e.target.value)}>{teamDocTypes.map((type) => <option key={type.id} value={type.code}>{i18n.language.startsWith('en') ? type.label_en : type.label_fa}{type.is_required ? ' *' : ' (اختیاری)'}</option>)}</Select><DocumentUploadField label={teamDocTypes.find((type) => type.code === teamDocType)?.label_fa ?? 'فایل تیم'} required={teamDocTypes.find((type) => type.code === teamDocType)?.is_required} value={teamFilePreview} busy={fileBusy} onSelect={setTeamFile} onRemove={() => setTeamFile(null)} /><Button type="submit" disabled={fileBusy || !draft.teamId || !teamFile}>{fileBusy ? t('app.loading') : 'بارگذاری مدرک'}</Button></form> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">برای این لیگ مدرک اضافه‌ای از تیم درخواست نشده است؛ می‌توانید به مرحله بعد بروید.</div>}
             {teamOnlyDocs.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{teamOnlyDocs.map((doc) => <article key={doc.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white"><PrivateImage path={doc.file_path} alt={doc.doc_type} onOpen={setViewerUrl} /><div className="p-3"><strong className="block text-sm text-slate-800">{teamDocTypes.find((type) => type.code === doc.doc_type)?.label_fa ?? doc.doc_type}</strong><span className="mt-1 block truncate font-mono text-[10px] text-slate-400" dir="ltr">{doc.file_path.split('/').pop()}</span></div></article>)}</div> : null}
           </section>
-          <section><div className="mb-4"><h3 className="font-black text-slate-900">مدارک هویتی افراد تیم</h3><p className="mt-1 text-xs leading-6 text-slate-500">اطلاعاتی که در مرحله اعضا ثبت کردید اینجا برای کنترل نهایی نمایش داده می‌شود. برای بزرگ‌نمایی روی هر تصویر بزنید.</p></div><div className="grid gap-4 md:grid-cols-2">{draft.members.map((member, index) => <article key={`${member.full_name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-14 overflow-hidden rounded-xl bg-slate-100">{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)}><img src={member.photo_url} alt={member.full_name} className="size-14 object-cover" /></button> : <span className="grid size-full place-items-center text-lg font-black text-slate-400">{(member.first_name || member.full_name).slice(0, 1)}</span>}</div><div className="min-w-0"><strong className="block truncate text-slate-900">{member.first_name} {member.last_name}</strong><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{roleLabel(member.role)}</span></div></div><div className="grid grid-cols-2 gap-px bg-slate-100"><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر پرسنلی</span>{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)} className="w-full"><img src={member.photo_url} alt="تصویر پرسنلی" className="aspect-[4/3] w-full rounded-lg object-cover" /></button> : <span className="grid aspect-[4/3] place-items-center rounded-lg bg-slate-50 text-xs text-slate-400">ثبت نشده</span>}</div><div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">کارت ملی / مدرک هویت</span><PrivateImage path={member.national_id_doc_path} alt="مدرک هویت" onOpen={setViewerUrl} /></div></div></article>)}</div></section>
+          {(memberPhotoType || memberIdentityType) ? <section><div className="mb-4"><h3 className="font-black text-slate-900">مدارک هویتی افراد تیم</h3><p className="mt-1 text-xs leading-6 text-slate-500">اطلاعاتی که در مرحله اعضا ثبت کردید اینجا برای کنترل نهایی نمایش داده می‌شود. برای بزرگ‌نمایی روی هر تصویر بزنید.</p></div><div className="grid gap-4 md:grid-cols-2">{draft.members.map((member, index) => <article key={`${member.full_name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-14 overflow-hidden rounded-xl bg-slate-100">{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)}><img src={member.photo_url} alt={member.full_name} className="size-14 object-cover" /></button> : <span className="grid size-full place-items-center text-lg font-black text-slate-400">{(member.first_name || member.full_name).slice(0, 1)}</span>}</div><div className="min-w-0"><strong className="block truncate text-slate-900">{member.first_name} {member.last_name}</strong><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{roleLabel(member.role)}</span></div></div><div className={`grid gap-px bg-slate-100 ${memberPhotoType && memberIdentityType ? 'grid-cols-2' : 'grid-cols-1'}`}>{memberPhotoType ? <div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">{i18n.language.startsWith('en') ? memberPhotoType.label_en : memberPhotoType.label_fa}</span>{member.photo_url ? <button type="button" onClick={() => setViewerUrl(member.photo_url!)} className="w-full"><img src={member.photo_url} alt={memberPhotoType.label_fa} className="aspect-[4/3] w-full rounded-lg object-cover" /></button> : <span className="grid aspect-[4/3] place-items-center rounded-lg bg-slate-50 text-xs text-slate-400">ثبت نشده</span>}</div> : null}{memberIdentityType ? <div className="bg-white p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">{i18n.language.startsWith('en') ? memberIdentityType.label_en : memberIdentityType.label_fa}</span><PrivateImage path={member.national_id_doc_path} alt={memberIdentityType.label_fa} onOpen={setViewerUrl} /></div> : null}</div></article>)}</div></section> : null}
         </div>
       ) : null}
 
@@ -576,7 +641,7 @@ export function TeamRegistrationWizard({
 
       {viewerUrl ? <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerUrl('') }}><div className="relative max-h-[90dvh] max-w-4xl overflow-hidden rounded-2xl bg-white p-2 shadow-2xl"><button type="button" onClick={() => setViewerUrl('')} className="absolute end-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-slate-950/70 text-xl text-white">×</button><img src={viewerUrl} alt="نمایش بزرگ مدرک" className="max-h-[86dvh] max-w-full rounded-xl object-contain" /></div></div> : null}
 
-      <FieldError message={error ?? undefined} />
+      <div id="team-registration-error"><FieldError message={error ?? undefined} /></div>
 
       <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-white/95 p-3 shadow-lg backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
         {step > 0 ? (
@@ -585,11 +650,11 @@ export function TeamRegistrationWizard({
           </Button>
         ) : null}
         {step < EDITABLE_STEPS - 1 ? (
-          <Button type="button" onClick={() => void goNext()} disabled={busy || (step === 0 && nameAvailability !== 'available')}>
+          <Button type="button" onClick={() => void goNext()} disabled={busy || settingsChanged || (step === 0 && nameAvailability !== 'available')}>
             {busy ? t('app.loading') : t('team.next')}
           </Button>
         ) : (
-          <Button type="button" onClick={() => void finish()} disabled={busy}>
+          <Button type="button" onClick={() => void finish()} disabled={busy || settingsChanged}>
             {busy ? t('app.loading') : 'تأیید اطلاعات و ادامه به مدارک فنی'}
           </Button>
         )}

@@ -38,6 +38,9 @@ const ticketInbox = readFileSync(new URL('../src/features/chat/TicketInbox.tsx',
 const homePublicMigration = readFileSync(new URL('../db/migrations/0082_home_event_groups_public_teams.sql', import.meta.url), 'utf8')
 const publicCompanyProfile = readFileSync(new URL('../src/app/public/CompanyPublicProfilePage.tsx', import.meta.url), 'utf8')
 const announcementsSlider = readFileSync(new URL('../src/components/home/AnnouncementsSlider.tsx', import.meta.url), 'utf8')
+const registrationValidationMigration = readFileSync(new URL('../db/migrations/0083_registration_validation_realtime.sql', import.meta.url), 'utf8')
+const queryServer = readFileSync(new URL('../server/query.ts', import.meta.url), 'utf8')
+const realtimeServer = readFileSync(new URL('../server/realtime.ts', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
   assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 8, lifecycleStatus: 'incomplete' })
@@ -313,4 +316,30 @@ test('home announcements use a responsive snap slider and valid public routes', 
   assert.match(announcementsSlider, /snap-mandatory/)
   assert.match(announcementsSlider, /\/news\//)
   assert.match(announcementsSlider, /to="\/news"/)
+})
+
+test('member review schema and validation errors stay aligned with the API', () => {
+  assert.match(registrationValidationMigration, /add column if not exists reviewed_at timestamptz/)
+  assert.match(registrationValidationMigration, /add column if not exists reviewed_by uuid/)
+  assert.match(registrationValidationMigration, /member_age_below_min/)
+  assert.match(registrationValidationMigration, /member_age_above_max/)
+  assert.match(queryServer, /duplicate_\[a-z_\]\+/)
+  assert.match(queryServer, /member_age_\(\?:below_min\|above_max\)/)
+})
+
+test('member documents and changed league rules are applied to active registrations', () => {
+  assert.match(registrationValidationMigration, /scope in \('profile', 'team', 'member'\)/)
+  assert.match(registrationValidationMigration, /'member_photo'/)
+  assert.match(registrationValidationMigration, /'member_identity'/)
+  assert.match(registrationValidationMigration, /refresh_registration_after_league_change/)
+  assert.match(registrationValidationMigration, /technical_auto_approved/)
+  assert.match(wizard, /verifyCurrentSettings/)
+  assert.match(wizard, /settingsChanged/)
+})
+
+test('team review realtime supports non-id primary keys and review tables', () => {
+  assert.match(realtimeServer, /team_attendance_clearances' \? 'team_id'/)
+  assert.match(realtimeServer, /league_attendance_settings' \? 'league_id'/)
+  assert.match(realtimeServer, /'team_members', 'team_technical_files'/)
+  assert.match(liveResultsAdmin, /team-review-live-/)
 })

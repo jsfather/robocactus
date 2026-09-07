@@ -331,7 +331,7 @@ function sendError(response: Response, error: unknown): void {
   }
   const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
-  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|duplicate_[a-z_]+|phone_in_use|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
     response.status(500).json({ error: { message: 'internal_server_error' } })

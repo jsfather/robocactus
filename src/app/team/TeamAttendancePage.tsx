@@ -25,6 +25,8 @@ export function TeamAttendancePage(){
   useEffect(()=>{if(!teamId)return;const channel=backend.channel(`attendance:${teamId}`)
     .on('postgres_changes',{event:'*',schema:'public',table:'team_attendance_clearances',filter:`team_id=eq.${teamId}`},()=>{void load()})
     .on('postgres_changes',{event:'*',schema:'public',table:'team_members',filter:`team_id=eq.${teamId}`},()=>{void load()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'team_technical_files',filter:`team_id=eq.${teamId}`},()=>{void load()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'league_attendance_settings'},()=>{void load()})
     .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`team_id=eq.${teamId}`},()=>{void load()})
     .on('postgres_changes',{event:'*',schema:'public',table:'teams',filter:`id=eq.${teamId}`},()=>{void load()})
     .subscribe();return()=>{void backend.removeChannel(channel)}},[teamId,load])

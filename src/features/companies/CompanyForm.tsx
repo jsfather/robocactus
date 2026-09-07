@@ -11,10 +11,20 @@ interface CompanyFormProps {
   onSaved: (company: Company) => void
 }
 
+const toLatinDigits = (value: string) => value.replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+
+function displayFoundedYear(value: number | null | undefined, isFa: boolean): string {
+  if (!value) return ''
+  return String(isFa ? (value > 1700 ? value - 621 : value) : (value < 1700 ? value + 621 : value))
+}
+
 export function CompanyForm({ company, onSaved }: CompanyFormProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user, profile } = useAuth()
   const isEdit = Boolean(company)
+  const isFa = i18n.language.toLowerCase().startsWith('fa')
+  const currentGregorianYear = new Date().getFullYear()
+  const currentPersianYear = Number(toLatinDigits(new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(new Date())).replace(/\D/g, ''))
 
   const [name, setName] = useState(company?.name ?? (profile?.account_type === 'individual' ? profile.full_name : profile?.company_name) ?? '')
   const [entityType, setEntityType] = useState<NonNullable<Company['entity_type']>>(company?.entity_type ?? (profile?.account_type === 'individual' ? 'individual' : 'company'))
@@ -22,7 +32,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
   const [tagline, setTagline] = useState(company?.tagline ?? '')
   const [website, setWebsite] = useState(company?.website ?? '')
   const [foundedYear, setFoundedYear] = useState(
-    company?.founded_year ? String(company.founded_year) : '',
+    displayFoundedYear(company?.founded_year, isFa),
   )
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
@@ -36,8 +46,8 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
     setBio(company.bio ?? '')
     setTagline(company.tagline ?? '')
     setWebsite(company.website ?? '')
-    setFoundedYear(company.founded_year ? String(company.founded_year) : '')
-  }, [company])
+    setFoundedYear(displayFoundedYear(company.founded_year, isFa))
+  }, [company, isFa, profile?.account_type])
 
   const onNameChange = (value: string) => {
     setName(value)
@@ -50,6 +60,12 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
     setSaving(true)
 
     try {
+      const enteredYear = foundedYear ? Number(toLatinDigits(foundedYear)) : null
+      const maximumYear = isFa ? currentPersianYear : currentGregorianYear
+      if (enteredYear != null && (!Number.isInteger(enteredYear) || enteredYear <= 0 || enteredYear > maximumYear)) {
+        throw new Error(isFa ? `سال تأسیس باید حداکثر ${maximumYear.toLocaleString('fa-IR')} باشد.` : `Founded year cannot be later than ${maximumYear}.`)
+      }
+      const storedFoundedYear = enteredYear == null ? null : isFa && enteredYear < 1700 ? enteredYear + 621 : enteredYear
       let logoUrl = company?.logo_url ?? null
       let coverUrl = company?.cover_image_url ?? null
       if (logoFile) {
@@ -66,7 +82,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
         bio: bio.trim() || undefined,
         tagline: tagline.trim() || undefined,
         website: website.trim() || undefined,
-        founded_year: foundedYear ? Number(foundedYear) : null,
+        founded_year: storedFoundedYear,
         logo_url: logoUrl,
         cover_image_url: coverUrl,
       }
@@ -130,12 +146,13 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
         <Input
           label={t('company.foundedYear')}
           name="foundedYear"
-          type="number"
-          min={1900}
-          max={2100}
+          type="text"
+          inputMode="numeric"
+          maxLength={4}
           value={foundedYear}
-          onChange={(e) => setFoundedYear(e.target.value)}
+          onChange={(e) => setFoundedYear(toLatinDigits(e.target.value).replace(/\D/g, '').slice(0, 4))}
           dir="ltr"
+          placeholder={String(isFa ? currentPersianYear : currentGregorianYear)}
         />
         <div className="md:col-span-2">
           <Input

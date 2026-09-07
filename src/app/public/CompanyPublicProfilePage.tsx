@@ -101,7 +101,9 @@ export function CompanyPublicProfilePage() {
               <div className="mt-4 flex flex-wrap gap-3 text-sm text-white/70">
                 {company.founded_year ? (
                   <span>
-                    {t('companies.founded')}: {company.founded_year}
+                    {t('companies.founded')}: {company.founded_year < 1700
+                      ? (i18n.language.startsWith('fa') ? company.founded_year.toLocaleString('fa-IR', { useGrouping: false }) : company.founded_year + 621)
+                      : formatSeasonYear(company.founded_year, i18n.language)}
                   </span>
                 ) : null}
                 {company.website ? (

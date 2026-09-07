@@ -14,7 +14,8 @@ const REALTIME_TABLES = new Set([
   'profiles',
   'site_settings', 'home_banners', 'home_events', 'home_faqs', 'home_partners',
   'home_sponsors', 'home_stat_cards', 'home_why_cards', 'blog_posts', 'companies',
-  'team_attendance_clearances',
+  'team_attendance_clearances', 'team_members', 'team_technical_files',
+  'league_attendance_settings', 'registration_doc_types',
 ])
 const PUBLIC_REALTIME_TABLES = new Set([
   'results', 'leagues', 'site_settings', 'home_banners', 'home_events', 'home_faqs',
@@ -29,7 +30,11 @@ function safeIdentifier(name: string) {
 async function visibleRecord(client: Client, event: Record<string, unknown>) {
   const tableName = String(event.table_name)
   const raw = (event.record ?? event.old_record) as Record<string, unknown> | null
-  if (!raw?.id || event.event === 'DELETE') return client.user || PUBLIC_REALTIME_TABLES.has(tableName) ? {} : null
+  const primaryKey = tableName === 'team_attendance_clearances' ? 'team_id'
+    : tableName === 'league_attendance_settings' ? 'league_id'
+      : 'id'
+  const primaryValue = raw?.[primaryKey]
+  if (!primaryValue || event.event === 'DELETE') return client.user || PUBLIC_REALTIME_TABLES.has(tableName) ? {} : null
   if (!client.user && client.guestChatToken && tableName === 'live_chat_messages' && raw.session_id) {
     const visible = await db.execute(sql`
       select to_jsonb(m) as record from public.live_chat_messages m
@@ -47,6 +52,12 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
     `)
     return (visible.rows[0]?.record as Record<string, unknown> | undefined) ?? null
   }
+  // Document requirement changes contain no secret values. Sending only the
+  // identity/scope also lets clients notice a requirement that was disabled,
+  // which is no longer selectable through the active-only RLS policy.
+  if (client.user && tableName === 'registration_doc_types') {
+    return { id: raw.id, scope: raw.scope }
+  }
   if (client.user && tableName === 'profiles' && String(raw.id) !== client.user.id) {
     const accountReviewEvent = Boolean(raw.requires_account_approval || (event.old_record as Record<string, unknown> | null)?.requires_account_approval)
     if (!accountReviewEvent) return null
@@ -56,9 +67,10 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
     return allowed?.rows[0]?.allowed ? { id: raw.id } : null
   }
   return withRequestRole(client.user, async (transaction) => {
+    const keyIdentifier = sql.identifier(primaryKey)
     const result = await transaction.execute(sql`
       select to_jsonb(row) as record from public.${safeIdentifier(tableName)} row
-      where row.id = ${raw.id} limit 1
+      where row.${keyIdentifier} = ${String(primaryValue)}::uuid limit 1
     `)
     return (result.rows[0]?.record as Record<string, unknown> | undefined) ?? null
   }).catch(() => null)

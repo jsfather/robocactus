@@ -97,7 +97,7 @@ export type RegistrationDocType = {
   is_required: boolean
   is_active: boolean
   sort_order: number
-  scope?: 'profile' | 'team'
+  scope?: 'profile' | 'team' | 'member'
 }
 
 export async function fetchSmsSettings(): Promise<SmsSettings | null> {
@@ -234,6 +234,12 @@ export async function fetchAllRegistrationDocTypes(): Promise<RegistrationDocTyp
 
 export async function fetchTeamRegistrationDocTypes(): Promise<RegistrationDocType[]> {
   const { data, error } = await backend.from('registration_doc_types').select('*').eq('scope', 'team').eq('is_active', true).order('sort_order')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as RegistrationDocType[]
+}
+
+export async function fetchMemberRegistrationDocTypes(): Promise<RegistrationDocType[]> {
+  const { data, error } = await backend.from('registration_doc_types').select('*').eq('scope', 'member').eq('is_active', true).order('sort_order')
   if (error) throw new Error(error.message)
   return (data ?? []) as RegistrationDocType[]
 }
