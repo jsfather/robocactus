@@ -58,7 +58,7 @@ const RPCS = new Set([
   'submit_team_member_correction',
   'request_team_withdrawal', 'review_team_withdrawal',
   'archive_league_cycle', 'archive_expired_incomplete_teams', 'search_podium_by_national_id',
-  'set_league_cycle_podium',
+  'set_league_cycle_podium', 'manage_ticket',
 ])
 
 const CONFLICT_COLUMNS: Record<string, string[]> = {

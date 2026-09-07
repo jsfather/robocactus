@@ -32,6 +32,9 @@ const smsOtpClient = readFileSync(new URL('../src/features/auth/smsOtp.ts', impo
 const cycleArchiveMigration = readFileSync(new URL('../db/migrations/0080_league_cycles_auto_review_archive.sql', import.meta.url), 'utf8')
 const paymentServer = readFileSync(new URL('../server/payment.ts', import.meta.url), 'utf8')
 const rankingsPage = readFileSync(new URL('../src/app/public/RankingsPage.tsx', import.meta.url), 'utf8')
+const dashboardTicketMigration = readFileSync(new URL('../db/migrations/0081_dashboard_channels_ticket_management.sql', import.meta.url), 'utf8')
+const companyDashboard = readFileSync(new URL('../src/app/company/CompanyPanelPage.tsx', import.meta.url), 'utf8')
+const ticketInbox = readFileSync(new URL('../src/features/chat/TicketInbox.tsx', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
   assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 8, lifecycleStatus: 'incomplete' })
@@ -277,4 +280,20 @@ test('cycle archive requires a complete podium and preserves the permanent leagu
   assert.match(cycleArchiveMigration, /podium_team_not_eligible/)
   assert.match(cycleArchiveMigration, /registration_cycle_status='archived'/)
   assert.doesNotMatch(cycleArchiveMigration.match(/create or replace function public\.archive_league_cycle[\s\S]*?end \$\$/)?.[0] ?? '', /delete from public\.leagues/)
+})
+
+test('participant dashboard exposes managed news and communication channels', () => {
+  assert.match(dashboardTicketMigration, /communication_channels jsonb/)
+  assert.match(companyDashboard, /fetchPublishedAnnouncements/)
+  assert.match(companyDashboard, /ChannelIcon/)
+  assert.match(companyDashboard, /item\.slug \? `\/news\/\$\{item\.slug\}`/)
+})
+
+test('ticket management is permission checked and responses retain reviewer identity', () => {
+  assert.match(dashboardTicketMigration, /public\.has_panel_permission\('tickets'\)/)
+  assert.match(dashboardTicketMigration, /snapshot_ticket_message_author/)
+  assert.match(dashboardTicketMigration, /delete from public\.tickets/)
+  assert.match(ticketInbox, /changeTicketStatus/)
+  assert.match(ticketInbox, /deleteManagedTicket/)
+  assert.match(ticketInbox, /msg\.sender_name/)
 })

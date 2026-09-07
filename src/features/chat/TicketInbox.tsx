@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, FieldError, Input, PanelCard, Select, Textarea } from '@/components/ui/FormControls'
+import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { markTicketRead, useUnreadTicketCount } from '@/hooks/useUnreadTickets'
 import {
-  closeTicket,
   createTicket,
   fetchTicketMessages,
   fetchTickets,
@@ -14,6 +14,8 @@ import {
   uploadTicketAttachment,
 } from '@/features/judging/api'
 import {
+  changeTicketStatus,
+  deleteManagedTicket,
   fetchTicketDepartments,
   setTicketDepartment,
 } from '@/features/tickets/api'
@@ -47,6 +49,7 @@ export function TicketInbox({
 }) {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const toast = useToast()
   const { unreadIds, refresh: refreshUnread } = useUnreadTicketCount()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -189,7 +192,7 @@ export function TicketInbox({
   }, [referLeagueId])
 
   const selected = tickets.find((x) => x.id === selectedId) ?? null
-  const statusLabel = (status: string) => ({ open: 'باز', answered: 'پاسخ داده‌شده', pending: 'در انتظار پاسخ', closed: 'بسته‌شده' })[status] ?? status
+  const statusLabel = (status: string) => ({ open: 'در حال بررسی', answered: 'پاسخ داده‌شده', pending: 'در انتظار پاسخ', closed: 'بسته‌شده' })[status] ?? status
   const visibleTickets = tickets.filter((ticket) => ticket.subject.toLowerCase().includes(query.trim().toLowerCase()))
 
   useEffect(() => {
@@ -278,6 +281,43 @@ export function TicketInbox({
     }
   }
 
+  const onStatusChange = async (status: Ticket['status']) => {
+    if (!selectedId) return
+    setBusy(true)
+    setError(null)
+    try {
+      await changeTicketStatus(selectedId, status)
+      await reload()
+      toast.success('وضعیت تیکت با موفقیت تغییر کرد.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onDelete = async () => {
+    if (!selectedId || !window.confirm('این تیکت و تمام پیام‌های آن حذف شود؟ این عملیات قابل بازگشت نیست.')) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteManagedTicket(selectedId)
+      setSelectedId(null)
+      setMessages([])
+      await reload()
+      await refreshUnread()
+      toast.success('تیکت حذف شد.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       <PanelCard
@@ -353,21 +393,10 @@ export function TicketInbox({
           <PanelCard
             title={selected.subject}
             description={`${t('tickets.status')}: ${statusLabel(selected.status)}`}
-            actions={
-              mode !== 'team' && selected.status !== 'closed' ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    void closeTicket(selected.id)
-                      .then(reload)
-                      .catch((err: Error) => setError(err.message))
-                  }
-                >
-                  {t('tickets.close')}
-                </Button>
-              ) : null
-            }
+            actions={mode !== 'team' ? <div className="flex flex-wrap items-end gap-2">
+              <Select label="تغییر وضعیت" value={selected.status} disabled={busy} onChange={(event) => void onStatusChange(event.target.value as Ticket['status'])}><option value="open">در حال بررسی</option><option value="answered">پاسخ داده‌شده</option><option value="closed">بسته‌شده</option></Select>
+              <Button type="button" variant="danger" disabled={busy} onClick={() => void onDelete()}>حذف تیکت</Button>
+            </div> : null}
           >
             {mode === 'staff' ? (
               <div className="mb-4 flex flex-wrap items-end gap-2 border-b border-rc-line pb-4">
@@ -410,6 +439,7 @@ export function TicketInbox({
                       mine ? 'ms-auto rounded-ee-md bg-gradient-to-br from-sky-600 to-cyan-600 text-white' : 'me-auto rounded-es-md border border-slate-100 bg-white text-slate-700'
                     }`}
                   >
+                    {!mine && msg.sender_role && msg.sender_role !== 'شرکت‌کننده' ? <p className="mb-1 text-[11px] font-black text-sky-700">بررسی توسط {msg.sender_name || 'کارشناس'} · {msg.sender_role}</p> : null}
                     {msg.body && msg.body !== '📎' ? (
                       <p className="whitespace-pre-wrap">{msg.body}</p>
                     ) : null}

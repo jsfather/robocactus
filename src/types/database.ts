@@ -548,6 +548,15 @@ export type SiteNavItem = {
   order: number
 }
 
+export type CommunicationChannel = {
+  id: string
+  label_fa: string
+  label_en: string
+  icon: 'telegram' | 'instagram' | 'rubika' | 'bale' | 'message' | 'link'
+  url: string
+  enabled: boolean
+}
+
 export type SiteSettings = {
   id: number
   site_name_fa: string
@@ -607,6 +616,7 @@ export type SiteSettings = {
   login_welcome_title_en?: string | null
   login_welcome_text_fa?: string | null
   login_welcome_text_en?: string | null
+  communication_channels?: CommunicationChannel[] | null
 }
 
 export type TicketMessage = {
@@ -619,6 +629,8 @@ export type TicketMessage = {
   attachment_name?: string | null
   attachment_mime?: string | null
   attachment_size?: number | null
+  sender_name?: string | null
+  sender_role?: string | null
 }
 
 export type CompanyAchievement = {

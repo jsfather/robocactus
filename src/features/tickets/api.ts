@@ -1,6 +1,7 @@
 import { backend } from '@/lib/backend'
 import { slugify } from '@/lib/validation'
 import type { TicketDepartment } from '@/types/database'
+import type { TicketStatus } from '@/types/database'
 
 export type TicketStatusCounts = {
   open: number
@@ -80,5 +81,15 @@ export async function setTicketDepartment(ticketId: string, departmentId: string
     .from('tickets')
     .update({ department_id: departmentId })
     .eq('id', ticketId)
+  if (error) throw new Error(error.message)
+}
+
+export async function changeTicketStatus(ticketId: string, status: TicketStatus): Promise<void> {
+  const { error } = await backend.rpc('manage_ticket', { p_ticket_id: ticketId, p_action: 'status', p_status: status })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteManagedTicket(ticketId: string): Promise<void> {
+  const { error } = await backend.rpc('manage_ticket', { p_ticket_id: ticketId, p_action: 'delete', p_status: null })
   if (error) throw new Error(error.message)
 }

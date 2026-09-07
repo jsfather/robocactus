@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, FieldError, Input, Textarea } from '@/components/ui/FormControls'
+import { Button, FieldError, Input, Select, Textarea } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
@@ -11,7 +11,7 @@ import {
 } from '@/features/settings/api'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useToast } from '@/components/ui/Toast'
-import type { SiteNavItem, SiteSettings } from '@/types/database'
+import type { CommunicationChannel, SiteNavItem, SiteSettings } from '@/types/database'
 
 const emptyNav = (): SiteNavItem => ({
   id: `nav-${Date.now()}`,
@@ -20,6 +20,15 @@ const emptyNav = (): SiteNavItem => ({
   label_en: '',
   enabled: true,
   order: 1,
+})
+
+const emptyChannel = (): CommunicationChannel => ({
+  id: `channel-${Date.now()}`,
+  label_fa: '',
+  label_en: '',
+  icon: 'message',
+  url: '',
+  enabled: true,
 })
 
 export function SuperAdminSettingsPage() {
@@ -78,6 +87,7 @@ export function SuperAdminSettingsPage() {
   }
 
   const nav = Array.isArray(form.nav_items) ? form.nav_items : []
+  const channels = Array.isArray(form.communication_channels) ? form.communication_channels : []
 
   return (
     <PanelPage index="SYS.09" title={t('settings.title')} description={t('settings.subtitle')}>
@@ -362,6 +372,26 @@ export function SuperAdminSettingsPage() {
             <Input label="Telegram" value={form.telegram_url ?? ''} onChange={(e) => patch({ telegram_url: e.target.value })} dir="ltr" placeholder="https://t.me/..." />
             <Input label="LinkedIn" value={form.linkedin_url ?? ''} onChange={(e) => patch({ linkedin_url: e.target.value })} dir="ltr" placeholder="https://linkedin.com/..." />
             <Input label="WhatsApp" value={form.whatsapp_url ?? ''} onChange={(e) => patch({ whatsapp_url: e.target.value })} dir="ltr" placeholder="https://wa.me/..." />
+          </div>
+          <div className="mt-5 border-t border-slate-200 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h3 className="font-black text-slate-800">کانال‌های اطلاع‌رسانی پنل شرکت‌کنندگان</h3><p className="mt-1 text-xs leading-6 text-slate-500">عنوان، آیکن و لینک هر کانال را مدیریت کنید. فقط موارد فعال دارای لینک معتبر نمایش داده می‌شوند.</p></div>
+              <Button type="button" variant="secondary" onClick={() => patch({ communication_channels: [...channels, emptyChannel()] })}>افزودن کانال</Button>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {channels.map((channel, index) => <div key={channel.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input label="عنوان فارسی" value={channel.label_fa} onChange={(event) => patch({ communication_channels: channels.map((item, itemIndex) => itemIndex === index ? { ...item, label_fa: event.target.value } : item) })} />
+                  <Input label="عنوان انگلیسی" dir="ltr" value={channel.label_en} onChange={(event) => patch({ communication_channels: channels.map((item, itemIndex) => itemIndex === index ? { ...item, label_en: event.target.value } : item) })} />
+                  <Select label="آیکن" value={channel.icon} onChange={(event) => patch({ communication_channels: channels.map((item, itemIndex) => itemIndex === index ? { ...item, icon: event.target.value as CommunicationChannel['icon'] } : item) })}>
+                    <option value="telegram">تلگرام</option><option value="instagram">اینستاگرام</option><option value="rubika">روبیکا</option><option value="bale">بله</option><option value="message">پیام‌رسان</option><option value="link">لینک</option>
+                  </Select>
+                  <Select label="وضعیت" value={channel.enabled ? '1' : '0'} onChange={(event) => patch({ communication_channels: channels.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.value === '1' } : item) })}><option value="1">فعال</option><option value="0">غیرفعال</option></Select>
+                  <Input className="sm:col-span-2" label="لینک کانال" dir="ltr" value={channel.url} placeholder="https://..." onChange={(event) => patch({ communication_channels: channels.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item) })} />
+                </div>
+                <button type="button" className="mt-3 text-xs font-bold text-rose-600" onClick={() => patch({ communication_channels: channels.filter((_, itemIndex) => itemIndex !== index) })}>حذف این کانال</button>
+              </div>)}
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <ImageUploadField

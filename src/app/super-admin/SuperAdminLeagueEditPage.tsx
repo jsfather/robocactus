@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
+import { CompetitionCycleFields } from '@/components/ui/CompetitionCycleFields'
+import { useToast } from '@/components/ui/Toast'
 import { PanelPage } from '@/components/layout/PanelShell'
 import {
   deleteLeagueFaq,
@@ -69,6 +71,7 @@ type Tab =
 export function SuperAdminLeagueEditPage() {
   const { leagueId = '' } = useParams()
   const { t } = useTranslation()
+  const toast = useToast()
   const [tab, setTab] = useState<Tab>('basics')
   const [league, setLeague] = useState<League | null>(null)
   const [allLeagues, setAllLeagues] = useState<League[]>([])
@@ -268,8 +271,11 @@ export function SuperAdminLeagueEditPage() {
         team_size_max: form.team_size_max ? Number(form.team_size_max) : null,
       })
       await reload()
+      toast.success('تغییرات صفحه لیگ با موفقیت ذخیره شد.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(`ذخیره انجام نشد: ${message}`)
     } finally {
       setBusy(false)
     }
@@ -426,8 +432,7 @@ export function SuperAdminLeagueEditPage() {
               <Select label="فرمول نتیجه رسمی" value={form.result_formula ?? 'average'} onChange={(e) => patch({ result_formula: e.target.value as 'average' | 'sum' })}><option value="average">میانگین امتیاز داوران</option><option value="sum">مجموع امتیاز داوران</option></Select>
               <Input label="حداقل سن" type="number" value={form.min_age ?? ''} onChange={(e) => patch({ min_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="حداکثر سن" type="number" value={form.max_age ?? ''} onChange={(e) => patch({ max_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
-              <Input label="سال دوره فعال" type="number" value={form.current_season_year ?? ''} onChange={(e) => patch({ current_season_year: Number(e.target.value) })} dir="ltr" />
-              <Select label="ماه دوره فعال" value={String(form.current_season_month ?? 1)} onChange={(e) => patch({ current_season_month: Number(e.target.value) })}>{['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'].map((month,index)=><option key={month} value={index+1}>{month}</option>)}</Select>
+              <CompetitionCycleFields year={Number(form.current_season_year ?? new Date().getFullYear())} month={Number(form.current_season_month ?? new Date().getMonth() + 1)} onChange={(cycle) => patch({ current_season_year: cycle.year, current_season_month: cycle.month })} />
               <Select label="وضعیت دوره ثبت‌نام" value={form.registration_cycle_status ?? 'open'} onChange={(e) => patch({ registration_cycle_status: e.target.value })}>
                 <option value="draft">پیش‌نویس</option>
                 <option value="open">باز</option>

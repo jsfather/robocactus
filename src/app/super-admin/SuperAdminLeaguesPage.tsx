@@ -10,6 +10,8 @@ import {
   Textarea,
 } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
+import { CompetitionCycleFields } from '@/components/ui/CompetitionCycleFields'
+import { useToast } from '@/components/ui/Toast'
 import { PanelPage } from '@/components/layout/PanelShell'
 import {
   createLeague,
@@ -57,6 +59,7 @@ const emptyForm = (): LeagueInput & { id?: string } => ({
 
 export function SuperAdminLeaguesPage() {
   const { t } = useTranslation()
+  const toast = useToast()
   const [leagues, setLeagues] = useState<League[]>([])
   const [form, setForm] = useState(emptyForm())
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -139,13 +142,17 @@ export function SuperAdminLeaguesPage() {
       }
       if (editingId) {
         await updateLeague(editingId, payload)
+        toast.success('تغییرات لیگ با موفقیت ذخیره شد.')
       } else {
         await createLeague(payload)
+        toast.success('لیگ جدید با موفقیت ایجاد شد.')
       }
       resetForm()
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(`ذخیره انجام نشد: ${message}`)
     } finally {
       setBusy(false)
     }
@@ -243,8 +250,7 @@ export function SuperAdminLeaguesPage() {
           <Input label="حداکثر سن" type="number" min={0} value={form.max_age ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, max_age: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="حداقل نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_min ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_min: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="حداکثر نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_max ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_max: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
-          <Input label="سال دوره" type="number" value={form.current_season_year ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, current_season_year: Number(e.target.value) }))} dir="ltr" />
-          <Select label="ماه دوره" value={String(form.current_season_month??1)} onChange={(e)=>setForm(prev=>({...prev,current_season_month:Number(e.target.value)}))}>{['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'].map((label,index)=><option key={label} value={index+1}>{label}</option>)}</Select>
+          <CompetitionCycleFields year={Number(form.current_season_year ?? new Date().getFullYear())} month={Number(form.current_season_month ?? new Date().getMonth() + 1)} onChange={(cycle) => setForm((prev) => ({ ...prev, current_season_year: cycle.year, current_season_month: cycle.month }))} />
           <Input label="حداقل سرپرست" type="number" min={0} value={form.min_captains??1} onChange={(e)=>setForm(prev=>({...prev,min_captains:Math.max(0,Number(e.target.value))}))} dir="ltr" />
           <Input label="حداقل مربی" type="number" min={0} value={form.min_coaches??0} onChange={(e)=>setForm(prev=>({...prev,min_coaches:Math.max(0,Number(e.target.value))}))} dir="ltr" />
           <p className="md:col-span-2 -mt-2 rounded-xl bg-sky-50 px-4 py-3 text-xs leading-6 text-sky-800">عدد صفر برای سرپرست یا مربی یعنی حضور آن نقش در این لیگ الزامی نیست.</p>

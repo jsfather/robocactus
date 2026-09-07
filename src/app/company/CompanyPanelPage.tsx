@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, PanelCard, StatusBadge } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { CompanyForm } from '@/features/companies/CompanyForm'
 import {
   fetchActiveLeagues,
@@ -13,10 +14,11 @@ import {
 import { fetchCompanyPublishedResults } from '@/features/live-results/api'
 import { PodiumCup } from '@/components/live-results/PodiumCup'
 import { TeamRegistrationWizard } from '@/features/registration/TeamRegistrationWizard'
-import type { Company, Invoice, League, Team } from '@/types/database'
+import type { Announcement, CommunicationChannel, Company, Invoice, League, Team } from '@/types/database'
 import { backend } from '@/lib/backend'
 import type { RankingsRow } from '@/features/rankings/api'
 import { formatSeasonYear } from '@/lib/dates'
+import { fetchPublishedAnnouncements } from '@/features/content/api'
 
 const entityLabels: Record<string, string> = { individual: 'شخص حقیقی', company: 'شرکت', institute: 'مؤسسه', school: 'مدرسه', university: 'دانشگاه', academy: 'آموزشگاه', club: 'باشگاه', other: 'سایر' }
 
@@ -29,6 +31,7 @@ export function CompanyPanelPage({
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
+  const { settings } = useSiteSettings()
   const [companies, setCompanies] = useState<Company[]>([])
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -36,6 +39,7 @@ export function CompanyPanelPage({
   const [companyResults, setCompanyResults] = useState<RankingsRow[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [memberCount, setMemberCount] = useState(0)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [,setClearedTeamIds]=useState<Set<string>>(new Set())
   const [showWizard, setShowWizard] = useState(false)
   const [resumeTeamId, setResumeTeamId] = useState<string | null>(null)
@@ -47,6 +51,7 @@ export function CompanyPanelPage({
   const profileEditorRef = useRef<HTMLDivElement | null>(null)
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null
+  const communicationChannels = (settings?.communication_channels ?? []).filter((channel) => channel.enabled && /^https:\/\//i.test(channel.url))
 
   const loadCompanies = useCallback(async () => {
     if (!user) return
@@ -74,6 +79,10 @@ export function CompanyPanelPage({
     if (authLoading || !user) return
     void loadCompanies()
   }, [user, authLoading, loadCompanies])
+
+  useEffect(() => {
+    void fetchPublishedAnnouncements().then((items) => setAnnouncements(items.slice(0, 2))).catch(() => setAnnouncements([]))
+  }, [])
 
   useEffect(() => {
     if (!activeCompanyId) {
@@ -188,6 +197,24 @@ export function CompanyPanelPage({
             </PanelCard>
             <PanelCard title="راهنمای شروع" description="مسیر پیشنهادی برای تکمیل حضور در مسابقات">
               <ol className="space-y-3 text-sm text-slate-700"><li><b>۱. پروفایل مجموعه:</b> اطلاعات هویتی و مدارک را کامل کنید.</li><li><b>۲. تیم‌های ما:</b> تیم، سرپرست و اعضا را تعریف کنید.</li><li><b>۳. انتخاب لیگ:</b> شرایط لیگ را بررسی و ثبت‌نام را آغاز کنید.</li><li><b>۴. پرداخت و پیگیری:</b> صورتحساب و وضعیت تأیید را از پنل دنبال کنید.</li></ol>
+            </PanelCard>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
+            <PanelCard title="اخبار مهم" description="تازه‌ترین اطلاعیه‌های رسمی مسابقات">
+              {announcements.length ? <div className="grid gap-3 sm:grid-cols-2">{announcements.map((item) => <article key={item.id} className="flex min-w-0 flex-col border-s-4 border-s-emerald-500 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold text-emerald-700">اطلاعیه رسمی</p>
+                <h3 className="mt-2 line-clamp-2 font-black leading-7 text-slate-900">{item.title}</h3>
+                {item.excerpt ? <p className="mt-2 line-clamp-2 text-xs leading-6 text-slate-500">{item.excerpt}</p> : null}
+                <Link to={item.slug ? `/news/${item.slug}` : '/news'} className="mt-auto pt-4 text-sm font-black text-sky-700">مشاهده اطلاعیه ←</Link>
+              </article>)}</div> : <p className="text-sm text-slate-500">اطلاعیه جدیدی منتشر نشده است.</p>}
+              <Link to="/news" className="mt-4 inline-flex text-sm font-bold text-slate-600 hover:text-sky-700">مشاهده همه اطلاعیه‌ها</Link>
+            </PanelCard>
+            <PanelCard title="کانال‌های اطلاع‌رسانی" description="مسیرهای رسمی دریافت خبرها">
+              {communicationChannels.length ? <div className="grid gap-2">{communicationChannels.map((channel) => <a key={channel.id} href={channel.url} target="_blank" rel="noreferrer noopener" className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-sky-300 hover:bg-sky-50">
+                <ChannelIcon channel={channel} />
+                <span className="min-w-0"><strong className="block truncate text-sm text-slate-800">{i18n.language.startsWith('en') ? channel.label_en || channel.label_fa : channel.label_fa || channel.label_en}</strong><span className="block text-[11px] text-slate-400">عضویت در کانال رسمی</span></span>
+                <span className="ms-auto text-slate-300 transition group-hover:text-sky-600" aria-hidden="true">↗</span>
+              </a>)}</div> : <p className="text-sm leading-7 text-slate-500">هنوز کانال فعالی از طرف مدیریت ثبت نشده است.</p>}
             </PanelCard>
           </div>
           {(teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) || invoices.some((invoice) => invoice.status === 'pending')) ? <div className="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-5"><h3 className="font-black text-amber-900">اقدام‌های باز شما</h3><div className="mt-3 flex flex-wrap gap-3">{teams.some((team) => !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? '')) ? <Link to="/company/teams" className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white">ادامه ثبت‌نام تیم</Link> : null}{invoices.some((invoice) => invoice.status === 'pending') ? <Link to="/account/invoices" className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-800">مشاهده صورتحساب‌های باز</Link> : null}</div></div> : null}
@@ -334,4 +361,9 @@ export function CompanyPanelPage({
 function DashboardMetric({ label, value, tone }: { label: string; value: number; tone: 'amber' | 'sky' | 'emerald' | 'violet' }) {
   const colors = { amber: 'from-amber-50 text-amber-700', sky: 'from-sky-50 text-sky-700', emerald: 'from-emerald-50 text-emerald-700', violet: 'from-violet-50 text-violet-700' }
   return <div className={`rounded-2xl border border-white bg-gradient-to-l ${colors[tone]} to-white p-5 shadow-sm`}><p className="text-xs font-bold opacity-70">{label}</p><p className="mt-2 text-3xl font-black">{value.toLocaleString('fa-IR')}</p></div>
+}
+
+function ChannelIcon({ channel }: { channel: CommunicationChannel }) {
+  const glyph = channel.icon === 'instagram' ? '◎' : channel.icon === 'telegram' ? '➤' : channel.icon === 'rubika' ? '◈' : channel.icon === 'bale' ? 'ب' : channel.icon === 'link' ? '↗' : '✦'
+  return <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-600 to-emerald-500 text-lg font-black text-white shadow-sm" aria-hidden="true">{glyph}</span>
 }
