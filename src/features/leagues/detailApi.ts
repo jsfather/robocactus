@@ -24,6 +24,14 @@ export type LeagueDetailBundle = {
   related: League[]
   registeredCount: number
   attendanceSettings: AttendanceSettings | null
+  participants: PublicLeagueParticipant[]
+}
+
+export type PublicLeagueParticipant = {
+  team_id: string; league_id: string; season_year: number; season_month: number
+  team_name: string; team_name_en: string | null; organization_name: string | null; organization_name_en: string | null
+  captain_name_fa: string | null; captain_name_en: string | null; country_code: string; member_count: number
+  public_status: 'confirmed' | 'pending' | 'withdrawn'
 }
 
 export async function fetchLeagueBySlug(slug: string): Promise<League | null> {
@@ -51,6 +59,7 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     newsRes,
     countRes,
     attendanceRes,
+    participantsRes,
   ] = await Promise.all([
     backend.from('league_files').select('*').eq('league_id', league.id).order('sort_order'),
     backend.from('league_people').select('*').eq('league_id', league.id).order('sort_order'),
@@ -76,9 +85,10 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
       .limit(5),
     backend.rpc('league_registered_count', { p_league_id: league.id }),
     backend.from('league_attendance_settings').select('*').eq('league_id', league.id).maybeSingle(),
+    backend.from('public_league_participants').select('*').eq('league_id', league.id).order('team_name'),
   ])
 
-  for (const res of [filesRes, peopleRes, sponsorsRes, faqsRes, pastRes, galleryRes, newsRes, attendanceRes]) {
+  for (const res of [filesRes, peopleRes, sponsorsRes, faqsRes, pastRes, galleryRes, newsRes, attendanceRes, participantsRes]) {
     if (res.error) throw new Error(res.error.message)
   }
   if (countRes.error) throw new Error(countRes.error.message)
@@ -109,5 +119,6 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     related,
     registeredCount: Number(countRes.data ?? 0),
     attendanceSettings: (attendanceRes.data as AttendanceSettings | null) ?? null,
+    participants: (participantsRes.data ?? []) as PublicLeagueParticipant[],
   }
 }

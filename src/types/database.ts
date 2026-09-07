@@ -136,6 +136,7 @@ export type Profile = {
 export type Company = {
   id: string
   name: string
+  name_en?: string | null
   slug: string
   logo_url: string | null
   bio: string | null
@@ -322,6 +323,12 @@ export type League = {
   max_age?: number | null
   current_season_year?: number
   registration_cycle_status?: 'draft' | 'open' | 'closed' | 'archived' | string
+  auto_approve_team_members?: boolean
+  min_captains?: number
+  min_coaches?: number
+  current_season_month?: number
+  payment_deadline?: string | null
+  incomplete_archive_after_days?: number
 }
 
 export type Team = {
@@ -334,6 +341,8 @@ export type Team = {
   motto_fa?: string | null
   motto_en?: string | null
   season_year?: number | null
+  season_month?: number | null
+  archived_at?: string | null
   province: string | null
   city: string | null
   member_count: number | null

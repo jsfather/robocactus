@@ -5,13 +5,16 @@ import { config } from './config.js'
 import { db, userFromRequest, withRequestRole, type AuthUser } from './db.js'
 import { rateLimited } from './rate-limit.js'
 
-type PayableInvoice = { id: string; team_id: string; amount: string | number; status: string; gateway_ref: string | null; terms_accepted_at: string | null; invoice_number: string | null }
+type PayableInvoice = { id: string; team_id: string; amount: string | number; status: string; gateway_ref: string | null; terms_accepted_at: string | null; invoice_number: string | null; payment_deadline: string | null; team_archived_at: string | null }
 type PaymentAttempt = { id: string; invoice_id: string; team_id: string; invoice_number: string | null; invoice_status: string; invoice_amount: string | number; authority: string; amount: string | number; status: string; ref_id: string | null }
 type ZarinPalBody = { data?: { authority?: string; code?: number; ref_id?: number; message?: string }; errors?: { code?: number; message?: string } | Array<{ code?: number; message?: string }> }
 
 async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<PayableInvoice | null> {
   return withRequestRole(user, async (transaction) => {
-    const result = await transaction.execute(sql`select id,team_id,amount,status,gateway_ref,terms_accepted_at,invoice_number from public.invoices where id=${invoiceId} limit 1`)
+    const result = await transaction.execute(sql`select i.id,i.team_id,i.amount,i.status,i.gateway_ref,i.terms_accepted_at,i.invoice_number,
+      l.payment_deadline,t.archived_at as team_archived_at from public.invoices i
+      join public.teams t on t.id=i.team_id join public.leagues l on l.id=t.league_id
+      where i.id=${invoiceId} limit 1`)
     return (result.rows[0] as PayableInvoice | undefined) ?? null
   })
 }
@@ -99,6 +102,8 @@ export function registerPaymentRoutes(router: Router): void {
     const invoiceId = String(request.body?.metadata?.invoiceId ?? '')
     const invoice = invoiceId ? await visibleInvoice(user, invoiceId) : null
     if (!invoice || !['pending', 'failed'].includes(invoice.status)) return void response.status(404).json({ error: 'payable_invoice_not_found' })
+    if (invoice.team_archived_at) return void response.status(409).json({ error: 'registration_archived' })
+    if (invoice.payment_deadline && Date.now() > new Date(invoice.payment_deadline).getTime()) return void response.status(409).json({ error: 'payment_deadline_passed' })
     if (!invoice.terms_accepted_at) return void response.status(409).json({ error: 'terms_not_accepted' })
 
     const settings = await getAuthSettings(true)

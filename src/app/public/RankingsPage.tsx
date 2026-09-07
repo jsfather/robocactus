@@ -1,153 +1,91 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, PanelCard, Select } from '@/components/ui/FormControls'
-import { fetchActiveLeagues } from '@/features/companies/api'
-import {
-  fetchPublishedRankings,
-  fetchRankingYears,
-  type RankingsRow,
-} from '@/features/rankings/api'
+import { Button, Input, Select } from '@/components/ui/FormControls'
+import { fetchLeaguesForFilter, fetchPodiumArchive, type PodiumArchiveRow } from '@/features/rankings/api'
 import type { League } from '@/types/database'
-import { formatSeasonYear } from '@/lib/dates'
+import { formatCompetitionCycle, formatSeasonYear } from '@/lib/dates'
+
+const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const monthsFa = monthsEn.map((_, index) => new Intl.DateTimeFormat('fa-IR', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, index, 15))))
 
 export function RankingsPage() {
   const { t, i18n } = useTranslation()
-  const [rows, setRows] = useState<RankingsRow[]>([])
+  const en = i18n.language === 'en'
+  const [rows, setRows] = useState<PodiumArchiveRow[]>([])
   const [leagues, setLeagues] = useState<League[]>([])
-  const [years, setYears] = useState<number[]>([])
+  const [availableYears, setAvailableYears] = useState<number[]>([])
   const [year, setYear] = useState('')
+  const [month, setMonth] = useState('')
   const [leagueId, setLeagueId] = useState('')
   const [q, setQ] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [nationalId, setNationalId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const years = useMemo(() => availableYears.length ? availableYears : [...new Set(rows.map((row) => row.season_year))].sort((a, b) => b - a), [availableYears, rows])
 
-  const load = async (filters?: { year?: string; leagueId?: string; q?: string }) => {
+  const load = useCallback(async (filters: { year?: string; month?: string; leagueId?: string; q?: string; nationalId?: string } = {}) => {
     setLoading(true)
     setError(null)
     try {
-      const [data, leagueList, yearList] = await Promise.all([
-        fetchPublishedRankings({
-          year: filters?.year ? Number(filters.year) : undefined,
-          leagueId: filters?.leagueId || undefined,
-          q: filters?.q || undefined,
-        }),
-        fetchActiveLeagues().catch(() => [] as League[]),
-        fetchRankingYears(),
+      const [data, leagueRows, allRows] = await Promise.all([
+        fetchPodiumArchive({ year: filters.year ? Number(filters.year) : undefined, month: filters.month ? Number(filters.month) : undefined, leagueId: filters.leagueId || undefined, q: filters.q || undefined, nationalId: filters.nationalId || undefined }),
+        fetchLeaguesForFilter(),
+        fetchPodiumArchive(),
       ])
       setRows(data)
-      setLeagues(leagueList)
-      setYears(yearList)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      setLeagues(leagueRows)
+      setAvailableYears([...new Set(allRows.map((row) => row.season_year))].sort((a, b) => b - a))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('common.error'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
-  useEffect(() => {
-    void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => { void load() }, [load])
 
-  const onFilter = (event: FormEvent) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault()
-    void load({ year, leagueId, q })
+    const clean = nationalId.replace(/\D/g, '')
+    if (clean && clean.length !== 10) {
+      setError(en ? 'National ID must contain exactly 10 digits.' : 'کد ملی باید دقیقاً ۱۰ رقم باشد.')
+      return
+    }
+    void load({ year, month, leagueId, q, nationalId: clean })
   }
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-12">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('rankings.title')}</h1>
-        <p className="mt-1 text-rc-muted">{t('rankings.subtitle')}</p>
-      </div>
+  const reset = () => {
+    setYear(''); setMonth(''); setLeagueId(''); setQ(''); setNationalId('')
+    void load()
+  }
 
-      <PanelCard title={t('rankings.filters')}>
-        <form
-          className="grid gap-3 md:grid-cols-[1fr_1fr_1.2fr_auto] md:items-end"
-          onSubmit={onFilter}
-        >
-          <Select label={t('rankings.year')} value={year} onChange={(e) => setYear(e.target.value)}>
-            <option value="">{t('rankings.allYears')}</option>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label={t('team.league')}
-            value={leagueId}
-            onChange={(e) => setLeagueId(e.target.value)}
-          >
-            <option value="">{t('rankings.allLeagues')}</option>
-            {leagues.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </Select>
-          <Input
-            label={t('rankings.search')}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t('rankings.searchPlaceholder')}
-          />
-          <Button type="submit" disabled={loading}>
-            {loading ? t('app.loading') : t('rankings.apply')}
-          </Button>
-        </form>
-      </PanelCard>
-
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
-
-      {loading ? (
-        <p className="text-rc-muted">{t('app.loading')}</p>
-      ) : error ? null : rows.length === 0 ? (
-        <p className="text-rc-muted">{t('rankings.empty')}</p>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/[0.03] text-rc-muted">
-                <th className="px-3 py-3 text-start font-medium">{t('rankings.year')}</th>
-                <th className="px-3 py-3 text-start font-medium">{t('judging.rank')}</th>
-                <th className="px-3 py-3 text-start font-medium">{t('team.name')}</th>
-                <th className="px-3 py-3 text-start font-medium">{t('rankings.company')}</th>
-                <th className="px-3 py-3 text-start font-medium">{t('team.league')}</th>
-                <th className="px-3 py-3 text-start font-medium">{t('judging.score')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-white/5">
-                  <td className="px-3 py-3 font-mono text-rc-blue">{formatSeasonYear(row.season_year,i18n.language)}</td>
-                  <td className="px-3 py-3 font-mono text-rc-accent">
-                    {row.rank != null ? `#${row.rank}` : '—'}
-                  </td>
-                  <td className="px-3 py-3">{row.team_name}</td>
-                  <td className="px-3 py-3">
-                    {row.company_slug ? (
-                      <Link
-                        to={`/companies/${row.company_slug}`}
-                        className="text-rc-blue hover:underline"
-                      >
-                        {row.company_name}
-                      </Link>
-                    ) : (
-                      row.company_name
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-rc-muted">{row.league_name}</td>
-                  <td className="px-3 py-3 font-mono">
-                    {row.score != null ? row.score : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
+  return <main className="mx-auto max-w-7xl px-4 py-12 sm:px-8">
+    <header className="border-b border-slate-200 pb-7">
+      <p className="text-xs font-black tracking-[.16em] text-emerald-700">{en ? 'HALL OF HONOUR' : 'تالار افتخارات'}</p>
+      <h1 className="mt-2 text-3xl font-black text-slate-950 sm:text-4xl">{t('rankings.title')}</h1>
+      <p className="mt-2 text-slate-600">{t('rankings.subtitle')}</p>
+    </header>
+    <form onSubmit={submit} className="mt-7 grid gap-3 border-y border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 xl:grid-cols-[.8fr_.8fr_1fr_1.2fr_1.1fr_auto] xl:items-end">
+      <Select label={t('rankings.year')} value={year} onChange={(event) => setYear(event.target.value)}><option value="">{t('rankings.allYears')}</option>{years.map((value) => <option key={value} value={value}>{formatSeasonYear(value, i18n.language)}</option>)}</Select>
+      <Select label={en ? 'Month' : 'ماه میلادی دوره'} value={month} onChange={(event) => setMonth(event.target.value)}><option value="">{en ? 'All months' : 'همه ماه‌ها'}</option>{(en ? monthsEn : monthsFa).map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</Select>
+      <Select label={t('team.league')} value={leagueId} onChange={(event) => setLeagueId(event.target.value)}><option value="">{t('rankings.allLeagues')}</option>{leagues.map((league) => <option key={league.id} value={league.id}>{en ? league.name_en || league.name : league.name}</option>)}</Select>
+      <Input label={t('rankings.search')} value={q} onChange={(event) => setQ(event.target.value)} placeholder={en ? 'Team, participant or organization' : 'تیم، شرکت‌کننده یا مجموعه'} />
+      <Input label={en ? 'National ID lookup' : 'جست‌وجو با کد ملی'} inputMode="numeric" maxLength={10} value={nationalId} onChange={(event) => setNationalId(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0000000000" dir="ltr" />
+      <div className="flex gap-2"><Button type="submit" disabled={loading}>{loading ? t('app.loading') : t('rankings.apply')}</Button><Button type="button" variant="ghost" onClick={reset}>{en ? 'Reset' : 'پاک‌کردن'}</Button></div>
+    </form>
+    {error ? <p className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
+    {!loading && !error && !rows.length ? <div className="py-20 text-center text-slate-500">{t('rankings.empty')}</div> : null}
+    {!loading && rows.length ? <div className="mt-8 overflow-x-auto border border-slate-200 bg-white"><table className="w-full min-w-[900px] text-sm">
+      <thead className="bg-slate-900 text-white"><tr><th className="p-4 text-start">{en ? 'Place' : 'مقام'}</th><th className="p-4 text-start">{en ? 'Participant' : 'نام و نام خانوادگی'}</th><th className="p-4 text-start">{en ? 'Team' : 'تیم'}</th><th className="p-4 text-start">{en ? 'League' : 'لیگ'}</th><th className="p-4 text-start">{en ? 'Organization' : 'مجموعه'}</th><th className="p-4 text-start">{en ? 'Cycle' : 'دوره برگزاری'}</th></tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50">
+        <td className="p-4"><span className={`inline-grid size-9 place-items-center rounded-full font-black ${row.rank === 1 ? 'bg-amber-100 text-amber-800' : row.rank === 2 ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-800'}`}>{row.rank}</span></td>
+        <td className="p-4 font-bold text-slate-900">{en ? row.participant_name_en || row.participant_name_fa : row.participant_name_fa || row.participant_name_en || '—'}</td>
+        <td className="p-4">{en ? row.team_name_en || row.team_name : row.team_name}</td>
+        <td className="p-4"><Link className="font-bold text-sky-700 hover:underline" to={`/leagues/${row.league_slug}`}>{en ? row.league_name_en || row.league_name : row.league_name}</Link></td>
+        <td className="p-4 text-slate-600">{en ? row.organization_name_en || row.organization_name : row.organization_name || '—'}</td>
+        <td className="p-4">{formatCompetitionCycle(row.season_year, row.season_month, i18n.language)}</td>
+      </tr>)}</tbody>
+    </table></div> : null}
+  </main>
 }

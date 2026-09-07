@@ -39,6 +39,7 @@ export const SUPER_ADMIN_NAV_GROUPS: PanelNavGroup[] = [
     matchPrefix: '/super-admin',
     items: [
       { to: '/super-admin/leagues', labelKey: 'competitions.nav', helpKey: 'panel.help.sa.leagues' },
+      { to: '/super-admin/league-archives', labelKey: 'panel.nav.competitionArchives', helpKey: 'panel.help.sa.leagues' },
       { to: '/super-admin/participants', labelKey: 'participants.title', helpKey: 'participants.help' },
       { to: '/super-admin/incomplete-registrations', labelKey: 'registrationLifecycle.title', helpKey: 'registrationLifecycle.help' },
       { to: '/super-admin/companies', labelKey: 'admin.companies.title', helpKey: 'panel.help.sa.companies' },

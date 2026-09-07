@@ -186,8 +186,8 @@ export function TeamPanelPage() {
               label={permitIssued?'تأییدشده و مجاز به حضور':hasNoMembers?'نیازمند تکمیل اعضای تیم':t(`team.statuses.${team.status}`, { defaultValue: team.status })}
             />
             {permitIssued?<span className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white"><span aria-hidden="true">✓</span> مجوز حضور صادر شده</span>:null}
-            <Link to={hasNoMembers?`/company/teams?resume=${team.id}`:`/team/${team.id}/attendance`}><Button type="button">{hasNoMembers?'تکمیل اطلاعات اعضای تیم':permitIssued?'مشاهده مجوز و اطلاعات لیگ':'ادامه ثبت‌نام'}</Button></Link>
-            {invoice?<Link to={`/payments/teams/${team.id}`}><Button type="button" variant={paymentPaid?'secondary':'primary'}>{paymentPaid?'مشاهده فاکتور':'پرداخت فاکتور'}</Button></Link>:null}
+            {!team.archived_at?<Link to={hasNoMembers?`/company/teams?resume=${team.id}`:`/team/${team.id}/attendance`}><Button type="button">{hasNoMembers?'تکمیل اطلاعات اعضای تیم':permitIssued?'مشاهده مجوز و اطلاعات لیگ':'ادامه ثبت‌نام'}</Button></Link>:<span className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-black text-slate-600">پرونده بایگانی‌شده</span>}
+            {invoice?<Link to={`/payments/teams/${team.id}`}><Button type="button" variant="secondary">{paymentPaid?'مشاهده فاکتور':team.archived_at?'مشاهده پیش‌فاکتور بایگانی‌شده':'پرداخت فاکتور'}</Button></Link>:null}
           </div>
         }
       >
@@ -214,7 +214,7 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={!isManagementView && (editLocked || (team.status !== 'draft' && !members.some((member) => member.review_status === 'rejected')))} onClick={() => setEditing((value) => !value)}>{!isManagementView && editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : isManagementView ? 'ویرایش کلی' : team.status !== 'draft' ? 'اصلاح اعضای ردشده' : 'ویرایش اطلاعات'}</Button>}>
+        <PanelCard title={t('team.membersTitle')} actions={<Button type="button" variant="secondary" disabled={Boolean(team.archived_at) || (!isManagementView && (editLocked || (team.status !== 'draft' && !members.some((member) => member.review_status === 'rejected'))))} onClick={() => setEditing((value) => !value)}>{team.archived_at?'فقط‌خواندنی':!isManagementView && editLocked ? 'مهلت ویرایش پایان یافته' : editing ? 'انصراف' : isManagementView ? 'ویرایش کلی' : team.status !== 'draft' ? 'اصلاح اعضای ردشده' : 'ویرایش اطلاعات'}</Button>}>
           {league?.team_edit_deadline ? <p className="mb-3 text-xs text-rc-muted">مهلت ویرایش: {formatAppDate(league.team_edit_deadline, i18n.language, { withTime: true })}</p> : null}
           {editing ? <div className="space-y-4">
             {memberEdits.filter((member) => isManagementView || team.status === 'draft' || (member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))).map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">

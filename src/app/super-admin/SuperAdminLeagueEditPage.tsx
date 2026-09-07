@@ -159,6 +159,12 @@ export function SuperAdminLeagueEditPage() {
       min_age: l.min_age ?? null,
       max_age: l.max_age ?? null,
       current_season_year: l.current_season_year ?? new Date().getFullYear(),
+      current_season_month: l.current_season_month ?? new Date().getMonth() + 1,
+      auto_approve_team_members: l.auto_approve_team_members ?? false,
+      min_captains: l.min_captains ?? 1,
+      min_coaches: l.min_coaches ?? 0,
+      payment_deadline: l.payment_deadline ?? null,
+      incomplete_archive_after_days: l.incomplete_archive_after_days ?? 4,
       registration_cycle_status: l.registration_cycle_status ?? 'open',
       registration_open_at: l.registration_open_at,
       registration_close_at: l.registration_close_at,
@@ -254,6 +260,10 @@ export function SuperAdminLeagueEditPage() {
         result_formula: form.result_formula ?? 'average',
         required_judge_count: form.required_judge_count ?? null,
         current_season_year: Number(form.current_season_year ?? new Date().getFullYear()),
+        current_season_month: Number(form.current_season_month ?? new Date().getMonth() + 1),
+        min_captains: Math.max(0, Number(form.min_captains ?? 1)),
+        min_coaches: Math.max(0, Number(form.min_coaches ?? 0)),
+        incomplete_archive_after_days: Math.max(1, Number(form.incomplete_archive_after_days ?? 4)),
         team_size_min: form.team_size_min ? Number(form.team_size_min) : null,
         team_size_max: form.team_size_max ? Number(form.team_size_max) : null,
       })
@@ -393,7 +403,7 @@ export function SuperAdminLeagueEditPage() {
           </PanelCard>
         )}
 
-        {tab === 'specs' && (
+        {tab === 'specs' && (<>
           <PanelCard title={t('admin.leagueDetail.tabs.specs')}>
             <div className="grid gap-3 md:grid-cols-2">
               <Input label={t('leaguePage.age')} value={form.age_range ?? ''} onChange={(e) => patch({ age_range: e.target.value })} />
@@ -405,6 +415,9 @@ export function SuperAdminLeagueEditPage() {
               </Select>
               <Input label={t('admin.leagueDetail.teamMin')} type="number" value={form.team_size_min ?? ''} onChange={(e) => patch({ team_size_min: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label={t('admin.leagueDetail.teamMax')} type="number" value={form.team_size_max ?? ''} onChange={(e) => patch({ team_size_max: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
+              <div><Input label="حداقل سرپرست" type="number" min={0} value={form.min_captains ?? 1} onChange={(e) => patch({ min_captains: Math.max(0, Number(e.target.value)) })} dir="ltr" /><p className="mt-1 text-xs text-rc-muted">عدد صفر یعنی حضور سرپرست برای این لیگ الزامی نیست.</p></div>
+              <div><Input label="حداقل مربی" type="number" min={0} value={form.min_coaches ?? 0} onChange={(e) => patch({ min_coaches: Math.max(0, Number(e.target.value)) })} dir="ltr" /><p className="mt-1 text-xs text-rc-muted">عدد صفر یعنی تیم می‌تواند بدون مربی ثبت شود.</p></div>
+              <Select label="تأیید اعضای تیم" value={form.auto_approve_team_members ? 'auto' : 'manual'} onChange={(e) => patch({ auto_approve_team_members: e.target.value === 'auto' })}><option value="manual">بررسی و تأیید توسط کارشناس</option><option value="auto">تأیید خودکار اطلاعات کامل و معتبر</option></Select>
               <Input label={t('admin.leagues.fee')} type="number" value={form.registration_fee ?? 0} onChange={(e) => patch({ registration_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه سرپرست (ریال)" type="number" value={form.captain_fee ?? 0} onChange={(e) => patch({ captain_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه هر عضو (ریال)" type="number" value={form.member_fee ?? 0} onChange={(e) => patch({ member_fee: Number(e.target.value) })} dir="ltr" />
@@ -414,6 +427,7 @@ export function SuperAdminLeagueEditPage() {
               <Input label="حداقل سن" type="number" value={form.min_age ?? ''} onChange={(e) => patch({ min_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="حداکثر سن" type="number" value={form.max_age ?? ''} onChange={(e) => patch({ max_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="سال دوره فعال" type="number" value={form.current_season_year ?? ''} onChange={(e) => patch({ current_season_year: Number(e.target.value) })} dir="ltr" />
+              <Select label="ماه دوره فعال" value={String(form.current_season_month ?? 1)} onChange={(e) => patch({ current_season_month: Number(e.target.value) })}>{['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'].map((month,index)=><option key={month} value={index+1}>{month}</option>)}</Select>
               <Select label="وضعیت دوره ثبت‌نام" value={form.registration_cycle_status ?? 'open'} onChange={(e) => patch({ registration_cycle_status: e.target.value })}>
                 <option value="draft">پیش‌نویس</option>
                 <option value="open">باز</option>
@@ -422,6 +436,8 @@ export function SuperAdminLeagueEditPage() {
               </Select>
               <DateTimeField label={t('admin.leagues.openAt')} value={form.registration_open_at} onChange={(iso) => patch({ registration_open_at: iso })} />
               <DateTimeField label={t('admin.leagues.closeAt')} value={form.registration_close_at} onChange={(iso) => patch({ registration_close_at: iso })} />
+              <DateTimeField label="مهلت نهایی پرداخت" value={form.payment_deadline} onChange={(iso) => patch({ payment_deadline: iso })} />
+              <div><Input label="بایگانی ثبت‌نام ناقص پس از چند روز" type="number" min={1} max={90} value={form.incomplete_archive_after_days ?? 4} onChange={(e) => patch({ incomplete_archive_after_days: Math.max(1, Number(e.target.value)) })} dir="ltr" /><p className="mt-1 text-xs text-rc-muted">پس از پایان مهلت پرداخت، پرونده ناقص با این تأخیر فقط‌خواندنی و بایگانی می‌شود.</p></div>
               <DateTimeField label="مهلت مجاز ویرایش اعضای تیم" value={form.team_edit_deadline} onChange={(iso) => patch({ team_edit_deadline: iso })} />
               <DateTimeField label={t('admin.leagueDetail.eventStart')} value={form.event_starts_at} onChange={(iso) => patch({ event_starts_at: iso })} />
               <DateTimeField label={t('admin.leagueDetail.eventEnd')} value={form.event_ends_at} onChange={(iso) => patch({ event_ends_at: iso })} />
@@ -468,7 +484,8 @@ export function SuperAdminLeagueEditPage() {
               </div>
             </div>
           </PanelCard>
-        )}
+          <LeagueArchiveControl league={league} />
+        </>)}
 
         {tab === 'rules' && (
           <PanelCard title={t('admin.leagueDetail.tabs.rules')}>
@@ -755,6 +772,22 @@ export function SuperAdminLeagueEditPage() {
       {tab === 'attendance' && <div className="space-y-5"><TeamDocumentsSettingsForm leagueId={leagueId} /><AttendanceSettingsForm leagueId={leagueId} /><WithdrawalSettingsForm leagueId={leagueId} /></div>}
     </PanelPage>
   )
+}
+
+type LeagueCycleArchiveRow = { id:string; season_year:number; season_month:number; label_fa:string; archived_at:string }
+type PodiumTeamOption = { id:string; name:string }
+function LeagueArchiveControl({league}:{league:League}) {
+  const leagueId=league.id
+  const [rows,setRows]=useState<LeagueCycleArchiveRow[]>([]),[teams,setTeams]=useState<PodiumTeamOption[]>([]),[podium,setPodium]=useState(['','','']),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+  const load=()=>void Promise.all([
+    backend.from('league_cycle_archives').select('id,season_year,season_month,label_fa,archived_at').eq('league_id',leagueId).order('season_year',{ascending:false}).order('season_month',{ascending:false}),
+    backend.from('teams').select('id,name').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).eq('season_month',league.current_season_month??new Date().getMonth()+1).eq('lifecycle_status','completed').is('archived_at',null).order('name'),
+    backend.from('results').select('team_id,rank').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).in('rank',[1,2,3]),
+  ]).then(([archives,teamRows,resultRows])=>{const error=archives.error??teamRows.error??resultRows.error;if(error)setMessage(error.message);else{setRows((archives.data??[]) as LeagueCycleArchiveRow[]);setTeams((teamRows.data??[]) as PodiumTeamOption[]);const next=['','',''];for(const row of (resultRows.data??[]) as Array<{team_id:string;rank:number}>)if(row.rank>=1&&row.rank<=3)next[row.rank-1]=row.team_id;setPodium(next)}})
+  useEffect(load,[leagueId,league.current_season_year,league.current_season_month])
+  const savePodium=async()=>{if(podium.some(value=>!value)||new Set(podium).size!==3){setMessage('سه تیم متفاوت را برای مقام‌های اول تا سوم انتخاب کنید.');return false}const {error}=await backend.rpc('set_league_cycle_podium',{p_league_id:leagueId,p_first_team_id:podium[0],p_second_team_id:podium[1],p_third_team_id:podium[2]});if(error){setMessage(error.message);return false}setMessage('مقام‌های این دوره ثبت و منتشر شدند.');return true}
+  const archive=async()=>{if(!window.confirm('پس از بایگانی، ثبت‌نام‌های این دوره قفل می‌شوند. ادامه می‌دهید؟'))return;setBusy(true);setMessage('');const saved=await savePodium();if(!saved){setBusy(false);return}const {error}=await backend.rpc('archive_league_cycle',{p_league_id:leagueId});setBusy(false);if(error)setMessage(error.message==='league_results_required'?'ابتدا نتایج و مقام‌های این دوره را ثبت و منتشر کنید.':error.message);else{setMessage('دوره با موفقیت بایگانی شد. اکنون سال و ماه دوره جدید را تنظیم و وضعیت دوره را باز کنید.');load()}}
+  return <PanelCard title="بایگانی دوره لیگ" description="همین لیگ برای دوره‌های بعد باقی می‌ماند؛ تیم‌ها، پرداخت‌ها و مقام‌های دوره فعلی به‌صورت تاریخی قفل می‌شوند."><div className="grid gap-3 md:grid-cols-3">{['مقام اول','مقام دوم','مقام سوم'].map((label,index)=><Select key={label} label={label} value={podium[index]} onChange={event=>setPodium(current=>current.map((value,i)=>i===index?event.target.value:value))}><option value="">انتخاب تیم واجد شرایط</option>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</Select>)}</div><div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" variant="secondary" disabled={busy} onClick={()=>void savePodium()}>ذخیره مقام‌ها</Button><Button type="button" variant="danger" disabled={busy} onClick={()=>void archive()}>{busy?'در حال بایگانی…':'آرشیو نتایج و پایان دوره'}</Button><span className="text-xs leading-6 text-slate-500">فقط تیم‌های دارای پرداخت و مجوز نهایی در فهرست انتخاب نمایش داده می‌شوند.</span></div>{message?<p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{message}</p>:null}{rows.length?<ul className="mt-4 divide-y divide-slate-100 border-t border-slate-200">{rows.map(row=><li key={row.id} className="flex items-center justify-between py-3 text-sm"><b>{row.label_fa}</b><span className="text-slate-500">{new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium'}).format(new Date(row.archived_at))}</span></li>)}</ul>:null}</PanelCard>
 }
 
 function TeamDocumentsSettingsForm({leagueId}:{leagueId:string}){

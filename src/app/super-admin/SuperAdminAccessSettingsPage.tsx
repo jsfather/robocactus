@@ -145,6 +145,7 @@ export function SuperAdminAccessSettingsPage() {
               <Toggle checked={form.show_registration_link !== false} label="نمایش لینک ثبت‌نام در صفحه ورود" hint="فقط نمایش لینک عمومی را کنترل می‌کند؛ تشخیص کاربر جدید همچنان در سرور انجام می‌شود" onChange={(value) => patch({ show_registration_link: value })} />
               <Toggle checked={form.registration_documents_enabled !== false} label="مرحله بارگذاری مدارک هویتی" hint="در صورت غیرفعال‌بودن، این مرحله از مسیر ثبت‌نام حذف می‌شود." onChange={(value) => patch({ registration_documents_enabled: value })} />
               <Toggle checked={form.manual_account_approval_enabled !== false} label="تأیید دستی حساب کاربری" hint="در صورت غیرفعال‌بودن، حساب پس از تکمیل ثبت‌نام خودکار فعال می‌شود." onChange={(value) => patch({ manual_account_approval_enabled: value })} />
+              <Toggle checked={form.live_results_enabled === true} label="نمایش نتایج زنده" hint="با غیرفعال‌بودن، بخش صفحه اصلی و لینک نتایج زنده از منوی عمومی حذف می‌شوند." onChange={(value) => patch({ live_results_enabled: value })} />
               <Toggle checked={form.phone_signup_enabled} label="ثبت‌نام با موبایل" hint="ساخت حساب جدید پس از تأیید پیامکی" onChange={(value) => patch({ phone_signup_enabled: value })} />
               <Toggle checked={form.email_signup_enabled} label="ثبت‌نام با ایمیل" hint="ساخت حساب با ایمیل و تأیید لینک" onChange={(value) => patch({ email_signup_enabled: value })} />
             </div>

@@ -177,6 +177,8 @@ export function TeamPaymentPage() {
   }
 
   const isPaid = invoice?.status === 'paid' || team.lifecycle_status === 'completed'
+  const paymentArchived = !isPaid && Boolean(team.archived_at)
+  const paymentExpired = !isPaid && (paymentArchived || (Boolean(league.payment_deadline) && Date.now() > new Date(league.payment_deadline!).getTime()))
   const paymentStatusLabel: Record<string, string> = { pending: 'در انتظار پرداخت', paid: 'پرداخت‌شده', failed: 'ناموفق', refunded: 'بازپرداخت‌شده', cancelled: 'لغوشده' }
   const amount = Number(invoice?.amount ?? league.registration_fee ?? 0)
 
@@ -223,7 +225,9 @@ export function TeamPaymentPage() {
         </div>
       ) : null}
 
-      {!isPaid && options?.card_to_card_enabled ? (
+      {paymentExpired ? <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950"><h2 className="font-black">{i18n.language === 'en' ? (paymentArchived?'Registration archived':'Payment deadline has passed') : (paymentArchived?'پرونده ثبت‌نام بایگانی شده است':'مهلت پرداخت به پایان رسیده است')}</h2><p className="mt-2 text-sm leading-7">{i18n.language === 'en' ? 'Online and card-to-card payment are no longer available for this registration.' : 'امکان پرداخت آنلاین یا ارسال فیش کارت‌به‌کارت برای این پرونده وجود ندارد.'}</p></section> : null}
+
+      {!isPaid && !paymentExpired && options?.card_to_card_enabled ? (
         <div className="space-y-4 rounded-3xl border border-sky-300/20 bg-gradient-to-br from-sky-600 via-blue-700 to-indigo-900 p-5 text-white shadow-2xl shadow-blue-950/20">
           <div className="flex items-start justify-between gap-4">
             <div><p className="text-xs text-white/60">TABARESTAN CUP</p><h2 className="mt-1 text-lg font-black">پرداخت کارت‌به‌کارت</h2></div>
@@ -246,10 +250,10 @@ export function TeamPaymentPage() {
 
       </div>
       <aside className="space-y-4 lg:sticky lg:top-28"><section className="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-[0_18px_55px_rgb(7_59_85/0.1)]"><p className="text-xs font-black text-sky-600">خلاصه پرداخت</p><div className="mt-4 space-y-3 border-b border-slate-100 pb-4 text-sm"><div className="flex justify-between"><span className="text-slate-500">شماره فاکتور</span><b className="font-mono text-slate-800">{invoice?.invoice_number}</b></div><div className="flex justify-between"><span className="text-slate-500">روش</span><b>{getConfiguredGatewayKind() === 'zarinpal' ? 'پرداخت آنلاین' : 'درگاه آزمایشی'}</b></div></div><div className="mt-5 flex items-end justify-between"><span className="text-sm font-bold text-slate-500">مبلغ نهایی</span><p className="text-end"><strong className="block text-2xl font-black text-emerald-700">{formatAmountToman(amount)}</strong><span className="text-xs text-slate-400">{t('payment.currency')}</span></p></div></section>
-      {!isPaid ? <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm leading-7 transition ${termsAccepted ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}><input type="checkbox" className="mt-1 size-5 accent-emerald-600" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setError(null) }} /><span>{t('payment.acceptTermsPrefix', { defaultValue: 'قوانین و مقررات را مطالعه کرده‌ام و' })} <Link to="/terms" target="_blank" className="font-black underline">{t('nav.terms')}</Link> {t('payment.acceptTermsSuffix', { defaultValue: 'را می‌پذیرم.' })}</span></label> : null}
+      {!isPaid && !paymentExpired ? <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm leading-7 transition ${termsAccepted ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}><input type="checkbox" className="mt-1 size-5 accent-emerald-600" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setError(null) }} /><span>{t('payment.acceptTermsPrefix', { defaultValue: 'قوانین و مقررات را مطالعه کرده‌ام و' })} <Link to="/terms" target="_blank" className="font-black underline">{t('nav.terms')}</Link> {t('payment.acceptTermsSuffix', { defaultValue: 'را می‌پذیرم.' })}</span></label> : null}
 
       <div className="flex flex-col gap-2">
-        {!isPaid && invoice?.status !== 'paid' && options?.online_payment_enabled !== false ? (
+        {!isPaid && !paymentExpired && invoice?.status !== 'paid' && options?.online_payment_enabled !== false ? (
           <Button type="button" className="w-full" onClick={() => void pay()} disabled={busy || !invoice || !termsAccepted}>
             {busy ? t('app.loading') : t('payment.payCta')}
           </Button>

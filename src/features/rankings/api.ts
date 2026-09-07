@@ -10,6 +10,48 @@ export type RankingsRow = ResultRow & {
   league_slug: string
 }
 
+export type PodiumArchiveRow = {
+  id: string
+  league_id: string
+  team_id: string
+  season_year: number
+  season_month: number
+  rank: number
+  score: number | null
+  team_name: string
+  team_name_en: string | null
+  league_name: string
+  league_name_en: string | null
+  league_slug: string
+  organization_name: string | null
+  organization_name_en: string | null
+  participant_name_fa: string | null
+  participant_name_en: string | null
+}
+
+export async function fetchPodiumArchive(filters?: { year?: number; month?: number; leagueId?: string; q?: string; nationalId?: string }): Promise<PodiumArchiveRow[]> {
+  let rows: PodiumArchiveRow[]
+  if (filters?.nationalId) {
+    const { data, error } = await backend.rpc('search_podium_by_national_id', { p_national_id: filters.nationalId })
+    if (error) throw new Error(error.message)
+    rows = (data ?? []) as PodiumArchiveRow[]
+  } else {
+    let query = backend.from('public_competition_podium').select('*').order('season_year', { ascending: false }).order('season_month', { ascending: false }).order('rank')
+    if (filters?.year) query = query.eq('season_year', filters.year)
+    if (filters?.month) query = query.eq('season_month', filters.month)
+    if (filters?.leagueId) query = query.eq('league_id', filters.leagueId)
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
+    rows = (data ?? []) as PodiumArchiveRow[]
+  }
+  if (filters?.year) rows = rows.filter((row)=>row.season_year===filters.year)
+  if (filters?.month) rows = rows.filter((row)=>row.season_month===filters.month)
+  if (filters?.leagueId) rows = rows.filter((row)=>row.league_id===filters.leagueId)
+  const needle = filters?.q?.trim().toLocaleLowerCase()
+  if (!needle) return rows
+  return rows.filter((row) => [row.team_name,row.team_name_en,row.league_name,row.league_name_en,row.organization_name,row.organization_name_en,row.participant_name_fa,row.participant_name_en].some((value) => value?.toLocaleLowerCase().includes(needle)))
+}
+
 export type CompanyProfileBundle = {
   company: Company
   achievements: CompanyAchievement[]

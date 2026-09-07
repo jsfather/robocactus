@@ -29,6 +29,9 @@ const competitionStats = readFileSync(new URL('../src/components/home/Competitio
 const sponsorsSlider = readFileSync(new URL('../src/components/home/SponsorsSlider.tsx', import.meta.url), 'utf8')
 const authServer = readFileSync(new URL('../server/auth.ts', import.meta.url), 'utf8')
 const smsOtpClient = readFileSync(new URL('../src/features/auth/smsOtp.ts', import.meta.url), 'utf8')
+const cycleArchiveMigration = readFileSync(new URL('../db/migrations/0080_league_cycles_auto_review_archive.sql', import.meta.url), 'utf8')
+const paymentServer = readFileSync(new URL('../server/payment.ts', import.meta.url), 'utf8')
+const rankingsPage = readFileSync(new URL('../src/app/public/RankingsPage.tsx', import.meta.url), 'utf8')
 
 test('registration stages advance without skipping document and review states', () => {
   assert.deepEqual(registrationLifecycleForStep(0), { stage: 'team_info', progress: 8, lifecycleStatus: 'incomplete' })
@@ -241,4 +244,37 @@ test('home statistics are compact and sponsors have stable touch-friendly cards'
   assert.match(sponsorsSlider, /onError=\{\(\) => setFailed\(true\)\}/)
   assert.match(sponsorsSlider, /prefers-reduced-motion/)
   assert.match(sponsorsSlider, /manualPaused/)
+})
+
+test('league cycles enforce automatic member review and role minimums', () => {
+  assert.match(cycleArchiveMigration, /auto_approve_team_members boolean not null default false/)
+  assert.match(cycleArchiveMigration, /min_captains integer not null default 1/)
+  assert.match(cycleArchiveMigration, /min_coaches integer not null default 0/)
+  assert.match(cycleArchiveMigration, /extract\(year from age\(current_date,m\.birth_date\)\)/)
+  assert.match(cycleArchiveMigration, /team_name_already_exists/)
+  assert.match(cycleArchiveMigration, /season_month/)
+})
+
+test('payment closes at deadline and stale incomplete registrations are archived', () => {
+  assert.match(paymentServer, /payment_deadline_passed/)
+  assert.match(cycleArchiveMigration, /now\(\)\s*>\s*l\.payment_deadline/)
+  assert.match(cycleArchiveMigration, /make_interval\(days=>l\.incomplete_archive_after_days\)/)
+  assert.match(cycleArchiveMigration, /receipt_status='pending_review'/)
+  assert.match(cycleArchiveMigration, /registration_archived/)
+})
+
+test('public competition archive exposes safe podium data and exact national-id lookup', () => {
+  assert.match(cycleArchiveMigration, /public_competition_podium/)
+  assert.match(cycleArchiveMigration, /search_podium_by_national_id/)
+  assert.doesNotMatch(cycleArchiveMigration.match(/create or replace view public\.public_competition_podium[\s\S]*?grant select/)?.[0] ?? '', /national_id/)
+  assert.match(rankingsPage, /National ID lookup|جست‌وجو با کد ملی/)
+  assert.match(rankingsPage, /season_month/)
+})
+
+test('cycle archive requires a complete podium and preserves the permanent league', () => {
+  assert.match(cycleArchiveMigration, /count\(distinct r\.rank\)/)
+  assert.match(cycleArchiveMigration, /set_league_cycle_podium/)
+  assert.match(cycleArchiveMigration, /podium_team_not_eligible/)
+  assert.match(cycleArchiveMigration, /registration_cycle_status='archived'/)
+  assert.doesNotMatch(cycleArchiveMigration.match(/create or replace function public\.archive_league_cycle[\s\S]*?end \$\$/)?.[0] ?? '', /delete from public\.leagues/)
 })

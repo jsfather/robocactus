@@ -14,7 +14,7 @@
   "nav": {
     "home": "صفحه اصلی",
     "leagues": "لیگ‌ها",
-    "rankings": "رتبه‌بندی",
+    "rankings": "آرشیو مسابقات",
     "liveResults": "نتایج زنده",
     "companies": "شرکت‌ها",
     "blog": "اخبار",
@@ -287,6 +287,7 @@
       "team": "تیم",
       "ops": "عملیات",
       "registry": "ثبت‌نام‌ها",
+      "competitionArchives": "آرشیو دوره‌های مسابقات",
       "content": "محتوا",
       "system": "سیستم",
       "account": "حساب کاربری"
@@ -833,8 +834,8 @@
     "providerSecretHint": "کلید واقعی API در Secrets تابع Edge است (IPPANEL_* / KAVENEGAR_*) نه در مرورگر."
   },
   "rankings": {
-    "title": "آرشیو رتبه‌بندی",
-    "subtitle": "نتایج منتشرشده به تفکیک سال و لیگ",
+    "title": "آرشیو مسابقات و مقام‌ها",
+    "subtitle": "مقام‌های اول تا سوم ادوار گذشته به تفکیک سال و لیگ",
     "filters": "فیلترها",
     "year": "سال",
     "allYears": "همه سال‌ها",

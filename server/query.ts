@@ -4,6 +4,7 @@ import { db, userFromRequest, withRequestRole, type Transaction } from './db.js'
 import { config } from './config.js'
 import { getAuthSettings } from './auth.js'
 import { protectSecret, SECRET_SETTING_FIELDS } from './secrets.js'
+import { rateLimited } from './rate-limit.js'
 
 type Filter = {
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is' | 'not' | 'contains'
@@ -38,6 +39,7 @@ const TABLES = new Set([
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
   'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files', 'review_audit_log', 'team_withdrawal_requests',
+  'league_cycle_archives', 'public_competition_podium', 'public_league_participants',
 ])
 
 const RPCS = new Set([
@@ -55,6 +57,8 @@ const RPCS = new Set([
   'review_team_technical_files', 'accept_team_attendance_rules',
   'submit_team_member_correction',
   'request_team_withdrawal', 'review_team_withdrawal',
+  'archive_league_cycle', 'archive_expired_incomplete_teams', 'search_podium_by_national_id',
+  'set_league_cycle_podium',
 ])
 
 const CONFLICT_COLUMNS: Record<string, string[]> = {
@@ -327,7 +331,7 @@ function sendError(response: Response, error: unknown): void {
   }
   const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
-  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|invalid_[a-z_]+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
     response.status(500).json({ error: { message: 'internal_server_error' } })
@@ -352,6 +356,9 @@ export function registerQueryRoutes(router: Router): void {
       const user = await userFromRequest(request)
       const parameter = request.params.name
       const name = Array.isArray(parameter) ? parameter[0] ?? '' : parameter ?? ''
+      if (name === 'search_podium_by_national_id' && await rateLimited(`podium-national-id:${request.ip ?? 'unknown'}`, 12, 15 * 60 * 1000)) {
+        return void response.status(429).json({ data: null, error: { message: 'too_many_attempts' } })
+      }
       const data = await withRequestRole(user, (transaction) =>
         executeRpc(transaction, name, (request.body ?? {}) as Record<string, unknown>),
       )

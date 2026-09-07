@@ -40,6 +40,12 @@ export type LeagueInput = {
   min_age?: number | null
   max_age?: number | null
   current_season_year?: number
+  current_season_month?: number
+  auto_approve_team_members?: boolean
+  min_captains?: number
+  min_coaches?: number
+  payment_deadline?: string | null
+  incomplete_archive_after_days?: number
   registration_cycle_status?: string
   registration_open_at?: string | null
   registration_close_at?: string | null
@@ -121,6 +127,12 @@ function leaguePayloadBasic(input: LeagueInput) {
     min_age: input.min_age ?? null,
     max_age: input.max_age ?? null,
     current_season_year: input.current_season_year ?? new Date().getFullYear(),
+    current_season_month: input.current_season_month ?? new Date().getMonth() + 1,
+    auto_approve_team_members: input.auto_approve_team_members ?? false,
+    min_captains: input.min_captains ?? 1,
+    min_coaches: input.min_coaches ?? 0,
+    payment_deadline: input.payment_deadline || null,
+    incomplete_archive_after_days: input.incomplete_archive_after_days ?? 4,
     registration_cycle_status: input.registration_cycle_status ?? 'open',
     registration_open_at: input.registration_open_at || null,
     registration_close_at: input.registration_close_at || null,

@@ -216,6 +216,7 @@ export function TeamRegistrationWizard({
         captain_id: captainId,
         member_count: memberCount,
         season_year: selectedLeague?.current_season_year ?? new Date().getFullYear(),
+        season_month: selectedLeague?.current_season_month ?? new Date().getMonth() + 1,
       })
       return draft.teamId
     }
@@ -232,6 +233,7 @@ export function TeamRegistrationWizard({
       captainId,
       memberCount,
       seasonYear: selectedLeague?.current_season_year ?? new Date().getFullYear(),
+      seasonMonth: selectedLeague?.current_season_month ?? new Date().getMonth() + 1,
     })
 
     patchDraft({ teamId: team.id })
@@ -281,6 +283,10 @@ export function TeamRegistrationWizard({
         if (selectedLeague?.team_size_max != null && participantCount > selectedLeague.team_size_max) {
           throw new Error(`حداکثر تعداد سرپرست و اعضای تیم ${selectedLeague.team_size_max} نفر است.`)
         }
+        const captainCount = draft.members.filter((member) => member.role === 'captain').length
+        const coachCount = draft.members.filter((member) => member.role === 'coach').length
+        if (captainCount < (selectedLeague?.min_captains ?? 1)) throw new Error(`حداقل ${(selectedLeague?.min_captains ?? 1).toLocaleString('fa-IR')} سرپرست برای این لیگ لازم است.`)
+        if (coachCount < (selectedLeague?.min_coaches ?? 0)) throw new Error(`حداقل ${(selectedLeague?.min_coaches ?? 0).toLocaleString('fa-IR')} مربی برای این لیگ لازم است.`)
         const incomplete = draft.members.some(
           (m) =>
             (m.first_name || m.last_name || m.full_name).trim() &&
@@ -466,6 +472,7 @@ export function TeamRegistrationWizard({
 
       {step === 1 ? (
         <div className="space-y-4">
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-7 text-sky-900"><strong className="block">ترکیب الزامی این لیگ</strong><span>حداقل {(selectedLeague?.min_captains ?? 1).toLocaleString('fa-IR')} سرپرست و {(selectedLeague?.min_coaches ?? 0).toLocaleString('fa-IR')} مربی.</span>{(selectedLeague?.min_captains ?? 1)===0?<span className="block">ثبت تیم بدون سرپرست مجاز است.</span>:null}{(selectedLeague?.min_coaches ?? 0)===0?<span className="block">ثبت تیم بدون مربی مجاز است.</span>:null}</div>
           {draft.members.map((member, index) => {
             const age = ageFromBirthDate(member.birth_date)
             return (

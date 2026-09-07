@@ -14,7 +14,7 @@
   "nav": {
     "home": "Home",
     "leagues": "Leagues",
-    "rankings": "Rankings",
+    "rankings": "Competition archive",
     "liveResults": "Live results",
     "companies": "Companies",
     "blog": "News",
@@ -288,6 +288,7 @@
       "team": "Team",
       "ops": "Operations",
       "registry": "Registry",
+      "competitionArchives": "Competition cycle archive",
       "content": "Content",
       "system": "System",
       "account": "Account"
@@ -834,8 +835,8 @@
     "providerSecretHint": "Real API keys stay in Edge Function secrets (IPPANEL_* / KAVENEGAR_*), not in the browser."
   },
   "rankings": {
-    "title": "Rankings archive",
-    "subtitle": "Published results by year and league",
+    "title": "Competition and podium archive",
+    "subtitle": "First, second and third-place results by year and league",
     "filters": "Filters",
     "year": "Year",
     "allYears": "All years",

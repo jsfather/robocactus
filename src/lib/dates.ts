@@ -45,6 +45,27 @@ export function formatSeasonYear(year: number | string | null | undefined, langu
     .format(new Date(Date.UTC(numeric, 6, 1))).replace(/[^۰-۹0-9]/g, '')
 }
 
+/** Formats a stored Gregorian league cycle as one coherent localized month/year. */
+export function formatCompetitionCycle(
+  year: number | string | null | undefined,
+  month: number | string | null | undefined,
+  language: string,
+): string {
+  const numericYear = Number(year)
+  const numericMonth = Number(month)
+  if (!Number.isInteger(numericYear) || !Number.isInteger(numericMonth) || numericMonth < 1 || numericMonth > 12) return '—'
+
+  // Mid-month prevents timezone conversion from moving the value into the prior month.
+  const date = new Date(Date.UTC(numericYear, numericMonth - 1, 15, 12))
+  const isFa = language.toLowerCase().startsWith('fa')
+  return new Intl.DateTimeFormat(isFa ? 'fa-IR-u-ca-persian' : 'en-US', {
+    ...(isFa ? { calendar: 'persian', numberingSystem: 'arabext' } : {}),
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: 'long',
+  }).format(date)
+}
+
 export function formatAppTime(iso: string | null | undefined, language: string): string {
   if (!iso) return '—'
   const date = new Date(iso)

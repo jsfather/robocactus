@@ -311,7 +311,8 @@ export function CompanyPanelPage({
                           {t('payment.payCta')}
                         </Link>
                       ) : null}
-                      {!['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setSelectedLeagueId(team.league_id); if (['technical','technical_review','rules'].includes(team.registration_stage ?? '')) void navigate(`/team/${team.id}/attendance`); else { setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } }}>ادامه ثبت‌نام</Button> : null}
+                      {!team.archived_at && !['completed', 'cancelled', 'awaiting_payment'].includes(team.lifecycle_status ?? (team.status === 'draft' ? 'incomplete' : 'completed')) ? <Button type="button" onClick={() => { setResumeTeamId(team.id); setSelectedLeagueId(team.league_id); if (['technical','technical_review','rules'].includes(team.registration_stage ?? '')) void navigate(`/team/${team.id}/attendance`); else { setShowWizard(true); window.scrollTo({ top: 0, behavior: 'smooth' }) } }}>ادامه ثبت‌نام</Button> : null}
+                      {team.archived_at?<span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">بایگانی‌شده · فقط‌خواندنی</span>:null}
                       <Link
                         to={`/team/${team.id}`}
                         className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-800 hover:bg-sky-100"

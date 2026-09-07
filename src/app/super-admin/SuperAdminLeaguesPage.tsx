@@ -41,6 +41,12 @@ const emptyForm = (): LeagueInput & { id?: string } => ({
   team_size_min: null,
   team_size_max: null,
   current_season_year: new Date().getFullYear(),
+  current_season_month: new Date().getMonth()+1,
+  auto_approve_team_members: false,
+  min_captains: 1,
+  min_coaches: 0,
+  payment_deadline: null,
+  incomplete_archive_after_days: 4,
   registration_cycle_status: 'open',
   team_edit_deadline: null,
   registration_open_at: null,
@@ -95,6 +101,12 @@ export function SuperAdminLeaguesPage() {
       team_size_min: league.team_size_min ?? null,
       team_size_max: league.team_size_max ?? null,
       current_season_year: league.current_season_year ?? new Date().getFullYear(),
+      current_season_month: league.current_season_month ?? new Date().getMonth()+1,
+      auto_approve_team_members: league.auto_approve_team_members ?? false,
+      min_captains: league.min_captains ?? 1,
+      min_coaches: league.min_coaches ?? 0,
+      payment_deadline: league.payment_deadline ?? null,
+      incomplete_archive_after_days: league.incomplete_archive_after_days ?? 4,
       registration_cycle_status: league.registration_cycle_status ?? 'open',
       team_edit_deadline: league.team_edit_deadline ?? null,
       registration_open_at: league.registration_open_at,
@@ -232,6 +244,13 @@ export function SuperAdminLeaguesPage() {
           <Input label="حداقل نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_min ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_min: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="حداکثر نفرات تیم (با سرپرست)" type="number" min={1} value={form.team_size_max ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, team_size_max: e.target.value ? Number(e.target.value) : null }))} dir="ltr" />
           <Input label="سال دوره" type="number" value={form.current_season_year ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, current_season_year: Number(e.target.value) }))} dir="ltr" />
+          <Select label="ماه دوره" value={String(form.current_season_month??1)} onChange={(e)=>setForm(prev=>({...prev,current_season_month:Number(e.target.value)}))}>{['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'].map((label,index)=><option key={label} value={index+1}>{label}</option>)}</Select>
+          <Input label="حداقل سرپرست" type="number" min={0} value={form.min_captains??1} onChange={(e)=>setForm(prev=>({...prev,min_captains:Math.max(0,Number(e.target.value))}))} dir="ltr" />
+          <Input label="حداقل مربی" type="number" min={0} value={form.min_coaches??0} onChange={(e)=>setForm(prev=>({...prev,min_coaches:Math.max(0,Number(e.target.value))}))} dir="ltr" />
+          <p className="md:col-span-2 -mt-2 rounded-xl bg-sky-50 px-4 py-3 text-xs leading-6 text-sky-800">عدد صفر برای سرپرست یا مربی یعنی حضور آن نقش در این لیگ الزامی نیست.</p>
+          <Select label="روش تأیید اعضا" value={form.auto_approve_team_members?'auto':'manual'} onChange={(e)=>setForm(prev=>({...prev,auto_approve_team_members:e.target.value==='auto'}))}><option value="manual">بررسی دستی کارشناس</option><option value="auto">تأیید خودکار اطلاعات کامل و سن معتبر</option></Select>
+          <DateTimeField label="مهلت نهایی پرداخت" value={form.payment_deadline} onChange={(iso)=>setForm(prev=>({...prev,payment_deadline:iso}))} />
+          <Input label="بایگانی پرونده ناقص پس از سررسید (روز)" type="number" min={1} max={90} value={form.incomplete_archive_after_days??4} onChange={(e)=>setForm(prev=>({...prev,incomplete_archive_after_days:Math.max(1,Number(e.target.value))}))} dir="ltr" />
           <Select label="وضعیت دوره" value={form.registration_cycle_status ?? 'open'} onChange={(e) => setForm((prev) => ({ ...prev, registration_cycle_status: e.target.value }))}><option value="draft">پیش‌نویس</option><option value="open">باز</option><option value="closed">بسته</option><option value="archived">بایگانی‌شده</option></Select>
           <DateTimeField
             label={t('admin.leagues.openAt')}

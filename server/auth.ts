@@ -77,6 +77,7 @@ export type AuthSettings = {
   show_registration_link: boolean
   registration_documents_enabled: boolean
   manual_account_approval_enabled: boolean
+  live_results_enabled: boolean
   online_payment_enabled: boolean
   card_to_card_enabled: boolean
   bank_card_number: string | null
@@ -118,6 +119,7 @@ const defaultAuthSettings: AuthSettings = {
   show_registration_link: true,
   registration_documents_enabled: true,
   manual_account_approval_enabled: true,
+  live_results_enabled: false,
   online_payment_enabled: true,
   card_to_card_enabled: false,
   bank_card_number: null,

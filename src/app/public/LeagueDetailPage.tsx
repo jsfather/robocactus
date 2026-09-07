@@ -839,6 +839,24 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
+        {bundle.participants.length > 0 && (
+          <SectionFrame index={nextIndex()} title={isFa ? 'فهرست تیم‌های این دوره' : 'Teams in this cycle'}>
+            <div className="overflow-x-auto border border-slate-200 bg-white">
+              <table className="w-full min-w-[880px] text-sm">
+                <thead className="bg-slate-900 text-white"><tr>
+                  <th className="p-4 text-start">{isFa?'تیم':'Team'}</th><th className="p-4 text-start">{isFa?'سرپرست':'Captain'}</th><th className="p-4 text-start">{isFa?'تعداد اعضا':'Members'}</th><th className="p-4 text-start">{isFa?'مجموعه / اسپانسر':'Organization / sponsor'}</th><th className="p-4 text-start">{isFa?'کشور':'Country'}</th><th className="p-4 text-start">{isFa?'وضعیت':'Status'}</th>
+                </tr></thead>
+                <tbody>{bundle.participants.map((participant) => {
+                  const status = participant.public_status
+                  const tone = status==='confirmed'?'bg-emerald-50 text-emerald-700 border-emerald-200':status==='withdrawn'?'bg-red-50 text-red-700 border-red-200':'bg-amber-50 text-amber-700 border-amber-200'
+                  const label = status==='confirmed'?(isFa?'مجوز صادر شده':'Cleared'):status==='withdrawn'?(isFa?'انصراف ثبت شده':'Withdrawn'):(isFa?'در انتظار اقدام':'Action pending')
+                  return <tr key={participant.team_id} className="border-t border-slate-100 hover:bg-slate-50"><td className="p-4 font-black text-slate-900">{isFa?participant.team_name:participant.team_name_en||participant.team_name}</td><td className="p-4">{isFa?participant.captain_name_fa||'—':participant.captain_name_en||participant.captain_name_fa||'—'}</td><td className="p-4 font-mono">{participant.member_count}</td><td className="p-4 text-slate-600">{isFa?participant.organization_name||'—':participant.organization_name_en||participant.organization_name||'—'}</td><td className="p-4 font-mono">{participant.country_code||'IR'}</td><td className="p-4"><span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black ${tone}`}><span className="relative grid size-6 place-items-center" aria-hidden="true"><svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3 20 6v6c0 4.5-3.2 7.5-8 9-4.8-1.5-8-4.5-8-9V6l8-3Z"/><path d={status==='confirmed'?'m8.5 12 2.2 2.2 4.8-5':status==='withdrawn'?'m9 9 6 6m0-6-6 6':'M12 8v5m0 3h.01'}/></svg></span>{label}</span></td></tr>
+                })}</tbody>
+              </table>
+            </div>
+          </SectionFrame>
+        )}
+
         {related.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.related')}>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

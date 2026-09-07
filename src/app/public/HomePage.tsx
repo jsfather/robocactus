@@ -85,6 +85,7 @@ export function HomePage() {
   const [companies, setCompanies] = useState<TopCompany[]>([])
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [liveBoards, setLiveBoards] = useState<LiveLeagueBoard[]>([])
+  const [liveResultsEnabled, setLiveResultsEnabled] = useState(false)
 
   useEffect(() => {
     // Load each section independently so a slow/failing request
@@ -99,7 +100,11 @@ export function HomePage() {
     loadSection(fetchActiveLeagues, setLeagues, [])
     loadSection(fetchTopCompanies, setCompanies, [])
     loadSection(fetchLatestNews, setPosts, [])
-    loadSection(fetchLiveResultsBoards, setLiveBoards, [])
+    void backend.auth.getOptions().then(({ data }) => {
+      const enabled = data?.live_results_enabled === true
+      setLiveResultsEnabled(enabled)
+      if (enabled) loadSection(fetchLiveResultsBoards, setLiveBoards, [])
+    }).catch(() => setLiveResultsEnabled(false))
   }, [])
 
   useEffect(() => {
@@ -126,7 +131,7 @@ export function HomePage() {
       <CompetitionStats cards={stats} />
       <LeagueCards leagues={leagues} />
       <WhyRoboCactus cards={why} />
-      <LiveResultsTeaser boards={liveBoards} />
+      {liveResultsEnabled ? <LiveResultsTeaser boards={liveBoards} /> : null}
       <EventCalendar events={events} />
       <TopCompanies companies={companies} />
       <ScientificPartners partners={partners} />

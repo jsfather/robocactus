@@ -157,30 +157,8 @@ export async function createDraftTeam(input: {
   captainId: string
   memberCount: number
   seasonYear: number
+  seasonMonth: number
 }): Promise<Team> {
-  const existing = await backend
-    .from('teams')
-    .select('*')
-    .eq('captain_id', input.captainId)
-    .eq('league_id', input.leagueId)
-    .eq('season_year', input.seasonYear)
-    .in('lifecycle_status', ['draft', 'incomplete', 'awaiting_documents', 'awaiting_review', 'awaiting_technical_review', 'awaiting_rules', 'awaiting_payment'])
-    .order('last_activity_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (existing.error) throw new Error(existing.error.message)
-  if (existing.data) {
-    return updateDraftTeam((existing.data as Team).id, {
-      company_id: input.companyId,
-      name: input.name,
-      name_en: input.nameEn || null,
-      motto_fa: input.mottoFa || null,
-      motto_en: input.mottoEn || null,
-      province: input.province,
-      city: input.city,
-      member_count: input.memberCount,
-    } as Partial<Team>)
-  }
   const { data, error } = await backend
     .from('teams')
     .insert({
@@ -192,6 +170,7 @@ export async function createDraftTeam(input: {
       motto_fa: input.mottoFa || null,
       motto_en: input.mottoEn || null,
       season_year: input.seasonYear,
+      season_month: input.seasonMonth,
       province: input.province,
       city: input.city,
       member_count: input.memberCount,
@@ -207,7 +186,7 @@ export async function createDraftTeam(input: {
 export async function updateDraftTeam(
   teamId: string,
   patch: Partial<
-    Pick<Team, 'name' | 'name_en' | 'motto_fa' | 'motto_en' | 'province' | 'city' | 'league_id' | 'captain_id' | 'member_count' | 'season_year'>
+    Pick<Team, 'name' | 'name_en' | 'motto_fa' | 'motto_en' | 'province' | 'city' | 'league_id' | 'captain_id' | 'member_count' | 'season_year' | 'season_month'>
   >,
 ): Promise<Team> {
   const { data, error } = await backend

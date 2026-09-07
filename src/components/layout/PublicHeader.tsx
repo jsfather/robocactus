@@ -8,6 +8,7 @@ import { HeaderSearch } from './HeaderSearch'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import type { AppLocale } from '@/i18n'
 import type { League } from '@/types/database'
+import { backend } from '@/lib/backend'
 
 function LineIcon({ children, className = 'size-5' }: { children: ReactNode; className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -24,6 +25,7 @@ export function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileLeaguesOpen, setMobileLeaguesOpen] = useState(false)
   const [megaOpen, setMegaOpen] = useState(false)
+  const [liveResultsEnabled, setLiveResultsEnabled] = useState(false)
   const [activeLeagues, setActiveLeagues] = useState<League[]>([])
   const [theme, setTheme] = useState<'light' | 'dark'>(() => typeof window !== 'undefined' && localStorage.getItem('public-theme') === 'dark' ? 'dark' : 'light')
   const headerRef = useRef<HTMLElement>(null)
@@ -31,15 +33,17 @@ export function PublicHeader() {
 
   const brand = locale === 'en' ? settings?.site_name_en || t('app.name') : settings?.site_name_fa || t('app.name')
   const cmsNav = sortedNavItems(settings?.nav_items)
-  const configured = !loading && cmsNav.length ? ensureLiveResultsNavItem(cmsNav, { fa: t('nav.liveResults'), en: t('nav.liveResults') }) : null
+  const configured = !loading && cmsNav.length ? (liveResultsEnabled ? ensureLiveResultsNavItem(cmsNav, { fa: t('nav.liveResults'), en: t('nav.liveResults') }) : cmsNav.filter((item) => item.href !== '/live' && item.href !== '/live/')) : null
   const fallback = [
-    ['/', t('nav.home')], ['/live', t('nav.liveResults')], ['/leagues', t('nav.leagues')],
+    ['/', t('nav.home')], ...(liveResultsEnabled ? [['/live', t('nav.liveResults')]] : []), ['/leagues', t('nav.leagues')],
     ['/rankings', t('nav.rankings')], ['/companies', t('nav.companies')], ['/blog', t('nav.blog')],
     ['/gallery', t('nav.gallery')], ['/about', t('nav.about')],
   ]
-  const links = (configured ? configured.map((item) => ({ key: item.id, href: item.href, label: locale === 'en' ? item.label_en : item.label_fa })) : fallback.map(([href, label]) => ({ key: href, href, label }))).filter((item) => item.href !== '/terms' && item.href !== '/registration-guide')
+  const configuredLinks = (configured ? configured.map((item) => ({ key: item.id, href: item.href, label: locale === 'en' ? item.label_en : item.label_fa })) : fallback.map(([href, label]) => ({ key: href, href, label }))).filter((item) => item.href !== '/terms' && item.href !== '/registration-guide')
+  const links = configuredLinks.some((item)=>item.href==='/rankings'||item.href==='/rankings/') ? configuredLinks : [...configuredLinks.slice(0,Math.min(3,configuredLinks.length)),{key:'competition-archive',href:'/rankings',label:t('nav.rankings')},...configuredLinks.slice(Math.min(3,configuredLinks.length))]
 
   useEffect(() => { setMobileOpen(false); setMobileLeaguesOpen(false); setMegaOpen(false) }, [location.pathname])
+  useEffect(() => { void backend.auth.getOptions().then(({ data }) => setLiveResultsEnabled(data?.live_results_enabled === true)).catch(() => setLiveResultsEnabled(false)) }, [])
   useEffect(() => { void fetchActiveLeagues().then(setActiveLeagues).catch(() => setActiveLeagues([])) }, [])
   useEffect(() => { document.documentElement.classList.toggle('dark', theme === 'dark'); document.documentElement.classList.toggle('light', theme === 'light'); localStorage.setItem('public-theme', theme) }, [theme])
   useEffect(() => {

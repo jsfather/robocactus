@@ -108,6 +108,12 @@ void purgeExpiredSessions()
 const cleanup = setInterval(() => void purgeExpiredSessions().catch(console.error), 6 * 60 * 60 * 1000)
 cleanup.unref()
 
+const archiveExpiredRegistrations = () => void db.execute(sql`select public.archive_expired_incomplete_teams()`)
+  .catch((error) => console.error('[registration-archive]', error))
+setTimeout(archiveExpiredRegistrations, 15_000).unref()
+const registrationArchiveWorker = setInterval(archiveExpiredRegistrations, 60 * 60 * 1000)
+registrationArchiveWorker.unref()
+
 if (process.env.NOTIFICATION_WORKER !== 'false') {
   const dispatchPending = () => void dispatchNotifications().catch((error) => console.error('[notifications]', error))
   setTimeout(dispatchPending, 5000).unref()
