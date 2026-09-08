@@ -343,3 +343,52 @@ test('team review realtime supports non-id primary keys and review tables', () =
   assert.match(realtimeServer, /'team_members', 'team_technical_files'/)
   assert.match(liveResultsAdmin, /team-review-live-/)
 })
+
+// ── 0084 migration: SMS trigger and doc deactivation fixes ────────────────────
+const fix084Migration = readFileSync(new URL('../db/migrations/0084_fix_sms_trigger_and_doc_deactivation.sql', import.meta.url), 'utf8')
+
+test('permit_code in SMS metadata uses team_id not a nonexistent id column', () => {
+  // The fix explicitly references new.team_id for the permit_code field.
+  assert.match(fix084Migration, /'permit_code',\s*new\.team_id::text/)
+  // The corrected function must NOT reference new.id on team_attendance_clearances.
+  const fnBody = fix084Migration.match(/create or replace function public\._enqueue_team_lifecycle_sms[\s\S]*?end \$\$/)?.[0] ?? ''
+  assert.ok(fnBody.length > 0, 'function body extracted')
+  assert.doesNotMatch(fnBody, /new\.id(?!empotency|_key|entity)/)
+})
+
+test('SMS notification trigger is wrapped in a fault-tolerant exception handler', () => {
+  const fnBody = fix084Migration.match(/create or replace function public\._enqueue_team_lifecycle_sms[\s\S]*?end \$\$/)?.[0] ?? ''
+  assert.match(fnBody, /exception when others then/)
+  assert.match(fnBody, /raise warning/)
+})
+
+test('_refresh_league_registration_flows is fault-tolerant per team via savepoint block', () => {
+  const fnBody = fix084Migration.match(/create or replace function public\._refresh_league_registration_flows[\s\S]*?end \$\$/)?.[0] ?? ''
+  assert.match(fnBody, /exception when others then/)
+  assert.match(fnBody, /raise warning '_refresh_league_registration_flows/)
+})
+
+test('delete_registration_doc_type RPC maps FK violation to document_type_in_use', () => {
+  assert.match(fix084Migration, /create or replace function public\.delete_registration_doc_type/)
+  assert.match(fix084Migration, /when foreign_key_violation then/)
+  assert.match(fix084Migration, /raise exception 'document_type_in_use'/)
+  assert.match(queryServer, /'delete_registration_doc_type'/)
+})
+
+test('sendError maps FK violations to HTTP 409 with stable DOCUMENT_TYPE_IN_USE code', () => {
+  assert.match(queryServer, /isFkViolation/)
+  assert.match(queryServer, /response\.status\(409\)/)
+  assert.match(queryServer, /DOCUMENT_TYPE_IN_USE/)
+  // Must NOT fall through to 400/500 for FK violations.
+  assert.match(queryServer, /if \(isFkViolation\)/)
+})
+
+test('is_active index exists for efficient active-doc-type queries', () => {
+  assert.match(fix084Migration, /create index if not exists registration_doc_types_active_scope_idx/)
+  assert.match(fix084Migration, /where is_active/)
+})
+
+test('notification idempotency keys are team-scoped to prevent duplicate SMS', () => {
+  assert.match(fix084Migration, /on conflict do nothing/)
+  assert.match(fix084Migration, /attendance_permit_issued:' \|\| new\.team_id::text/)
+})

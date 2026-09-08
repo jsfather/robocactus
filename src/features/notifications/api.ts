@@ -284,12 +284,32 @@ export async function upsertRegistrationDocType(
   return data as RegistrationDocType
 }
 
+/**
+ * Delete a registration doc type using the server-side RPC that maps FK
+ * violations to a structured 409 / DOCUMENT_TYPE_IN_USE response.
+ *
+ * Throws a typed error so the caller can distinguish between:
+ *   - 'document_type_in_use'  → show deactivation prompt
+ *   - any other string        → generic error message
+ */
 export async function deleteRegistrationDocType(id: string): Promise<void> {
-  const { error } = await backend.from('registration_doc_types').delete().eq('id', id)
+  const { error } = await backend.rpc('delete_registration_doc_type', { p_id: id })
   if (!error) return
-  if (error.message.includes('foreign key') || error.message.includes('violates')) {
-    throw new Error('این نوع مدرک قبلاً استفاده شده است؛ برای حفظ سوابق آن را غیرفعال کنید.')
+
+  // The RPC raises 'document_type_in_use' when a FK constraint blocks deletion.
+  // The backend sendError() also maps raw 23503 FK violations to 409 with the
+  // same code so both paths yield the same caller-visible message.
+  if (
+    error.message === 'document_type_in_use' ||
+    error.message.includes('DOCUMENT_TYPE_IN_USE') ||
+    error.message.includes('foreign key') ||
+    error.message.includes('violates')
+  ) {
+    const err = new Error('document_type_in_use') as Error & { code: string }
+    err.code = 'DOCUMENT_TYPE_IN_USE'
+    throw err
   }
+
   throw new Error(error.message)
 }
 

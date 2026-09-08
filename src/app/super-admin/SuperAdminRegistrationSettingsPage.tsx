@@ -23,6 +23,7 @@ export function SuperAdminRegistrationSettingsPage() {
   const [docs, setDocs] = useState<RegistrationDocType[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [conflictDoc, setConflictDoc] = useState<RegistrationDocType | null>(null)
   const [labelFa, setLabelFa] = useState('')
   const [labelEn, setLabelEn] = useState('')
   const [code, setCode] = useState('')
@@ -118,6 +119,28 @@ export function SuperAdminRegistrationSettingsPage() {
       if (editingDocId === doc.id) setEditingDocId(undefined)
       await reload()
       toast.success('نوع مدرک حذف شد.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg === 'document_type_in_use' || (err as { code?: string }).code === 'DOCUMENT_TYPE_IN_USE') {
+        // Show inline conflict UI instead of a generic toast.
+        setConflictDoc(doc)
+      } else {
+        toast.error(msg || t('common.error'))
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deactivateConflictDoc = async () => {
+    if (!conflictDoc) return
+    setBusy(true)
+    try {
+      await upsertRegistrationDocType({ ...conflictDoc, is_active: false })
+      setConflictDoc(null)
+      if (editingDocId === conflictDoc.id) setEditingDocId(undefined)
+      await reload()
+      toast.success('نوع مدرک غیرفعال شد.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -254,6 +277,37 @@ export function SuperAdminRegistrationSettingsPage() {
 
       <HudFrame className="space-y-3 p-4">
         <SectionLabel index="DOC.02" title={t('registrationSettings.docTypes')} hint={t('registrationSettings.docHint')} />
+
+        {/* ── Inline conflict dialog ── */}
+        {conflictDoc ? (
+          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="mb-3 font-bold">
+              این نوع مدرک به اطلاعات ثبت‌شده قبلی متصل است و قابل حذف نیست.
+              برای جلوگیری از حذف اطلاعات قبلی، می‌توانید آن را غیرفعال کنید.
+            </p>
+            <p className="mb-4 font-mono text-xs text-amber-700">
+              «{conflictDoc.label_fa}» — {conflictDoc.code}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => void deactivateConflictDoc()}
+              >
+                غیرفعال‌کردن
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setConflictDoc(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <form className="grid gap-3 md:grid-cols-2" onSubmit={(e) => void onAddDoc(e)}>
           {editingDocId ? <p className="md:col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-bold text-sky-800">در حال ویرایش نوع مدرک؛ پس از اصلاح، ذخیره را بزنید.</p> : null}
           <Input label={t('registrationSettings.labelFa')} required value={labelFa} onChange={(e) => setLabelFa(e.target.value)} />
@@ -277,13 +331,20 @@ export function SuperAdminRegistrationSettingsPage() {
         </form>
         <ul className="mt-4 divide-y divide-rc-line">
           {docs.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+            <li key={d.id} className={`flex flex-wrap items-center justify-between gap-2 py-3 text-sm${d.is_active ? '' : ' opacity-60'}`}>
               <div>
-                <p className="font-medium">
-                  {d.label_fa} / {d.label_en}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">
+                    {d.label_fa} / {d.label_en}
+                  </p>
+                  {!d.is_active && (
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                      غیرفعال
+                    </span>
+                  )}
+                </div>
                 <p className="font-mono text-[10px] text-rc-muted">
-                  {d.code} · {d.scope === 'team' ? 'مدرک تیم' : 'مدرک پروفایل'} · {d.is_required ? 'الزامی' : 'اختیاری'}
+                  {d.code} · {d.scope === 'team' ? 'مدرک تیم' : d.scope === 'member' ? 'مدرک عضو' : 'مدرک پروفایل'} · {d.is_required ? 'الزامی' : 'اختیاری'}
                 </p>
               </div>
               <details className="relative">

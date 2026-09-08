@@ -59,6 +59,7 @@ const RPCS = new Set([
   'request_team_withdrawal', 'review_team_withdrawal',
   'archive_league_cycle', 'archive_expired_incomplete_teams', 'search_podium_by_national_id',
   'set_league_cycle_podium', 'manage_ticket',
+  'delete_registration_doc_type',
 ])
 
 const CONFLICT_COLUMNS: Record<string, string[]> = {
@@ -331,6 +332,23 @@ function sendError(response: Response, error: unknown): void {
   }
   const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
+
+  // Foreign-key violations on DELETE → the resource is still referenced.
+  // Map to HTTP 409 Conflict with a stable machine-readable code so the
+  // frontend can show a Persian user-friendly message and offer deactivation.
+  const isFkViolation =
+    /foreign.key|violates foreign key constraint|23503/i.test(message) ||
+    /\bdocument_type_in_use\b/i.test(message)
+  if (isFkViolation) {
+    response.status(409).json({
+      error: {
+        code: 'DOCUMENT_TYPE_IN_USE',
+        message: 'document_type_in_use',
+      },
+    })
+    return
+  }
+
   const known = message.match(/\b(authentication_required|not_authenticated|forbidden|duplicate_[a-z_]+|phone_in_use|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
