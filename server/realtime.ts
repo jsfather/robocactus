@@ -70,7 +70,7 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
     const keyIdentifier = sql.identifier(primaryKey)
     const result = await transaction.execute(sql`
       select to_jsonb(row) as record from public.${safeIdentifier(tableName)} row
-      where row.${keyIdentifier} = ${String(primaryValue)}::uuid limit 1
+      where row.${keyIdentifier} = ${String(primaryValue)} limit 1
     `)
     return (result.rows[0]?.record as Record<string, unknown> | undefined) ?? null
   }).catch(() => null)

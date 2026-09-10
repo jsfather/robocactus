@@ -11,6 +11,7 @@ import { BirthDateField } from '@/components/ui/BirthDateField'
 import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
 import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/hooks/useAuth'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { ageFromBirthDate } from '@/lib/dates'
 import { backend } from '@/lib/backend'
@@ -40,7 +41,7 @@ import { fetchMemberRegistrationDocTypes, fetchTeamRegistrationDocTypes, type Re
 import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/api'
 import type { DocumentRow, League, Team } from '@/types/database'
 import { IRAN_PROVINCES, withoutDigits } from '@/lib/iran'
-import { numericInput } from '@/lib/validation'
+import { localizedTextError, numericInput } from '@/lib/validation'
 
 function MemberIdentityUpload({ label, required, file, storedUrl, busy, onChange }: { label: string; required: boolean; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState(storedUrl ?? '')
@@ -87,6 +88,7 @@ export function TeamRegistrationWizard({
 }: TeamRegistrationWizardProps) {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const { settings: siteSettings } = useSiteSettings()
   const toast = useToast()
   const [leagues, setLeagues] = useState<League[]>([])
   const [draft, setDraft] = useState<TeamWizardDraft>(() => {
@@ -165,6 +167,11 @@ export function TeamRegistrationWizard({
     () => leagues.find((l) => l.id === draft.leagueId) ?? null,
     [leagues, draft.leagueId],
   )
+  const teamMottoEnabled = siteSettings?.team_motto_enabled !== false
+  const teamNameFaError = localizedTextError(draft.name, 'fa')
+  const teamNameEnError = localizedTextError(draft.nameEn, 'en')
+  const teamMottoFaError = teamMottoEnabled ? localizedTextError(draft.mottoFa, 'fa') : undefined
+  const teamMottoEnError = teamMottoEnabled ? localizedTextError(draft.mottoEn, 'en') : undefined
   const memberPhotoType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_photo') ?? null, [memberDocTypes])
   const memberIdentityType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_identity') ?? null, [memberDocTypes])
   const visibleFlowSteps = useMemo(() => teamFlowSteps(attendanceSettings), [attendanceSettings])
@@ -265,8 +272,10 @@ export function TeamRegistrationWizard({
       await updateDraftTeam(draft.teamId, {
         name: draft.name.trim(),
         name_en: draft.nameEn.trim() || null,
-        motto_fa: draft.mottoFa.trim() || null,
-        motto_en: draft.mottoEn.trim() || null,
+        ...(teamMottoEnabled ? {
+          motto_fa: draft.mottoFa.trim() || null,
+          motto_en: draft.mottoEn.trim() || null,
+        } : {}),
         province: draft.province.trim(),
         city: draft.city.trim(),
         league_id: draft.leagueId,
@@ -283,8 +292,8 @@ export function TeamRegistrationWizard({
       leagueId: draft.leagueId,
       name: draft.name.trim(),
       nameEn: draft.nameEn.trim(),
-      mottoFa: draft.mottoFa.trim(),
-      mottoEn: draft.mottoEn.trim(),
+      mottoFa: teamMottoEnabled ? draft.mottoFa.trim() : '',
+      mottoEn: teamMottoEnabled ? draft.mottoEn.trim() : '',
       province: draft.province.trim(),
       city: draft.city.trim(),
       captainId,
@@ -331,9 +340,20 @@ export function TeamRegistrationWizard({
         if (!draft.name.trim() || !draft.nameEn.trim() || !draft.leagueId) {
           throw new Error(t('auth.required'))
         }
+        const languageError = teamNameFaError || teamNameEnError || teamMottoFaError || teamMottoEnError
+        if (languageError) throw new Error(languageError)
         persistedTeamId = await ensureTeamRecord()
       }
       if (step === 1) {
+        const memberLanguageError = draft.members.flatMap((member) => [
+          localizedTextError(member.first_name, 'fa'),
+          localizedTextError(member.last_name, 'fa'),
+          localizedTextError(member.first_name_en, 'en'),
+          localizedTextError(member.last_name_en, 'en'),
+          localizedTextError(member.father_name_fa, 'fa'),
+          localizedTextError(member.father_name_en, 'en'),
+        ]).find(Boolean)
+        if (memberLanguageError) throw new Error(memberLanguageError)
         const participantCount = draft.members.filter((member) => (member.first_name || member.last_name || member.full_name).trim()).length
         if (selectedLeague?.team_size_min != null && participantCount < selectedLeague.team_size_min) {
           throw new Error(`حداقل تعداد سرپرست و اعضای تیم ${selectedLeague.team_size_min} نفر است.`)
@@ -389,7 +409,11 @@ export function TeamRegistrationWizard({
       const message = err instanceof Error ? err.message : t('common.error')
       const ageBelow = message.match(/member_age_below_min:(\d+)/)
       const ageAbove = message.match(/member_age_above_max:(\d+)/)
-      const friendlyMessage = message.includes('team_name_already_exists')
+      const friendlyMessage = message.includes('invalid_persian_text')
+        ? 'این فیلد باید با حروف فارسی وارد شود؛ لطفاً زبان صفحه‌کلید را به فارسی تغییر دهید.'
+        : message.includes('invalid_english_text')
+          ? 'این فیلد باید با حروف انگلیسی وارد شود؛ لطفاً زبان صفحه‌کلید را به انگلیسی تغییر دهید.'
+          : message.includes('team_name_already_exists')
         ? 'تیم دیگری با این نام در این لیگ وجود دارد.'
         : ageBelow ? `سن عضو از حداقل سن مجاز این لیگ (${ageBelow[1]} سال) کمتر است.`
           : ageAbove ? `سن عضو از حداکثر سن مجاز این لیگ (${ageAbove[1]} سال) بیشتر است.`
@@ -495,8 +519,11 @@ export function TeamRegistrationWizard({
       onCompleted(data)
     } catch (err) {
       const message = err instanceof Error ? err.message : t('common.error')
-      setError(message)
-      toast.error(message)
+      const friendly = /incomplete_team_person|team_dossier_incomplete/.test(message)
+        ? 'اطلاعات یکی از اعضای تیم کامل نیست. نام‌ها، اطلاعات هویتی و مدارک الزامی اعضا را بررسی کنید.'
+        : message
+      setError(friendly)
+      toast.error(friendly)
     } finally {
       setBusy(false)
     }
@@ -511,7 +538,7 @@ export function TeamRegistrationWizard({
           <h2 className="text-lg font-semibold">{t('team.wizardTitle')}</h2>
           <p className="text-sm text-rc-muted">{t('team.wizardHint')}</p>
         </div>
-        <Button type="button" variant="ghost" disabled={busy} onClick={() => void cancelRegistration()}>
+        <Button type="button" variant={draft.teamId ? 'danger' : 'ghost'} disabled={busy} onClick={() => void cancelRegistration()}>
           {draft.teamId ? 'انصراف و حذف ثبت‌نام' : t('common.cancel')}
         </Button>
       </div>
@@ -536,10 +563,10 @@ export function TeamRegistrationWizard({
 
       {step === 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <div><Input label={t('team.nameFa')} required value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} error={nameAvailability === 'taken' ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : nameAvailability === 'error' ? 'بررسی نام تیم انجام نشد؛ دوباره تلاش کنید.' : undefined} />{nameAvailability === 'checking' ? <p className="mt-1.5 text-xs text-slate-500">در حال بررسی نام تیم…</p> : nameAvailability === 'available' ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600"><span aria-hidden>✓</span> این نام قابل استفاده است.</p> : null}</div>
-          <Input label={t('team.nameEn')} required value={draft.nameEn} onChange={(e) => patchDraft({ nameEn: e.target.value })} dir="ltr" />
-          <Input label={t('team.mottoFa')} value={draft.mottoFa} onChange={(e) => patchDraft({ mottoFa: e.target.value })} />
-          <Input label={t('team.mottoEn')} value={draft.mottoEn} onChange={(e) => patchDraft({ mottoEn: e.target.value })} dir="ltr" />
+          <div><Input label={t('team.nameFa')} required value={draft.name} onChange={(e) => patchDraft({ name: e.target.value })} error={teamNameFaError || (nameAvailability === 'taken' ? 'تیم دیگری با این نام در این لیگ وجود دارد.' : nameAvailability === 'error' ? 'بررسی نام تیم انجام نشد؛ دوباره تلاش کنید.' : undefined)} />{nameAvailability === 'checking' ? <p className="mt-1.5 text-xs text-slate-500">در حال بررسی نام تیم…</p> : nameAvailability === 'available' && !teamNameFaError ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600"><span aria-hidden>✓</span> این نام قابل استفاده است.</p> : null}</div>
+          <Input label={t('team.nameEn')} required value={draft.nameEn} onChange={(e) => patchDraft({ nameEn: e.target.value })} dir="ltr" error={teamNameEnError} />
+          {teamMottoEnabled ? <Input label={t('team.mottoFa')} value={draft.mottoFa} onChange={(e) => patchDraft({ mottoFa: e.target.value })} error={teamMottoFaError} /> : null}
+          {teamMottoEnabled ? <Input label={t('team.mottoEn')} value={draft.mottoEn} onChange={(e) => patchDraft({ mottoEn: e.target.value })} dir="ltr" error={teamMottoEnError} /> : null}
           <Select
             label={t('team.league')}
             required
@@ -585,15 +612,17 @@ export function TeamRegistrationWizard({
                     required
                     value={member.first_name}
                     onChange={(e) => patchMember(index, { first_name: withoutDigits(e.target.value) })}
+                    error={localizedTextError(member.first_name, 'fa')}
                   />
                   <Input
                     label={t('team.memberLastNameFa')}
                     required
                     value={member.last_name}
                     onChange={(e) => patchMember(index, { last_name: withoutDigits(e.target.value) })}
+                    error={localizedTextError(member.last_name, 'fa')}
                   />
-                  <Input label={t('team.memberFirstNameEn')} required value={member.first_name_en} onChange={(e) => patchMember(index, { first_name_en: withoutDigits(e.target.value) })} dir="ltr" />
-                  <Input label={t('team.memberLastNameEn')} required value={member.last_name_en} onChange={(e) => patchMember(index, { last_name_en: withoutDigits(e.target.value) })} dir="ltr" />
+                  <Input label={t('team.memberFirstNameEn')} required value={member.first_name_en} onChange={(e) => patchMember(index, { first_name_en: withoutDigits(e.target.value) })} dir="ltr" error={localizedTextError(member.first_name_en, 'en')} />
+                  <Input label={t('team.memberLastNameEn')} required value={member.last_name_en} onChange={(e) => patchMember(index, { last_name_en: withoutDigits(e.target.value) })} dir="ltr" error={localizedTextError(member.last_name_en, 'en')} />
                   <Select
                     label={t('team.memberRole')}
                     value={member.role}
@@ -603,8 +632,8 @@ export function TeamRegistrationWizard({
                     <option value="coach">مربی</option>
                     <option value="member">{t('team.roles.member')}</option>
                   </Select>
-                  <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: withoutDigits(e.target.value) })} />
-                  <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: withoutDigits(e.target.value) })} dir="ltr" />
+                  <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: withoutDigits(e.target.value) })} error={localizedTextError(member.father_name_fa, 'fa')} />
+                  <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: withoutDigits(e.target.value) })} dir="ltr" error={localizedTextError(member.father_name_en, 'en')} />
                   {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: numericInput(e.target.value, 11) })} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" /> : null}
                   <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
                   {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}

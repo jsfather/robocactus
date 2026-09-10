@@ -27,6 +27,20 @@ export function numericInput(value: string, maxLength?: number): string {
   return maxLength == null ? digits : digits.slice(0, maxLength)
 }
 
+export type LocalizedTextLanguage = 'fa' | 'en'
+
+/** Returns a field-level hint when text was entered with the wrong keyboard script. */
+export function localizedTextError(value: string, language: LocalizedTextLanguage): string | undefined {
+  if (!value.trim()) return undefined
+  if (language === 'fa' && /[A-Za-z]/.test(value)) {
+    return 'این فیلد باید با حروف فارسی وارد شود؛ لطفاً زبان صفحه‌کلید را به فارسی تغییر دهید.'
+  }
+  if (language === 'en' && /[\u0600-\u06FF]/.test(value)) {
+    return 'این فیلد باید با حروف انگلیسی وارد شود؛ لطفاً زبان صفحه‌کلید را به انگلیسی تغییر دهید.'
+  }
+  return undefined
+}
+
 export function normalizePhone(phone: string): string {
   const digits = numericInput(phone)
   if (digits.startsWith('98') && digits.length === 12) {

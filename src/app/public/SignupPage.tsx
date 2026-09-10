@@ -19,7 +19,7 @@ import type { BackendAuthOptions } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
 import { withoutDigits } from '@/lib/iran'
-import { numericInput } from '@/lib/validation'
+import { localizedTextError, numericInput } from '@/lib/validation'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 import {
@@ -244,6 +244,11 @@ export function SignupPage() {
         setError(t('auth.required'))
         return false
       }
+      const languageError = localizedTextError(firstNameFa, 'fa')
+        || localizedTextError(lastNameFa, 'fa')
+        || localizedTextError(firstNameEn, 'en')
+        || localizedTextError(lastNameEn, 'en')
+      if (languageError) { setError(languageError); return false }
       if (phone && !/^09\d{9}$/.test(phone)) { setError('شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'); return false }
       if (!/^\d{10}$/.test(postalCode)) { setError('کد پستی باید دقیقاً ۱۰ رقم باشد.'); return false }
       if (accountType === 'legal' && !/^\d{10}$/.test(representativeNationalId)) { setError('کد ملی نماینده باید دقیقاً ۱۰ رقم باشد.'); return false }
@@ -687,10 +692,10 @@ export function SignupPage() {
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setFirstNameFa(value); setFullName(`${value} ${lastNameFa}`.trim()) }} />
-            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setLastNameFa(value); setFullName(`${firstNameFa} ${value}`.trim()) }} />
-            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(withoutDigits(e.target.value))} dir="ltr" />
-            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(withoutDigits(e.target.value))} dir="ltr" />
+            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setFirstNameFa(value); setFullName(`${value} ${lastNameFa}`.trim()) }} error={localizedTextError(firstNameFa, 'fa')} />
+            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setLastNameFa(value); setFullName(`${firstNameFa} ${value}`.trim()) }} error={localizedTextError(lastNameFa, 'fa')} />
+            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(withoutDigits(e.target.value))} dir="ltr" error={localizedTextError(firstNameEn, 'en')} />
+            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(withoutDigits(e.target.value))} dir="ltr" error={localizedTextError(lastNameEn, 'en')} />
           </div>
           <BirthDateField label="تاریخ تولد" value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
           <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" maxLength={10} />

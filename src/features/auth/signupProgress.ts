@@ -87,6 +87,12 @@ export function mapSignupError(error: string | null | undefined, t: (key: string
   if (normalized.includes('invalid_location_characters')) {
     return 'نام استان و شهر نباید شامل عدد باشد.'
   }
+  if (normalized.includes('invalid_persian_text')) {
+    return 'این فیلد باید با حروف فارسی وارد شود؛ لطفاً زبان صفحه‌کلید را به فارسی تغییر دهید.'
+  }
+  if (normalized.includes('invalid_english_text')) {
+    return 'این فیلد باید با حروف انگلیسی وارد شود؛ لطفاً زبان صفحه‌کلید را به انگلیسی تغییر دهید.'
+  }
   if (normalized.includes('failed query') || normalized.includes('profiles_email') || normalized.includes('unique constraint')) {
     if (normalized.includes('email')) return t('auth.duplicateEmail')
     if (normalized.includes('username')) return t('auth.duplicateUsername')

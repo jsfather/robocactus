@@ -46,6 +46,8 @@ export function SuperAdminRegistrationSettingsPage() {
   const [waitEn, setWaitEn] = useState('')
   const [waitSeconds, setWaitSeconds] = useState(180)
   const [fieldRules, setFieldRules] = useState<ParticipantFieldRule[]>([])
+  const [teamMottoEnabled, setTeamMottoEnabled] = useState(true)
+  const [companyTaglineEnabled, setCompanyTaglineEnabled] = useState(true)
   const [docOperations, setDocOperations] = useState<Record<string, string>>({})
 
   const reload = async () => {
@@ -66,6 +68,8 @@ export function SuperAdminRegistrationSettingsPage() {
       setWaitFa(s?.chat_wait_message_fa ?? '')
       setWaitEn(s?.chat_wait_message_en ?? '')
       setWaitSeconds(Number(s?.chat_wait_timeout_seconds ?? 180))
+      setTeamMottoEnabled(s?.team_motto_enabled !== false)
+      setCompanyTaglineEnabled(s?.company_tagline_enabled !== false)
       setFieldRules((r.data ?? []) as ParticipantFieldRule[])
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -194,6 +198,20 @@ export function SuperAdminRegistrationSettingsPage() {
     }
   }
 
+  const onSaveOptionalFields = async (e: FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await updateSiteSettings({ team_motto_enabled: teamMottoEnabled, company_tagline_enabled: companyTaglineEnabled })
+      await refresh()
+      toast.success(t('common.saved'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onSaveChat = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
@@ -231,6 +249,21 @@ export function SuperAdminRegistrationSettingsPage() {
       <HudFrame className="mb-6 space-y-4 p-5">
         <SectionLabel index="FIELDS.01" title="قواعد اطلاعات هویتی" hint="الزامی یا اختیاری بودن فیلدها در فرم کاربر و اعتبارسنجی سرور از همین منبع خوانده می‌شود. موارد قفل‌شده ساختاری یا امنیتی‌اند." />
         <div className="grid gap-3 md:grid-cols-2">{fieldRules.map((rule) => <div key={rule.field_key} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4"><div><p className="text-sm font-black text-slate-800">{rule.label_fa}</p><p className="mt-1 font-mono text-[10px] text-slate-400">{rule.field_key} · {rule.applies_to}</p></div><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={rule.is_required} disabled={rule.is_locked || busy} onChange={(e) => void (async () => { setBusy(true); const { error } = await backend.from('participant_field_rules').update({ is_required: e.target.checked, updated_at: new Date().toISOString() }).eq('field_key', rule.field_key); setBusy(false); if (error) toast.error(error.message); else { toast.success('قاعده ذخیره شد.'); await reload() } })()} />{rule.is_locked ? 'قفل امنیتی' : 'الزامی'}</label></div>)}</div>
+      </HudFrame>
+
+      <HudFrame className="mb-6 space-y-4 p-5">
+        <SectionLabel index="OPTIONAL.01" title="فیلدهای اختیاری فرم‌ها" hint="با غیرفعال‌کردن هر فیلد، مقدارهای تاریخی حفظ می‌شوند اما فیلد در فرم و نمایش عمومی نشان داده نمی‌شود." />
+        <form className="grid gap-3" onSubmit={(event) => void onSaveOptionalFields(event)}>
+          <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-800">
+            <span>نمایش شعار فارسی و انگلیسی تیم</span>
+            <input type="checkbox" checked={teamMottoEnabled} disabled={busy} onChange={(event) => setTeamMottoEnabled(event.target.checked)} />
+          </label>
+          <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-800">
+            <span>نمایش شعار مجموعه / شرکت</span>
+            <input type="checkbox" checked={companyTaglineEnabled} disabled={busy} onChange={(event) => setCompanyTaglineEnabled(event.target.checked)} />
+          </label>
+          <Button type="submit" disabled={busy}>{t('common.save')}</Button>
+        </form>
       </HudFrame>
 
       <HudFrame className="mb-6 space-y-3 p-4">

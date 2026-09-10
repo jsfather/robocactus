@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, Textarea, FieldError, PanelCard, Select } from '@/components/ui/FormControls'
 import { useAuth } from '@/hooks/useAuth'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { createCompany, updateCompany, uploadCompanyLogo } from '@/features/companies/api'
 import { slugify } from '@/lib/validation'
 import type { Company } from '@/types/database'
@@ -21,6 +22,8 @@ function displayFoundedYear(value: number | null | undefined, isFa: boolean): st
 export function CompanyForm({ company, onSaved }: CompanyFormProps) {
   const { t, i18n } = useTranslation()
   const { user, profile } = useAuth()
+  const { settings } = useSiteSettings()
+  const companyTaglineEnabled = settings?.company_tagline_enabled !== false
   const isEdit = Boolean(company)
   const isFa = i18n.language.toLowerCase().startsWith('fa')
   const currentGregorianYear = new Date().getFullYear()
@@ -80,7 +83,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
         slug: company?.slug ?? `${slugify(name) || 'organization'}-${crypto.randomUUID().slice(0, 8)}`,
         entity_type: entityType,
         bio: bio.trim() || undefined,
-        tagline: tagline.trim() || undefined,
+        ...(companyTaglineEnabled ? { tagline: tagline.trim() || undefined } : {}),
         website: website.trim() || undefined,
         founded_year: storedFoundedYear,
         logo_url: logoUrl,
@@ -98,10 +101,10 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
               founded_year: payload.founded_year,
               logo_url: payload.logo_url,
             }).then(async (created) => {
-              if (payload.cover_image_url || payload.tagline) {
+              if (payload.cover_image_url || ('tagline' in payload && payload.tagline)) {
                 return updateCompany(created.id, {
                   cover_image_url: payload.cover_image_url,
-                  tagline: payload.tagline,
+                  ...('tagline' in payload ? { tagline: payload.tagline } : {}),
                   entity_type: payload.entity_type,
                 })
               }
@@ -154,13 +157,13 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
           dir="ltr"
           placeholder={String(isFa ? currentPersianYear : currentGregorianYear)}
         />
-        <div className="md:col-span-2">
+        {companyTaglineEnabled ? <div className="md:col-span-2">
           <Input
             label={t('company.tagline')}
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
           />
-        </div>
+        </div> : null}
         <div className="md:col-span-2">
           <Textarea
             label={t('company.bio')}

@@ -8,6 +8,7 @@ import {
   type CompanyProfileBundle,
 } from '@/features/rankings/api'
 import { formatSeasonYear } from '@/lib/dates'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 
 function medalLabel(rank: number | null, t: (k: string) => string) {
   if (rank === 1) return t('companies.gold')
@@ -19,6 +20,7 @@ function medalLabel(rank: number | null, t: (k: string) => string) {
 export function CompanyPublicProfilePage() {
   const { slug } = useParams()
   const { t, i18n } = useTranslation()
+  const { settings } = useSiteSettings()
   const [bundle, setBundle] = useState<CompanyProfileBundle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -95,7 +97,7 @@ export function CompanyPublicProfilePage() {
                 ORGANIZATION PROFILE · {company.slug}
               </p>
               <h1 className="mt-1 text-4xl font-black tracking-tight text-white sm:text-6xl">{company.name}</h1>
-              {company.tagline ? (
+              {settings?.company_tagline_enabled !== false && company.tagline ? (
                 <p className="mt-3 max-w-2xl text-white/75">{company.tagline}</p>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-3 text-sm text-white/70">

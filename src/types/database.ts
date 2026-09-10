@@ -593,6 +593,8 @@ export type SiteSettings = {
   chat_wait_timeout_seconds?: number | null
   chat_wait_message_fa?: string | null
   chat_wait_message_en?: string | null
+  team_motto_enabled?: boolean
+  company_tagline_enabled?: boolean
   copyright_fa?: string | null
   copyright_en?: string | null
   developer_credit_fa?: string | null

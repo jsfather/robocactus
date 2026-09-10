@@ -1,5 +1,5 @@
 import type { ParticipantFieldRule, Profile } from '@/types/database'
-import { numericInput, toLatinDigits } from '@/lib/validation'
+import { localizedTextError, numericInput, toLatinDigits } from '@/lib/validation'
 
 export function normalizeIranMobile(value: string): string | null {
   const normalized = toLatinDigits(value)
@@ -22,6 +22,16 @@ export function participantDisplayName(profile: Pick<Profile, 'account_type' | '
 
 export function participantErrors(profile: Profile, rules: ParticipantFieldRule[] = []): Record<string, string> {
   const errors: Record<string, string> = {}
+  const localizedFields = [
+    ['first_name_fa', profile.first_name_fa, 'fa'],
+    ['last_name_fa', profile.last_name_fa, 'fa'],
+    ['first_name_en', profile.first_name_en, 'en'],
+    ['last_name_en', profile.last_name_en, 'en'],
+  ] as const
+  for (const [key, value, language] of localizedFields) {
+    const languageError = localizedTextError(value ?? '', language)
+    if (languageError) errors[key] = languageError
+  }
   const normalizedPhone = normalizeIranMobile(profile.phone ?? '')
   const required = rules.filter((rule) => rule.is_required && (rule.applies_to === 'both' || rule.applies_to === profile.account_type))
   for (const rule of required) {

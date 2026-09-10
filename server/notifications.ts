@@ -153,7 +153,7 @@ async function dispatch(channel: 'sms' | 'email', limit: number) {
           error_message = null, sent_at = now() where id = ${row.id}::uuid
       `)
       await db.execute(sql`update public.registration_reminder_log set status = 'sent', sent_at = now(),
-        provider_response = jsonb_build_object('provider_message_id', ${providerId})
+        provider_response = jsonb_build_object('provider_message_id', ${providerId}::text)
         where notification_id = ${row.id}::uuid`).catch(() => undefined)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -162,7 +162,7 @@ async function dispatch(channel: 'sms' | 'email', limit: number) {
           sent_at = now() where id = ${row.id}::uuid
       `)
       await db.execute(sql`update public.registration_reminder_log set status = 'failed', sent_at = now(),
-        provider_response = jsonb_build_object('error', ${errorMessage})
+        provider_response = jsonb_build_object('error', ${errorMessage}::text)
         where notification_id = ${row.id}::uuid`).catch(() => undefined)
     }
     processed += 1

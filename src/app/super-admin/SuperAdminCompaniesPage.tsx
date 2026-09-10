@@ -9,10 +9,13 @@ import { useToast } from '@/components/ui/Toast'
 import { backend } from '@/lib/backend'
 import { formatAppDate } from '@/lib/dates'
 import type { Company } from '@/types/database'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 
 export function SuperAdminCompaniesPage() {
   const { t, i18n } = useTranslation()
   const toast = useToast()
+  const { settings } = useSiteSettings()
+  const companyTaglineEnabled = settings?.company_tagline_enabled !== false
   const [rows, setRows] = useState<Company[]>([])
   const [q, setQ] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +45,7 @@ export function SuperAdminCompaniesPage() {
     return (
       c.name.toLowerCase().includes(s) ||
       c.slug.toLowerCase().includes(s) ||
-      (c.tagline ?? '').toLowerCase().includes(s)
+      (companyTaglineEnabled && (c.tagline ?? '').toLowerCase().includes(s))
     )
   })
 
@@ -143,7 +146,7 @@ export function SuperAdminCompaniesPage() {
                     <p className="font-mono text-[10px] text-rc-muted">
                       {c.slug} · {formatAppDate(c.created_at, i18n.language)}
                     </p>
-                    {c.tagline ? (
+                    {companyTaglineEnabled && c.tagline ? (
                       <p className="mt-0.5 truncate text-xs text-rc-muted">{c.tagline}</p>
                     ) : null}
                   </div>
