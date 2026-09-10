@@ -47,6 +47,15 @@ function strongPassword(password: string): boolean {
   return password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)
 }
 
+function validUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+async function accountIsSuspended(userId: string): Promise<boolean> {
+  const result = await db.execute(sql`select 1 from public.profiles where id=${userId}::uuid and account_status='suspended' limit 1`)
+  return result.rows.length > 0
+}
+
 async function createSession(response: Response, user: typeof users.$inferSelect) {
   const token = randomBytes(32).toString('base64url')
   const expiresAt = new Date(Date.now() + config.sessionDays * 24 * 60 * 60 * 1000)
@@ -271,6 +280,10 @@ export function registerAuthRoutes(router: Router): void {
       response.status(400).json({ error: 'email_not_confirmed' })
       return
     }
+    if (await accountIsSuspended(user.id)) {
+      response.status(403).json({ error: 'account_suspended' })
+      return
+    }
     response.json({ session: await createSession(response, user), user: publicUser(user) })
   })
 
@@ -348,7 +361,7 @@ export function registerAuthRoutes(router: Router): void {
       return
     }
     const user = await findUserByEmail(email)
-    if (user) {
+    if (user && !await accountIsSuspended(user.id)) {
       const token = await createOneTimeToken(user.id, 'magic_link', request.body?.redirectTo)
       const requested = new URL(String(request.body?.redirectTo ?? '/auth/callback'), config.appUrl)
       const callback = requested.origin === new URL(config.appUrl).origin
@@ -476,15 +489,31 @@ export function registerAuthRoutes(router: Router): void {
     const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
     if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
     const targetId = String(request.params.userId)
+    if (!validUuid(targetId)) return void response.status(400).json({ error: 'invalid_user_id' })
     if (targetId === actor.id) return void response.status(400).json({ error: 'cannot_delete_self' })
     const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
     if (!target) return void response.status(404).json({ error: 'user_not_found' })
     try {
       await db.transaction(async (transaction) => {
-        const ownedCompanies = await transaction.execute(sql`
-          select company_id from public.company_members
-          where user_id = ${targetId}::uuid and is_owner = true
+        const unsafeDeletion = await transaction.execute(sql`
+          select
+            exists(select 1 from public.teams where captain_id=${targetId}::uuid) as captains_team,
+            exists(
+              select 1
+              from public.company_members owner
+              where owner.user_id=${targetId}::uuid and owner.is_owner=true and (
+                exists(select 1 from public.company_members member where member.company_id=owner.company_id and member.user_id<>${targetId}::uuid)
+                or exists(select 1 from public.teams where company_id=owner.company_id)
+                or exists(select 1 from public.invoices where company_id=owner.company_id)
+                or exists(select 1 from public.results where company_id=owner.company_id)
+                or exists(select 1 from public.company_achievements where company_id=owner.company_id)
+              )
+            ) as owned_company_history
         `)
+        const historical = unsafeDeletion.rows[0] as { captains_team?: boolean; owned_company_history?: boolean } | undefined
+        if (historical?.captains_team || historical?.owned_company_history) {
+          throw new Error('participant_has_historical_records')
+        }
         // Empty organizations created during an abandoned signup have no
         // business value and otherwise remain orphaned after membership cascade.
         await transaction.execute(sql`
@@ -496,25 +525,43 @@ export function registerAuthRoutes(router: Router): void {
           and not exists (select 1 from public.teams t where t.company_id = c.id)
         `)
         await transaction.delete(users).where(eq(users.id, targetId))
-        for (const row of ownedCompanies.rows as Array<{ company_id: string }>) {
-          await transaction.execute(sql`
-            delete from public.companies
-            where id = ${row.company_id}::uuid
-              and not exists (select 1 from public.company_members where company_id = ${row.company_id}::uuid)
-              and not exists (select 1 from public.teams where company_id = ${row.company_id}::uuid)
-          `)
-        }
       })
       response.json({ ok: true })
     } catch (error) {
       const drizzleError = error as { code?: string; constraint?: string; message?: string; cause?: { code?: string; constraint?: string; message?: string } }
       const pgError = drizzleError.cause ?? drizzleError
       console.error('[auth] admin user deletion failed', { targetId, code: pgError.code, constraint: pgError.constraint, message: pgError.message })
+      if (String(pgError.message).includes('participant_has_historical_records')) {
+        return void response.status(409).json({ error: 'participant_has_historical_records', action: 'deactivate' })
+      }
       if (pgError.code === '23503') {
-        return void response.status(409).json({ error: 'user_has_related_records' })
+        return void response.status(409).json({ error: 'participant_has_historical_records', action: 'deactivate' })
       }
       response.status(500).json({ error: 'user_delete_failed' })
     }
+  })
+
+  router.post('/auth/admin/users/:userId/deactivate', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const targetId = String(request.params.userId)
+    if (!validUuid(targetId)) return void response.status(400).json({ error: 'invalid_user_id' })
+    if (targetId === actor.id) return void response.status(400).json({ error: 'cannot_deactivate_self' })
+    const updated = await db.transaction(async (transaction) => {
+      const result = await transaction.execute(sql`
+        update public.profiles
+        set account_status='suspended', activated_at=null
+        where id=${targetId}::uuid and role in ('company_admin','team_captain')
+        returning id
+      `)
+      if (!result.rows.length) return false
+      await transaction.delete(sessions).where(eq(sessions.userId, targetId))
+      return true
+    })
+    if (!updated) return void response.status(404).json({ error: 'participant_not_found' })
+    response.json({ ok: true })
   })
 
   router.post('/auth/admin/collaborators', async (request, response) => {
@@ -608,6 +655,8 @@ export function registerAuthRoutes(router: Router): void {
         .for('update')
       const row = rows[0]
       if (!row) return null
+      const suspended = await transaction.execute(sql`select 1 from public.profiles where id=${row.user.id}::uuid and account_status='suspended' limit 1`)
+      if (suspended.rows.length) return null
       const isSmsToken = row.token.kind === 'sms_otp'
       const isEmailToken = row.token.kind === 'email_confirmation' || row.token.kind === 'magic_link'
       // Older deployed clients sent SMS token_hash values with type="email".

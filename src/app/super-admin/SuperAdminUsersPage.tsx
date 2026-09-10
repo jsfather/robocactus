@@ -153,7 +153,19 @@ export function SuperAdminUsersPage() {
   const deleteUser = async (profile: Profile) => {
     if (!window.confirm(`حساب «${participantDisplayName(profile)}» و اطلاعات وابسته برای همیشه حذف شود؟`)) return
     setBusy(true); const result = await backend.auth.adminDeleteUser(profile.id); setBusy(false)
-    if (result.error) return void toast.error(result.error.message === 'user_has_related_records' ? 'این کاربر دارای تیم، ثبت‌نام، فاکتور یا سابقه مسابقه است و برای حفظ سوابق قابل حذف نیست؛ حساب را غیرفعال کنید.' : result.error.message === 'user_delete_failed' ? 'حذف حساب انجام نشد. جزئیات در گزارش سرور ثبت شد.' : result.error.message)
+    if (result.error) {
+      if (['participant_has_historical_records','user_has_related_records'].includes(result.error.message)) {
+        const deactivate = window.confirm('این حساب دارای سابقه تیم، ثبت‌نام یا مالی است و حذف آن امن نیست. آیا حساب غیرفعال و نشست‌های آن بسته شود؟')
+        if (!deactivate) return
+        setBusy(true)
+        const deactivated = await backend.auth.adminDeactivateUser(profile.id)
+        setBusy(false)
+        if (deactivated.error) return void toast.error(deactivated.error.message)
+        await reload()
+        return void toast.success('حساب غیرفعال شد و سوابق آن محفوظ ماند.')
+      }
+      return void toast.error(result.error.message === 'user_delete_failed' ? 'حذف حساب انجام نشد. جزئیات در گزارش سرور ثبت شد.' : result.error.message)
+    }
     await reload(); toast.success('حساب کاربر حذف شد.')
   }
   const accountStatusLabel: Record<string, string> = { active: 'فعال', pending: 'در انتظار تکمیل', suspended: 'تعلیق‌شده', rejected: 'ردشده', inactive: 'غیرفعال' }

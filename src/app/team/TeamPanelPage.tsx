@@ -21,7 +21,8 @@ import type { DocumentRow, Invoice, ResultRow, Team, TeamMember } from '@/types/
 import type { League } from '@/types/database'
 import { backend } from '@/lib/backend'
 import { safeSameOriginUrl } from '@/lib/safe-url'
-import { fetchAttendanceSnapshot, type AttendanceClearance } from '@/features/attendance/api'
+import { fetchAttendanceSnapshot, type AttendanceClearance, type AttendanceSettings } from '@/features/attendance/api'
+import { fetchMemberRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -60,7 +61,9 @@ export function TeamPanelPage() {
   const [idFiles, setIdFiles] = useState<Record<string, File | null>>({})
   const [viewerUrl, setViewerUrl] = useState('')
   const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
   const [invoice, setInvoice] = useState<Invoice | null>(null)
+  const [memberDocTypes, setMemberDocTypes] = useState<RegistrationDocType[]>([])
 
   useEffect(() => { if (editMemberId && members.some((member) => member.id === editMemberId && member.review_status === 'rejected')) setEditing(true) }, [editMemberId, members])
   useEffect(() => { if (editAllRequested && profile?.role === 'super_admin') setEditing(true) }, [editAllRequested, profile?.role])
@@ -82,13 +85,14 @@ export function TeamPanelPage() {
             setDocs([])
             setResult(null)
           } else {
-            const [m, d, r, leagueResponse, attendanceResponse, invoiceResponse] = await Promise.all([
+            const [m, d, r, leagueResponse, attendanceResponse, invoiceResponse, activeMemberDocTypes] = await Promise.all([
               fetchTeamMembers(row.id),
               fetchTeamDocuments(row.id),
               fetchTeamPublishedResult(row.id).catch(() => null),
               backend.from('leagues').select('*').eq('id', row.league_id).maybeSingle(),
               fetchAttendanceSnapshot(row.id,row.league_id).catch(()=>null),
               backend.from('invoices').select('*').eq('team_id',row.id).is('archived_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+              fetchMemberRegistrationDocTypes().catch(() => []),
             ])
             const safeMembers = m.map((member) => ({ ...member, photo_url: safeSameOriginUrl(member.photo_url) }))
             setMembers(safeMembers)
@@ -97,12 +101,15 @@ export function TeamPanelPage() {
             setResult(r)
             setLeague((leagueResponse.data as League | null) ?? null)
             setAttendance(attendanceResponse?.flow??null)
+            setAttendanceSettings(attendanceResponse?.settings??null)
             setInvoice((invoiceResponse.data as Invoice|null)??null)
+            setMemberDocTypes(activeMemberDocTypes)
           }
         } else {
           setTeams(await fetchCaptainTeams(user.id))
           setTeam(null)
           setResult(null)
+          setAttendanceSettings(null)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : t('common.error'))
@@ -138,11 +145,19 @@ export function TeamPanelPage() {
     const permitIssued = attendance?.stage === 'confirmed'
     const paymentPaid = invoice?.status === 'paid'
     const hasNoMembers = members.length === 0
+    const memberPhotoEnabled = memberDocTypes.some((type) => type.code === 'member_photo')
+    const memberIdentityEnabled = memberDocTypes.some((type) => type.code === 'member_identity')
     const saveMemberEdits = async () => {
       setSaving(true)
       setError(null)
       try {
         const editableMembers = isManagementView || team.status === 'draft' ? memberEdits : memberEdits.filter((member) => member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))
+        const invalidAgeMember = editableMembers.find((member) => {
+          if (member.role !== 'member') return false
+          const age = ageFromBirthDate(member.birth_date)
+          return age == null || (league?.min_age != null && age < league.min_age) || (league?.max_age != null && age > league.max_age)
+        })
+        if (invalidAgeMember) throw new Error(`سن اعضای عادی تیم باید در بازه مجاز لیگ (${league?.min_age ?? 'بدون حداقل'} تا ${league?.max_age ?? 'بدون حداکثر'} سال) باشد.`)
         for (const member of editableMembers) {
           const { error: updateError } = await backend.from('team_members').update({
             first_name: member.first_name,
@@ -162,8 +177,8 @@ export function TeamPanelPage() {
             field_of_study: member.field_of_study,
           }).eq('id', member.id)
           if (updateError) throw new Error(updateError.message)
-          if (photoFiles[member.id]) await uploadMemberPhoto(team.id, member.id, photoFiles[member.id]!)
-          if (idFiles[member.id] && user) await uploadMemberNationalId({ userId: user.id, teamId: team.id, memberId: member.id, file: idFiles[member.id]! })
+          if (memberPhotoEnabled && photoFiles[member.id]) await uploadMemberPhoto(team.id, member.id, photoFiles[member.id]!)
+          if (memberIdentityEnabled && idFiles[member.id] && user) await uploadMemberNationalId({ userId: user.id, teamId: team.id, memberId: member.id, file: idFiles[member.id]! })
           if (team.status !== 'draft') { const submitted = await backend.rpc('submit_team_member_correction', { p_member_id: member.id }); if (submitted.error) throw new Error(submitted.error.message) }
         }
         const refreshed = await fetchTeamMembers(team.id)
@@ -223,13 +238,13 @@ export function TeamPanelPage() {
               <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />
               <Input label="نام خانوادگی انگلیسی" value={member.last_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_en: event.target.value } : row))} dir="ltr" />
               <Input label="کد ملی" value={member.national_id ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, national_id: event.target.value } : row))} dir="ltr" />
-              <BirthDateField label="تاریخ تولد" value={member.birth_date} onChange={(date) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: date } : row))} />
+              <BirthDateField label="تاریخ تولد" value={member.birth_date} minAge={member.role === 'member' ? league?.min_age ?? 0 : 0} maxAge={member.role === 'member' ? league?.max_age ?? 130 : 130} onChange={(date) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: date } : row))} />
               <Select label="سمت در تیم" value={member.role ?? 'member'} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, role: event.target.value } : row))}><option value="captain">سرپرست</option><option value="coach">مربی</option><option value="member">عضو تیم</option></Select>
               <Input label="شماره تماس" value={member.phone ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, phone: event.target.value } : row))} dir="ltr" />
               <Input label="محل سکونت" value={member.residence ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, residence: event.target.value } : row))} />
               <Input label="رشته تحصیلی" value={member.field_of_study ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, field_of_study: event.target.value } : row))} />
-              <EditableMemberAsset label="تصویر پرسنلی" file={photoFiles[member.id]} stored={member.photo_url} busy={saving} onChange={(file) => setPhotoFiles((current) => ({ ...current, [member.id]: file }))} />
-              <EditableMemberAsset label="کارت ملی / مدرک هویت" file={idFiles[member.id]} stored={member.national_id_doc_path} privateFile busy={saving} onChange={(file) => setIdFiles((current) => ({ ...current, [member.id]: file }))} />
+              {memberPhotoEnabled ? <EditableMemberAsset label="تصویر پرسنلی" file={photoFiles[member.id]} stored={member.photo_url} busy={saving} onChange={(file) => setPhotoFiles((current) => ({ ...current, [member.id]: file }))} /> : null}
+              {memberIdentityEnabled ? <EditableMemberAsset label="کارت ملی / مدرک هویت" file={idFiles[member.id]} stored={member.national_id_doc_path} privateFile busy={saving} onChange={(file) => setIdFiles((current) => ({ ...current, [member.id]: file }))} /> : null}
             </div>)}
             <Button type="button" onClick={() => void saveMemberEdits()} disabled={saving}>{saving ? 'در حال ذخیره…' : 'ذخیره تغییرات اعضا'}</Button>
           </div> : members.length ? (
@@ -241,7 +256,7 @@ export function TeamPanelPage() {
                     : m.full_name
                 const age = ageFromBirthDate(m.birth_date)
                 return (
-                  <article key={m.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-16 shrink-0 overflow-hidden rounded-xl bg-sky-50">{m.photo_url ? <button type="button" onClick={() => setViewerUrl(m.photo_url!)}><img src={m.photo_url} alt={displayName} className="size-16 object-cover" /></button> : <span className="grid size-full place-items-center text-xl font-black text-sky-700">{displayName.slice(0, 1)}</span>}</div><div className="min-w-0"><h3 className="truncate font-black text-slate-900">{displayName}</h3><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{m.role === 'captain' ? 'سرپرست' : m.role === 'coach' ? 'مربی' : 'عضو تیم'}</span></div><span className={`ms-auto rounded-md px-2 py-1 text-[10px] font-bold ${m.review_status === 'approved' ? 'bg-emerald-50 text-emerald-700' : m.review_status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'ردشده' : 'در انتظار بررسی'}</span></div><dl className="grid grid-cols-2 gap-3 p-4 text-xs"><div><dt className="text-slate-400">سن</dt><dd className="mt-1 font-bold text-slate-700">{age != null ? `${age.toLocaleString('fa-IR')} سال` : '—'}</dd></div><div><dt className="text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-bold text-slate-700">{formatAppDate(m.birth_date, i18n.language)}</dd></div><div><dt className="text-slate-400">کد ملی</dt><dd className="mt-1 font-mono text-slate-700">{m.national_id ?? '—'}</dd></div><div><dt className="text-slate-400">تحصیلات</dt><dd className="mt-1 font-bold text-slate-700">{m.field_of_study || m.education || '—'}</dd></div></dl><div className="border-t border-slate-100 p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر کارت ملی / هویت</span><TeamAsset path={m.national_id_doc_path} alt={`مدرک ${displayName}`} onOpen={setViewerUrl} /></div></article>
+                  <article key={m.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-16 shrink-0 overflow-hidden rounded-xl bg-sky-50">{memberPhotoEnabled && m.photo_url ? <button type="button" onClick={() => setViewerUrl(m.photo_url!)}><img src={m.photo_url} alt={displayName} className="size-16 object-cover" /></button> : <span className="grid size-full place-items-center text-xl font-black text-sky-700">{displayName.slice(0, 1)}</span>}</div><div className="min-w-0"><h3 className="truncate font-black text-slate-900">{displayName}</h3><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{m.role === 'captain' ? 'سرپرست' : m.role === 'coach' ? 'مربی' : 'عضو تیم'}</span></div><span className={`ms-auto rounded-md px-2 py-1 text-[10px] font-bold ${m.review_status === 'approved' ? 'bg-emerald-50 text-emerald-700' : m.review_status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'ردشده' : 'در انتظار بررسی'}</span></div><dl className="grid grid-cols-2 gap-3 p-4 text-xs"><div><dt className="text-slate-400">سن</dt><dd className="mt-1 font-bold text-slate-700">{age != null ? `${age.toLocaleString('fa-IR')} سال` : '—'}</dd></div><div><dt className="text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-bold text-slate-700">{formatAppDate(m.birth_date, i18n.language)}</dd></div><div><dt className="text-slate-400">کد ملی</dt><dd className="mt-1 font-mono text-slate-700">{m.national_id ?? '—'}</dd></div><div><dt className="text-slate-400">تحصیلات</dt><dd className="mt-1 font-bold text-slate-700">{m.field_of_study || m.education || '—'}</dd></div></dl>{memberIdentityEnabled ? <div className="border-t border-slate-100 p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر کارت ملی / هویت</span><TeamAsset path={m.national_id_doc_path} alt={`مدرک ${displayName}`} onOpen={setViewerUrl} /></div> : null}</article>
                 )
               })}
             </div>
@@ -250,7 +265,7 @@ export function TeamPanelPage() {
           )}
         </PanelCard>
 
-        <PanelCard title={t('team.docsTitle')}>
+        {attendanceSettings?.team_documents_enabled !== false ? <PanelCard title={t('team.docsTitle')}>
           {docs.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {docs.map((d) => (
@@ -260,7 +275,7 @@ export function TeamPanelPage() {
           ) : (
             <p className="text-sm text-rc-muted">{t('team.noDocs')}</p>
           )}
-        </PanelCard>
+        </PanelCard> : null}
 
         {isParticipantView ? <PanelCard title="پشتیبانی این تیم" description="از این بخش می‌توانید درخواست خود را برای کارشناسان پشتیبانی ارسال و وضعیت پاسخ را پیگیری کنید."><Link to="/account/tickets" className="inline-flex min-h-10 items-center rounded-xl bg-sky-700 px-4 text-sm font-bold text-white">مشاهده و ارسال تیکت</Link></PanelCard> : null}
 

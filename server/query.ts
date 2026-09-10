@@ -39,7 +39,23 @@ const TABLES = new Set([
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',
   'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files', 'review_audit_log', 'team_withdrawal_requests',
+  'team_registration_change_log',
   'league_cycle_archives', 'public_competition_podium', 'public_league_participants', 'public_company_team_history',
+])
+
+// Audit history is exposed through the generic query endpoint for authorized
+// dossier readers, but it must never become a generic mutation surface. RLS
+// still decides which rows each authenticated user may see.
+const READ_ONLY_TABLES = new Set([
+  'team_registration_change_log',
+  'review_audit_log',
+  'invoice_finance_view',
+  'finance_deposit_view',
+  'public_companies',
+  'public_team_people',
+  'public_competition_podium',
+  'public_league_participants',
+  'public_company_team_history',
 ])
 
 const RPCS = new Set([
@@ -193,8 +209,9 @@ function mutationParameter(value: unknown): unknown {
 
 async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   if (!TABLES.has(spec.table)) throw new Error('table_not_allowed')
+  if (READ_ONLY_TABLES.has(spec.table) && spec.action !== 'select') throw new Error('table_write_not_allowed')
   const sectionByTable: Record<string, string> = {
-    leagues: 'leagues', league_attendance_settings: 'leagues', league_team_document_types: 'leagues',
+    leagues: 'leagues', league_attendance_settings: 'leagues',
     invoice_finance_view: 'finance', finance_deposit_view: 'finance', finance_transactions: 'finance',
     live_chat_messages: 'chat', live_chat_sessions: 'chat',
     ticket_departments: 'tickets', ticket_messages: 'tickets', ticket_reads: 'tickets', tickets: 'tickets',

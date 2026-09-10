@@ -34,8 +34,9 @@ import { ageFromBirthDate, formatAppDate, formatAppDateTime } from '@/lib/dates'
 import { useToast } from '@/components/ui/Toast'
 import { dispatchPendingSms } from '@/features/notifications/api'
 import type { DocumentRow, JudgeSubmissionProgress, League, Team, TeamMember } from '@/types/database'
-import { fetchAttendanceSnapshot, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
+import { fetchAttendanceSnapshot, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type AttendanceSettings, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
 import { backend } from '@/lib/backend'
+import { isTeamFlowStepEnabled, teamFlowSteps } from '@/features/registration/flowSteps'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -72,6 +73,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   const [queueStatus, setQueueStatus] = useState('all')
   const [viewerUrl, setViewerUrl] = useState('')
   const [attendance, setAttendance] = useState<AttendanceClearance | null>(null)
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
   const [technicalFiles, setTechnicalFiles] = useState<TechnicalFile[]>([])
   const [withdrawals, setWithdrawals] = useState<TeamWithdrawalRequest[]>([])
   const [reviewerProfiles,setReviewerProfiles]=useState<Record<string,string>>({})
@@ -85,6 +87,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
     [teams, selectedId],
   )
   const selectedLeague = useMemo(() => leagues.find((league) => league.id === selected?.league_id) ?? null, [leagues, selected?.league_id])
+  const selectedLeagueId = selected?.league_id ?? null
   const scoringCriteria = selectedLeague?.scoring_rows?.length ? selectedLeague.scoring_rows : [{ label: 'امتیاز کل', points: '100' }]
   const visibleTeams = useMemo(() => teams.filter((team) => {
     if (tab === 'scores') {
@@ -142,6 +145,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
   }, [user?.id, profile?.role])
 
   useEffect(() => {
+    let cancelled = false
     if (!selectedId) {
       setDocs([])
       setMembers([])
@@ -149,15 +153,34 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       setShowResultPreview(false)
       setResultUpdatedAt(null)
       setAttendance(null)
+      setAttendanceSettings(null)
       setTechnicalFiles([])
+      setRegistrationChanges([])
       return
     }
     void fetchTeamDocuments(selectedId)
-      .then(setDocs)
-      .catch((err: Error) => setError(err.message))
-    const selectedTeam = teams.find((team) => team.id === selectedId)
-    if (selectedTeam) { void fetchAttendanceSnapshot(selectedId, selectedTeam.league_id).then(async(data) => { setAttendance(data.flow); setTechnicalFiles(data.files);setMembers(data.members);const ids=[...new Set(data.members.map(row=>row.reviewed_by).filter(Boolean))] as string[];if(ids.length){const people=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',ids);setReviewerProfiles(Object.fromEntries((people.data??[]).map((p:{id:string;full_name:string;staff_department?:string;role:string})=>[p.id,`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`])))}}).catch(() => { setAttendance(null); setTechnicalFiles([]);setMembers([]) }); void fetchTeamRegistrationChanges(selectedId).then(setRegistrationChanges).catch(()=>setRegistrationChanges([])) }
+      .then((rows) => { if (!cancelled) setDocs(rows) })
+      .catch((err: Error) => { if (!cancelled) setError(err.message) })
+    if (selectedLeagueId) {
+      void fetchAttendanceSnapshot(selectedId, selectedLeagueId).then(async(data) => {
+        if (cancelled) return
+        setAttendance(data.flow)
+        setAttendanceSettings(data.settings)
+        setTechnicalFiles(data.files)
+        setMembers(data.members)
+        const ids=[...new Set(data.members.map(row=>row.reviewed_by).filter(Boolean))] as string[]
+        if(ids.length){
+          const people=await backend.from('profiles').select('id,full_name,staff_department,role').in('id',ids)
+          if (!cancelled) setReviewerProfiles(Object.fromEntries((people.data??[]).map((p:{id:string;full_name:string;staff_department?:string;role:string})=>[p.id,`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`])))
+        }
+      }).catch(() => { if (!cancelled) { setAttendance(null); setAttendanceSettings(null); setTechnicalFiles([]);setMembers([]) } })
+      void fetchTeamRegistrationChanges(selectedId).then((rows)=>{if(!cancelled)setRegistrationChanges(rows)}).catch(()=>{if(!cancelled)setRegistrationChanges([])})
+    }
+    return () => { cancelled = true }
+  }, [selectedId, selectedLeagueId])
 
+  useEffect(() => {
+    if (!selectedId) return
     const year = Number(seasonYear) || new Date().getFullYear()
     void Promise.all([fetchTeamResult(selectedId, year), user ? fetchMyJudgeScore(selectedId, year, user.id) : Promise.resolve(null), fetchJudgeProgress(selectedId, year)])
       .then(([row, ownScore, progress]) => {
@@ -172,39 +195,40 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         setShowResultPreview(false)
       })
       .catch(() => undefined)
-  }, [selectedId, seasonYear, user, teams])
+  }, [selectedId, seasonYear, user?.id])
 
   useEffect(()=>{const id=attendance?.technical_reviewed_by;if(!id||reviewerProfiles[id])return;void backend.from('profiles').select('id,full_name,staff_department,role').eq('id',id).maybeSingle().then(({data})=>{if(!data)return;const p=data as {id:string;full_name:string;staff_department?:string;role:string};setReviewerProfiles(current=>({...current,[p.id]:`${p.full_name} · ${p.role==='super_admin'?'مدیریت':p.staff_department==='support'?'پشتیبانی':p.staff_department==='finance'?'حسابداری':'داور/کارشناس'}`}))})},[attendance?.technical_reviewed_by,reviewerProfiles])
 
   useEffect(() => {
-    if (!selected) return
+    if (!selectedId || !selectedLeagueId) return
     let timer: number | undefined
     let running = false
-    let queued = false
     const refreshReview = async () => {
-      if (running) { queued = true; return }
+      if (running) return
       running = true
       try {
-      const attendanceData = await fetchAttendanceSnapshot(selected.id, selected.league_id)
-      setMembers(attendanceData.members)
-      setAttendance(attendanceData.flow)
-      setTechnicalFiles(attendanceData.files)
+        const attendanceData = await fetchAttendanceSnapshot(selectedId, selectedLeagueId)
+        setMembers(attendanceData.members)
+        setAttendance(attendanceData.flow)
+        setAttendanceSettings(attendanceData.settings)
+        setTechnicalFiles(attendanceData.files)
       } finally {
         running = false
-        if (queued) { queued = false; scheduleRefresh() }
       }
     }
     const scheduleRefresh = () => {
       if (timer) window.clearTimeout(timer)
-      timer = window.setTimeout(() => { void refreshReview().catch(() => undefined) }, 180)
+      timer = window.setTimeout(() => { void refreshReview().catch(() => undefined) }, 350)
     }
-    const channel = backend.channel(`team-review-live-${selected.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_attendance_clearances', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_technical_files', filter: `team_id=eq.${selected.id}` }, scheduleRefresh)
+    const upsert=<T extends {id:string},>(rows:T[],row:T)=>[...rows.filter(item=>item.id!==row.id),row]
+    const channel = backend.channel(`team-review-live-${selectedId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${selectedId}` }, payload=>{if(payload.eventType==='DELETE')scheduleRefresh();else setMembers(rows=>upsert(rows,payload.new as TeamMember))})
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_attendance_clearances', filter: `team_id=eq.${selectedId}` }, payload=>{if(payload.eventType==='DELETE')scheduleRefresh();else setAttendance(payload.new as AttendanceClearance)})
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_technical_files', filter: `team_id=eq.${selectedId}` }, payload=>{if(payload.eventType==='DELETE')scheduleRefresh();else setTechnicalFiles(rows=>upsert(rows,payload.new as TechnicalFile))})
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_attendance_settings', filter: `league_id=eq.${selectedLeagueId}` }, payload=>{if(payload.eventType==='DELETE')scheduleRefresh();else setAttendanceSettings(payload.new as AttendanceSettings)})
       .subscribe()
     return () => { if (timer) window.clearTimeout(timer); void backend.removeChannel(channel) }
-  }, [selected])
+  }, [selectedId, selectedLeagueId])
 
   const leagueName = (id: string) => leagues.find((l) => l.id === id)?.name ?? id.slice(0, 8)
 
@@ -221,7 +245,10 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
         status === 'rejected' ? memberRejectReasons[memberId] : undefined,
       )
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
-      if (selected) { const data = await fetchAttendanceSnapshot(selected.id, selected.league_id); setAttendance(data.flow); setTechnicalFiles(data.files) }
+      if (selectedId) {
+        const result = await backend.from('team_attendance_clearances').select('*').eq('team_id',selectedId).maybeSingle()
+        if (!result.error) setAttendance(result.data as AttendanceClearance|null)
+      }
       toast.success(status === 'approved' ? 'عضو تیم تأیید شد.' : status === 'rejected' ? 'عضو برای اصلاح بازگردانده شد.' : 'وضعیت عضو به‌روزرسانی شد.')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -418,20 +445,22 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
                 <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-6 text-sky-900">اکنون در پرونده همین تیم هستید. مدارک و اعضا در ادامه بررسی می‌شوند؛ تیکت‌ها بخش مستقلی در منوی پنل دارند و با انتخاب تیم به‌صورت ناخواسته باز نمی‌شوند.</p>
 
-                <h3 className="mb-2 text-sm font-medium">{t('team.docsTitle')}</h3>
                 {(attendance?.technical_reviewed_by||members.some(member=>member.reviewed_by))?<section className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><h3 className="text-sm font-black text-emerald-950">سوابق بررسی و تأیید</h3>{attendance?.technical_reviewed_by?<p className="mt-2 text-xs text-emerald-900">مدارک فنی: <strong>{reviewerProfiles[attendance.technical_reviewed_by]??'کارشناس سامانه'}</strong> · {formatAppDateTime(attendance.technical_reviewed_at,i18n.language)}</p>:null}{[...new Set(members.map(member=>member.reviewed_by).filter(Boolean))].map(id=><p key={id} className="mt-1 text-xs text-emerald-900">اعضای تیم: <strong>{reviewerProfiles[id as string]??'کارشناس سامانه'}</strong></p>)}</section>:null}
-                <ul className="mb-4 space-y-2 text-sm">
-                  {docs.length === 0 ? (
-                    <li className="text-rc-muted">{t('team.noDocs')}</li>
-                  ) : (
-                    docs.map((doc) => (
-                      <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-2">
-                        <span className="min-w-0 truncate">{doc.doc_type}</span>
-                        <ReviewThumbnail path={doc.file_path} label={doc.doc_type} onOpen={setViewerUrl} />
-                      </li>
-                    ))
-                  )}
-                </ul>
+                {isTeamFlowStepEnabled(attendanceSettings,'documents') ? <>
+                  <h3 className="mb-2 text-sm font-medium">{t('team.docsTitle')}</h3>
+                  <ul className="mb-4 space-y-2 text-sm">
+                    {docs.length === 0 ? (
+                      <li className="text-rc-muted">{t('team.noDocs')}</li>
+                    ) : (
+                      docs.map((doc) => (
+                        <li key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-2">
+                          <span className="min-w-0 truncate">{doc.doc_type}</span>
+                          <ReviewThumbnail path={doc.file_path} label={doc.doc_type} onOpen={setViewerUrl} />
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </> : null}
 
                 <h3 className="mb-2 text-sm font-medium">{t('team.membersTitle')}</h3>
                 <ul className="mb-4 space-y-3">
@@ -497,9 +526,9 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                   )}
                 </ul>
 
-                {attendance ? <AttendanceFlowStatus attendance={attendance} /> : <section className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4"><h3 className="font-black text-amber-950">مسیر ثبت‌نام هنوز آغاز نشده است</h3><p className="mt-1 text-xs leading-6 text-amber-800">شرکت‌کننده هنوز اطلاعات تیم و اعضا را برای بررسی ارسال نکرده است.</p></section>}
+                {attendance ? <AttendanceFlowStatus attendance={attendance} settings={attendanceSettings} /> : <section className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4"><h3 className="font-black text-amber-950">مسیر ثبت‌نام هنوز آغاز نشده است</h3><p className="mt-1 text-xs leading-6 text-amber-800">شرکت‌کننده هنوز اطلاعات تیم و اعضا را برای بررسی ارسال نکرده است.</p></section>}
 
-                {attendance ? <section className="mb-5 rounded-2xl border border-sky-200 bg-sky-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">مقاله و فیلم ربات</h3><p className="mt-1 text-xs leading-6 text-slate-500">پس از تأیید کامل اعضا و تیم، فایل‌های ارسالی شرکت‌کننده در این بخش بررسی می‌شوند.</p></div><StatusBadge status={attendance.technical_status} label={attendance.technical_status==='approved'?'تأییدشده':attendance.technical_status==='rejected'?'نیازمند اصلاح':attendance.technical_status==='pending'?'در انتظار بررسی':'هنوز ارسال نشده'} /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{technicalFiles.map(file=><TechnicalReviewFile key={file.id} file={file} />)}{technicalFiles.length===0?<p className="text-sm text-slate-500">هنوز فایل فنی ارسال نشده است.</p>:null}</div>{attendance.technical_status==='pending'?<div className="mt-4 space-y-3"><Input label="دلیل عدم تأیید (برای رد الزامی)" value={technicalRejectReason} onChange={e=>setTechnicalRejectReason(e.target.value)} /><div className="flex gap-2"><Button type="button" disabled={busy} onClick={()=>void onTechnicalReview(true)}>تأیید مقاله و فیلم</Button><Button type="button" variant="danger" disabled={busy||!technicalRejectReason.trim()} onClick={()=>void onTechnicalReview(false)}>رد و درخواست اصلاح</Button></div></div>:null}</section>:null}
+                {attendance && isTeamFlowStepEnabled(attendanceSettings,'technical') ? <section className="mb-5 rounded-2xl border border-sky-200 bg-sky-50/40 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">مستندات فنی</h3><p className="mt-1 text-xs leading-6 text-slate-500">فقط فایل‌های فعال‌شده در تنظیمات این لیگ در این بخش بررسی می‌شوند.</p></div><StatusBadge status={attendance.technical_status} label={attendance.technical_status==='approved'?'تأییدشده':attendance.technical_status==='rejected'?'نیازمند اصلاح':attendance.technical_status==='pending'?'در انتظار بررسی':'هنوز ارسال نشده'} /></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{technicalFiles.filter(file=>file.kind==='article'?attendanceSettings?.article_required:attendanceSettings?.video_required).map(file=><TechnicalReviewFile key={file.id} file={file} />)}{technicalFiles.filter(file=>file.kind==='article'?attendanceSettings?.article_required:attendanceSettings?.video_required).length===0?<p className="text-sm text-slate-500">هنوز فایل فنی فعالی ارسال نشده است.</p>:null}</div>{attendance.technical_status==='pending'?<div className="mt-4 space-y-3"><Input label="دلیل عدم تأیید (برای رد الزامی)" value={technicalRejectReason} onChange={e=>setTechnicalRejectReason(e.target.value)} /><div className="flex gap-2"><Button type="button" disabled={busy} onClick={()=>void onTechnicalReview(true)}>تأیید مستندات</Button><Button type="button" variant="danger" disabled={busy||!technicalRejectReason.trim()} onClick={()=>void onTechnicalReview(false)}>رد و درخواست اصلاح</Button></div></div>:null}</section>:null}
 
                 <aside className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-7 text-sky-900"><strong className="block">وضعیت تیم به‌صورت خودکار تعیین می‌شود</strong>با تأیید تمام اعضا و مستندات، پذیرش قوانین و تأیید پرداخت، تیم خودکار تأیید و مجوز صادر می‌شود. رد هر عضو یا فایل نیز وضعیت پرونده را به «نیازمند اصلاح» تغییر می‌دهد.</aside>
                 {registrationChanges.length?<section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-black text-slate-900">تاریخچه ویرایش پرونده</h3><p className="mt-1 text-xs text-slate-500">تغییرات پس از شروع بررسی برای شفافیت بازبینی ثبت می‌شوند.</p><ol className="mt-3 max-h-52 space-y-2 overflow-y-auto">{registrationChanges.map(change=><li key={change.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 text-xs"><span className="font-bold text-slate-700">{change.change_kind==='reopened_for_edit'?'بازگشایی پرونده برای ویرایش':change.entity_type==='member'?'ویرایش اطلاعات عضو':change.entity_type==='document'?'تغییر مدرک':'تغییر پرونده'}</span><time className="shrink-0 text-slate-400">{formatAppDateTime(change.changed_at,i18n.language)}</time></li>)}</ol></section>:null}
@@ -563,13 +592,11 @@ function ResultStep({ index, title, active, done }: { index: string; title: stri
   return <div className={`flex items-center gap-3 rounded-2xl border p-3 transition ${active ? 'border-sky-300 bg-sky-50' : done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}><span className={`grid size-9 place-items-center rounded-xl font-black ${done ? 'bg-emerald-600 text-white' : active ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{done ? '✓' : index}</span><span className="text-xs font-black text-slate-700">{title}</span></div>
 }
 
-function AttendanceFlowStatus({ attendance }: { attendance: AttendanceClearance }) {
-  const stages = [
-    { key: 'members', title: 'تأیید تیم و اعضا', done: attendance.stage !== 'members', active: attendance.stage === 'members' },
-    { key: 'technical', title: 'تأیید مقاله و فیلم ربات', done: ['rules','payment','confirmed'].includes(attendance.stage), active: attendance.stage === 'technical' },
-    { key: 'rules', title: 'پذیرش قوانین', done: ['payment','confirmed'].includes(attendance.stage), active: attendance.stage === 'rules' },
-    { key: 'payment', title: 'پرداخت و صدور مجوز', done: attendance.stage === 'confirmed', active: attendance.stage === 'payment' },
-  ]
+function AttendanceFlowStatus({ attendance, settings }: { attendance: AttendanceClearance; settings: AttendanceSettings | null }) {
+  const order = teamFlowSteps(settings).filter(item=>!['team','members','documents'].includes(item.key))
+  const activeKey=attendance.stage==='members'?'review':attendance.stage
+  const activeIndex=attendance.stage==='confirmed'?order.length:order.findIndex(item=>item.key===activeKey)
+  const stages = order.map((item,index)=>({key:item.key,title:item.labelFa,done:index<activeIndex,active:index===activeIndex}))
   return <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black text-slate-900">وضعیت مجوز حضور در مسابقات</h3><p className="mt-1 text-xs leading-6 text-slate-500">صدور مجوز خودکار است؛ پس از تأیید اعضا، مدارک فنی و پذیرش قوانین توسط شرکت‌کننده نهایی می‌شود.</p></div><StatusBadge status={attendance.stage} label={attendance.stage === 'confirmed' ? 'مجوز صادر شده' : 'در جریان بررسی'} /></div><ol className="mt-4 grid gap-2 md:grid-cols-3">{stages.map((stage, index) => <li key={stage.key} className={`flex items-center gap-3 rounded-xl border p-3 ${stage.done ? 'border-emerald-200 bg-emerald-50' : stage.active ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}><span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-black ${stage.done ? 'bg-emerald-600 text-white' : stage.active ? 'bg-amber-400 text-amber-950' : 'bg-slate-200 text-slate-500'}`}>{stage.done ? '✓' : index + 1}</span><div><p className="text-xs font-black text-slate-800">{stage.title}</p><p className="mt-0.5 text-[10px] text-slate-500">{stage.done ? 'تکمیل شده' : stage.active ? 'مرحله فعلی' : 'در انتظار'}</p></div></li>)}</ol>{attendance.stage === 'confirmed' ? <p className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white">مجوز حضور این تیم صادر شده و تیم آماده ورود به مرحله داوری است.</p> : null}</section>
 }
 

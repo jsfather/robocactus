@@ -33,6 +33,7 @@ import {
   type TeamWizardDraft,
 } from '@/features/registration/api'
 import { registrationLifecycleForStep } from '@/features/registration/lifecycle'
+import { teamFlowSteps, type TeamFlowStepKey } from '@/features/registration/flowSteps'
 import { fetchMemberRegistrationDocTypes, fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/api'
 import type { DocumentRow, League, Team } from '@/types/database'
@@ -63,7 +64,6 @@ function PrivateImage({ path, alt, onOpen }: { path?: string | null; alt: string
   return <button type="button" onClick={() => onOpen(url)} className="block w-full overflow-hidden bg-slate-100 focus-visible:ring-2 focus-visible:ring-sky-500"><img src={url} alt={alt} className="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-[1.03]" /></button>
 }
 
-const STEPS = ['info', 'members', 'documents', 'review', 'technical', 'technical_review', 'rules', 'invoice', 'payment', 'completed'] as const
 const EDITABLE_STEPS = 4
 
 interface TeamRegistrationWizardProps {
@@ -163,6 +163,9 @@ export function TeamRegistrationWizard({
   )
   const memberPhotoType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_photo') ?? null, [memberDocTypes])
   const memberIdentityType = useMemo(() => memberDocTypes.find((item) => item.code === 'member_identity') ?? null, [memberDocTypes])
+  const visibleFlowSteps = useMemo(() => teamFlowSteps(attendanceSettings), [attendanceSettings])
+  const activeFlowKey: TeamFlowStepKey = step === 0 ? 'team' : step === 1 ? 'members' : step === 2 && attendanceSettings?.team_documents_enabled !== false ? 'documents' : 'review'
+  const activeFlowIndex = Math.max(0, visibleFlowSteps.findIndex((item) => item.key === activeFlowKey))
 
   useEffect(() => {
     if (!draft.leagueId) { setAttendanceSettings(null); return }
@@ -170,18 +173,18 @@ export function TeamRegistrationWizard({
       .then(({ data }) => setAttendanceSettings((data as AttendanceSettings | null) ?? null))
   }, [draft.leagueId])
 
-  const settingsSignature = useMemo(() => `${registrationSettingsSignature(selectedLeague, attendanceSettings)}:${memberDocTypes.map((item) => `${item.code}:${item.is_required}:${item.is_active}`).join('|')}`, [selectedLeague, attendanceSettings, memberDocTypes])
+  const settingsSignature = useMemo(() => `${registrationSettingsSignature(selectedLeague, attendanceSettings)}:${[...memberDocTypes, ...teamDocTypes].map((item) => `${item.scope}:${item.code}:${item.is_required}:${item.is_active}`).join('|')}`, [selectedLeague, attendanceSettings, memberDocTypes, teamDocTypes])
 
   const verifyCurrentSettings = useCallback(async () => {
     if (!draft.leagueId || !settingsSignature) return true
-    const [leagueResult, settingsResult, memberDocsResult] = await Promise.all([
+    const [leagueResult, settingsResult, documentTypesResult] = await Promise.all([
       backend.from('leagues').select('*').eq('id', draft.leagueId).maybeSingle(),
       backend.from('league_attendance_settings').select('*').eq('league_id', draft.leagueId).maybeSingle(),
-      backend.from('registration_doc_types').select('*').eq('scope', 'member').eq('is_active', true).order('sort_order'),
+      backend.from('registration_doc_types').select('*').in('scope', ['member', 'team']).eq('is_active', true).order('sort_order'),
     ])
-    if (leagueResult.error || settingsResult.error || memberDocsResult.error || !leagueResult.data) return true
-    const freshDocs = (memberDocsResult.data ?? []) as RegistrationDocType[]
-    const freshSignature = `${registrationSettingsSignature(leagueResult.data as League, settingsResult.data as AttendanceSettings | null)}:${freshDocs.map((item) => `${item.code}:${item.is_required}:${item.is_active}`).join('|')}`
+    if (leagueResult.error || settingsResult.error || documentTypesResult.error || !leagueResult.data) return true
+    const freshDocs = (documentTypesResult.data ?? []) as RegistrationDocType[]
+    const freshSignature = `${registrationSettingsSignature(leagueResult.data as League, settingsResult.data as AttendanceSettings | null)}:${freshDocs.map((item) => `${item.scope}:${item.code}:${item.is_required}:${item.is_active}`).join('|')}`
     const current = freshSignature === settingsSignature
     if (!current) setSettingsChanged(true)
     return current
@@ -349,6 +352,7 @@ export function TeamRegistrationWizard({
         const invalidContact = draft.members.some((member) => ['captain', 'coach'].includes(member.role) && !/^09\d{9}$/.test(member.phone))
         if (invalidContact) throw new Error('شماره موبایل سرپرست و مربی باید ۱۱ رقم و با 09 آغاز شود.')
         const invalidAgeMember = draft.members.find((member) => {
+          if (member.role !== 'member') return false
           const age = ageFromBirthDate(member.birth_date)
           if (age == null) return true
           if (selectedLeague?.min_age != null && age < selectedLeague.min_age) return true
@@ -447,10 +451,11 @@ export function TeamRegistrationWizard({
     try {
       const teamId = await ensureTeamRecord()
       await saveMembersWithIdCards(teamId)
-      await persistRegistrationDraft(teamId, { ...draft, teamId, step: 4 }, { stage: 'technical', progress: 55, lastCompletedStep: 3, lifecycleStatus: 'awaiting_review' })
+      await persistRegistrationDraft(teamId, { ...draft, teamId, step: 3 }, { stage: 'review', progress: 44, lastCompletedStep: 3, lifecycleStatus: 'awaiting_review' })
       const attendance = await fetchAttendance(teamId, draft.leagueId)
       if (attendance.flow.stage === 'payment') {
-        await persistRegistrationDraft(teamId, { ...draft, teamId, step: 7 }, { stage: 'invoice', progress: 82, lastCompletedStep: 6, lifecycleStatus: 'awaiting_payment' })
+        const invoice = await backend.rpc('create_invoice_for_team', { p_team_id: teamId })
+        if (invoice.error) throw new Error(invoice.error.message)
       }
       const { data, error: fetchError } = await backend
         .from('teams')
@@ -483,20 +488,20 @@ export function TeamRegistrationWizard({
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-emerald-50 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black text-sky-700">{t('team.currentStep', { current: Math.min(step + 1, EDITABLE_STEPS), total: STEPS.length })}</p><p className="mt-1 font-black text-slate-800">{t(`team.steps.${STEPS[step]}`)}</p></div><span className="text-2xl font-black text-emerald-700">{[10, 35, 60, 75][Math.min(step, 3)]}{i18n.language.startsWith('fa') ? '٪' : '%'}</span></div><div className="h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-l from-sky-500 to-emerald-500 transition-all duration-500" style={{ width: `${[10, 35, 60, 75][Math.min(step, 3)]}%` }} /></div></div>
-      <ol className="hidden grid-cols-6 gap-2 lg:grid">
-        {STEPS.map((key, index) => (
+      <div className="rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 to-emerald-50 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black text-sky-700">{t('team.currentStep', { current: activeFlowIndex + 1, total: visibleFlowSteps.length })}</p><p className="mt-1 font-black text-slate-800">{i18n.language.startsWith('en') ? visibleFlowSteps[activeFlowIndex]?.labelEn : visibleFlowSteps[activeFlowIndex]?.labelFa}</p></div><span className="text-2xl font-black text-emerald-700">{Math.round(((activeFlowIndex + 1) / Math.max(visibleFlowSteps.length, 1)) * 100)}{i18n.language.startsWith('fa') ? '٪' : '%'}</span></div><div className="h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-l from-sky-500 to-emerald-500 transition-all duration-500" style={{ width: `${((activeFlowIndex + 1) / Math.max(visibleFlowSteps.length, 1)) * 100}%` }} /></div></div>
+      <ol className="hidden gap-2 lg:grid" style={{ gridTemplateColumns: `repeat(${visibleFlowSteps.length}, minmax(0, 1fr))` }}>
+        {visibleFlowSteps.map((item, index) => (
           <li
-            key={key}
+            key={item.key}
             className={`relative rounded-2xl border px-3 py-3 text-center text-xs font-bold transition ${
-              index === step
+              index === activeFlowIndex
                 ? 'border-rc-blue/50 bg-rc-blue/15 text-rc-blue'
-                : index < step
+                : index < activeFlowIndex
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : 'border-slate-100 bg-slate-50 text-slate-400'
             }`}
           >
-            <span className={`mx-auto mb-2 grid size-8 place-items-center rounded-full ${index < step ? 'bg-emerald-500 text-white' : index === step ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{index < step ? '✓' : index + 1}</span>{t(`team.steps.${key}`, { defaultValue: key === 'invoice' ? 'صدور صورتحساب' : key === 'payment' ? 'پرداخت و ثبت نهایی' : key })}
+            <span className={`mx-auto mb-2 grid size-8 place-items-center rounded-full ${index < activeFlowIndex ? 'bg-emerald-500 text-white' : index === activeFlowIndex ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'}`}>{index < activeFlowIndex ? '✓' : index + 1}</span>{i18n.language.startsWith('en') ? item.labelEn : item.labelFa}
           </li>
         ))}
       </ol>
@@ -578,14 +583,14 @@ export function TeamRegistrationWizard({
                   {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} dir="ltr" inputMode="numeric" maxLength={10} />}
                   <Input label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })} /><Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: e.target.value })} />
                   <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
-                  <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={selectedLeague?.min_age ?? 3} maxAge={selectedLeague?.max_age ?? 100} />
+                  <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={member.role === 'member' ? selectedLeague?.min_age ?? 3 : 0} maxAge={member.role === 'member' ? selectedLeague?.max_age ?? 100 : 130} />
                   <Input
                     label={t('team.memberAge')}
                     value={age == null ? '' : String(age)}
                     readOnly
                     dir="ltr"
                   />
-                  {(selectedLeague?.min_age != null || selectedLeague?.max_age != null) ? (
+                  {member.role === 'member' && (selectedLeague?.min_age != null || selectedLeague?.max_age != null) ? (
                     <p className="self-end rounded-xl border border-rc-blue/20 bg-rc-blue/5 px-3 py-2 text-xs text-rc-muted">
                       {t('team.allowedAge', { min: selectedLeague.min_age ?? '—', max: selectedLeague.max_age ?? '—' })}
                     </p>

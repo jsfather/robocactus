@@ -39,6 +39,10 @@ export async function userFromRequest(request: Request): Promise<AuthUser | null
       and(
         eq(schema.sessions.tokenHash, hashToken(token)),
         gt(schema.sessions.expiresAt, new Date()),
+        sql`not exists (
+          select 1 from public.profiles p
+          where p.id = ${schema.users.id} and p.account_status = 'suspended'
+        )`,
       ),
     )
     .limit(1)

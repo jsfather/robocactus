@@ -46,6 +46,7 @@ export function SuperAdminRegistrationSettingsPage() {
   const [waitEn, setWaitEn] = useState('')
   const [waitSeconds, setWaitSeconds] = useState(180)
   const [fieldRules, setFieldRules] = useState<ParticipantFieldRule[]>([])
+  const [docOperations, setDocOperations] = useState<Record<string, string>>({})
 
   const reload = async () => {
     try {
@@ -141,6 +142,33 @@ export function SuperAdminRegistrationSettingsPage() {
       if (editingDocId === conflictDoc.id) setEditingDocId(undefined)
       await reload()
       toast.success('نوع مدرک غیرفعال شد.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const runDocOperation = async (doc: RegistrationDocType, operation: string) => {
+    setDocOperations((current) => ({ ...current, [doc.id]: '' }))
+    if (!operation) return
+    if (operation === 'edit') {
+      editDoc(doc)
+      document.getElementById('registration-document-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    if (operation === 'delete') {
+      await removeDoc(doc)
+      return
+    }
+    setBusy(true)
+    try {
+      await upsertRegistrationDocType({
+        ...doc,
+        ...(operation === 'toggle-required' ? { is_required: !doc.is_required } : { is_active: !doc.is_active }),
+      })
+      await reload()
+      toast.success(t('common.saved'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -308,7 +336,7 @@ export function SuperAdminRegistrationSettingsPage() {
           </div>
         ) : null}
 
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={(e) => void onAddDoc(e)}>
+        <form id="registration-document-editor" className="grid scroll-mt-24 gap-3 md:grid-cols-2" onSubmit={(e) => void onAddDoc(e)}>
           {editingDocId ? <p className="md:col-span-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-bold text-sky-800">در حال ویرایش نوع مدرک؛ پس از اصلاح، ذخیره را بزنید.</p> : null}
           <Input label={t('registrationSettings.labelFa')} required value={labelFa} onChange={(e) => setLabelFa(e.target.value)} />
           <Input label={t('registrationSettings.labelEn')} required value={labelEn} onChange={(e) => setLabelEn(e.target.value)} />
@@ -347,15 +375,21 @@ export function SuperAdminRegistrationSettingsPage() {
                   {d.code} · {d.scope === 'team' ? 'مدرک تیم' : d.scope === 'member' ? 'مدرک عضو' : 'مدرک پروفایل'} · {d.is_required ? 'الزامی' : 'اختیاری'}
                 </p>
               </div>
-              <details className="relative">
-                <summary className="cursor-pointer list-none rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">عملیات</summary>
-                <div className="absolute end-0 z-20 mt-2 grid min-w-44 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => editDoc(d)}>ویرایش</button>
-                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => void upsertRegistrationDocType({ ...d, is_required: !d.is_required }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_required ? 'اختیاری‌کردن' : 'الزامی‌کردن'}</button>
-                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold hover:bg-slate-50" onClick={() => void upsertRegistrationDocType({ ...d, is_active: !d.is_active }).then(reload).then(() => toast.success(t('common.saved')))}>{d.is_active ? 'غیرفعال‌کردن' : 'فعال‌کردن'}</button>
-                  <button type="button" className="rounded-lg px-3 py-2 text-start text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => void removeDoc(d)}>حذف</button>
-                </div>
-              </details>
+              <label className="w-full sm:w-auto">
+                <span className="sr-only">عملیات {d.label_fa}</span>
+                <select
+                  className="min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 sm:min-w-44"
+                  value={docOperations[d.id] ?? ''}
+                  disabled={busy}
+                  onChange={(event) => void runDocOperation(d, event.target.value)}
+                >
+                  <option value="">عملیات…</option>
+                  <option value="edit">ویرایش</option>
+                  <option value="toggle-required">{d.is_required ? 'اختیاری‌کردن' : 'الزامی‌کردن'}</option>
+                  <option value="toggle-active">{d.is_active ? 'غیرفعال‌کردن' : 'فعال‌کردن'}</option>
+                  <option value="delete">حذف</option>
+                </select>
+              </label>
             </li>
           ))}
         </ul>
