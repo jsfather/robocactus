@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, FieldError, PanelCard, StatusBadge } from '@/components/ui/FormControls'
+import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues } from '@/features/companies/api'
 import { fetchTeamById, fetchTeamMembers } from '@/features/registration/api'
@@ -20,6 +21,8 @@ import { formatSeasonYear } from '@/lib/dates'
 import { getConfiguredGatewayKind } from '@/lib/payment-gateway'
 import type { Company, Invoice, League, Team } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
+import type { AttendanceSettings } from '@/features/attendance/api'
+import { RegistrationFlowProgress } from '@/features/registration/RegistrationFlowProgress'
 
 export function TeamPaymentPage() {
   const { teamId } = useParams()
@@ -39,6 +42,7 @@ export function TeamPaymentPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [registrationBlock, setRegistrationBlock] = useState<string | null>(null)
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
 
   useEffect(() => {
     if (!teamId || authLoading || !user) return
@@ -54,12 +58,13 @@ export function TeamPaymentPage() {
         }
         setTeam(row)
 
-        const [leagues, companyRes, existing, optionResponse, members] = await Promise.all([
+        const [leagues, companyRes, existing, optionResponse, members, attendanceResponse] = await Promise.all([
           fetchActiveLeagues(),
           backend.from('companies').select('*').eq('id', row.company_id).maybeSingle(),
           fetchLatestInvoiceForTeam(row.id),
           backend.auth.getOptions(),
           fetchTeamMembers(row.id),
+          backend.from('league_attendance_settings').select('*').eq('league_id', row.league_id).maybeSingle(),
         ])
 
         const selectedLeague = leagues.find((l) => l.id === row.league_id) ?? null
@@ -68,6 +73,7 @@ export function TeamPaymentPage() {
         setInvoice(existing)
         setTermsAccepted(Boolean(existing?.terms_accepted_at))
         setOptions(optionResponse.data)
+        setAttendanceSettings((attendanceResponse.data as AttendanceSettings | null) ?? null)
 
         const reachedPayment = row.lifecycle_status === 'awaiting_payment' || ['invoice', 'payment', 'completed'].includes(row.registration_stage ?? '')
         // Registration lifecycle is the canonical validator. Rechecking raw
@@ -173,8 +179,8 @@ export function TeamPaymentPage() {
   const amount = Number(invoice?.amount ?? league.registration_fee ?? 0)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
-      <section className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-[#063d59] via-[#087eb8] to-[#087a58] p-6 text-white shadow-[0_24px_70px_rgb(8_126_184/0.2)] sm:p-8"><p className="text-xs font-black tracking-[.2em] text-cyan-200">{isPaid?'PAID INVOICE':'CHECKOUT'} · {invoice?.invoice_number}</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">{isPaid?'فاکتور پرداخت‌شده':t('payment.title')}</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{isPaid?'پرداخت این فاکتور تأیید شده است؛ جزئیات مالی و نسخه قابل دریافت فاکتور در ادامه قرار دارد.':t('payment.subtitle')}</p></section>
+    <PanelPage index="AT.01" title={i18n.language.startsWith('en') ? 'Registration and attendance clearance' : 'ثبت‌نام و مجوز حضور'} description={`${team.name} · ${i18n.language.startsWith('en') ? 'Invoice and payment' : 'صورتحساب و پرداخت'}`}>
+      <RegistrationFlowProgress settings={attendanceSettings} activeKey={isPaid ? 'confirmed' : 'payment'} completed={isPaid} english={i18n.language.startsWith('en')} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">
@@ -291,6 +297,6 @@ export function TeamPaymentPage() {
           {t('payment.failedKeptDraft')}
         </p>
       ) : null}
-    </div>
+    </PanelPage>
   )
 }

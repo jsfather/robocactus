@@ -92,7 +92,11 @@ export function TeamRegistrationWizard({
   const toast = useToast()
   const [leagues, setLeagues] = useState<League[]>([])
   const [draft, setDraft] = useState<TeamWizardDraft>(() => {
-    const loaded = loadTeamDraft(companyId) ?? emptyTeamDraft(companyId, initialLeagueId ?? '')
+    // A league selected as a new registration must never inherit a local
+    // teamId. Resume is explicit and is hydrated from the server below.
+    const loaded = initialLeagueId || initialTeamId
+      ? emptyTeamDraft(companyId, initialLeagueId ?? '')
+      : loadTeamDraft(companyId) ?? emptyTeamDraft(companyId)
     if (initialLeagueId && !loaded.leagueId) loaded.leagueId = initialLeagueId
     if (initialLeagueId && loaded.leagueId !== initialLeagueId && !loaded.teamId) {
       loaded.leagueId = initialLeagueId
@@ -121,10 +125,16 @@ export function TeamRegistrationWizard({
   useEffect(() => {
     if (!initialTeamId) return
     void loadRegistrationDraft(initialTeamId)
-      .then((saved) => { if (saved) setDraft({ ...saved, step: Math.min(saved.step, EDITABLE_STEPS - 1) }) })
+      .then((saved) => {
+        if (saved) setDraft({ ...saved, step: Math.min(saved.step, EDITABLE_STEPS - 1) })
+        else {
+          clearTeamDraft(companyId)
+          setDraft(emptyTeamDraft(companyId, initialLeagueId ?? ''))
+        }
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setDraftHydrated(true))
-  }, [initialTeamId])
+  }, [companyId, initialLeagueId, initialTeamId])
 
   useEffect(() => {
     void fetchActiveLeagues()

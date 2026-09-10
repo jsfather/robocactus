@@ -218,8 +218,9 @@ export async function persistRegistrationDraft(teamId: string, draft: TeamWizard
 }
 
 export async function loadRegistrationDraft(teamId: string): Promise<TeamWizardDraft | null> {
-  const { data, error } = await backend.from('teams').select('*').eq('id', teamId).single()
+  const { data, error } = await backend.from('teams').select('*').eq('id', teamId).maybeSingle()
   if (error) throw new Error(error.message)
+  if (!data) return null
   const team = data as Team
   const persistedMembers = await fetchTeamMembers(teamId)
   const members = persistedMembers.length ? persistedMembers.map((member) => ({
