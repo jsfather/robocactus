@@ -47,7 +47,9 @@ export function LoginPage() {
     void backend.auth.getOptions().then(({ data }) => {
       if (!data) return
       setOptions(data)
-      if (!data.otp_login_enabled) setMode('email')
+      const emailEnabled = data.password_login_enabled || data.email_magic_login_enabled
+      if (!data.otp_login_enabled && emailEnabled) setMode('email')
+      if (data.otp_login_enabled && !emailEnabled) setMode('phone')
       if (!data.password_login_enabled && data.email_magic_login_enabled) setEmailSubMode('magic')
     })
   }, [])
@@ -79,6 +81,7 @@ export function LoginPage() {
     if (value === 'cooldown') return t('auth.otpCooldown')
     if (value === 'too_many_attempts') return t('auth.otpTooMany')
     if (value === 'phone_signup_disabled') return t('auth.phoneSignupDisabled')
+    if (value === 'account_suspended') return 'حساب کاربری شما تعلیق شده است؛ لطفاً با پشتیبانی ارتباط بگیرید.'
     if (value === 'server_error' || value.startsWith('http_')) return t('auth.otpServerError')
     if (value.startsWith('captcha_')) return captchaErrorMessage(value)
     return value
@@ -92,12 +95,12 @@ export function LoginPage() {
     if (emailSubMode === 'magic') {
       const result = await requestEmailMagicLink(email.trim(), captchaToken)
       setSubmitting(false); setCaptchaToken(''); setCaptchaReset((value) => value + 1)
-      if (result.error) return showError(result.error === 'backend_missing' ? t('auth.backendMissing') : captchaErrorMessage(result.error))
+      if (result.error) return showError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error === 'account_suspended' ? 'حساب کاربری شما تعلیق شده است؛ لطفاً با پشتیبانی ارتباط بگیرید.' : captchaErrorMessage(result.error))
       setMagicSent(true); toast.success('لینک ورود به ایمیل شما ارسال شد.'); return
     }
     const result = await signIn(email.trim(), password, captchaToken)
     setSubmitting(false); setCaptchaToken(''); setCaptchaReset((value) => value + 1)
-    if (result.error) return showError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error.startsWith('captcha_') ? captchaErrorMessage(result.error) : t('auth.invalidCredentials'))
+    if (result.error) return showError(result.error === 'backend_missing' ? t('auth.backendMissing') : result.error === 'account_suspended' ? 'حساب کاربری شما تعلیق شده است؛ لطفاً با پشتیبانی ارتباط بگیرید.' : result.error.startsWith('captcha_') ? captchaErrorMessage(result.error) : t('auth.invalidCredentials'))
     toast.success('ورود با موفقیت انجام شد.'); void navigate(from, { replace: true })
   }
 
@@ -144,6 +147,9 @@ export function LoginPage() {
   const welcomeText = (isEn ? settings?.login_welcome_text_en : settings?.login_welcome_text_fa) || (isEn ? 'Sign in to continue to your account.' : 'برای ادامه وارد حساب کاربری خود شوید.')
 
   const logoUrl = settings?.login_logo_url || settings?.logo_url
+  const otpLoginEnabled = options?.otp_login_enabled !== false
+  const emailLoginEnabled = options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false
+  const loginMethodCount = Number(otpLoginEnabled) + Number(emailLoginEnabled)
 
   return (
     <div className="auth-stage relative isolate min-h-[calc(100svh-7rem)] overflow-hidden bg-[#f6f8fa] px-4 py-8 sm:px-6 sm:py-12">
@@ -169,10 +175,10 @@ export function LoginPage() {
             </div>
 
           {!configured ? <FieldError message={t('auth.backendMissing')} /> : null}
-          <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label={isEn ? 'Login method' : 'روش ورود'}>
-            {options?.otp_login_enabled !== false ? <button type="button" role="tab" aria-selected={mode === 'phone'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'phone' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('phone'); setError(null) }}>{t('auth.loginWithSms')}</button> : <span />}
-            {options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false ? <button type="button" role="tab" aria-selected={mode === 'email'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'email' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('email'); setError(null) }}>{t('auth.loginWithEmail')}</button> : null}
-          </div>
+          {loginMethodCount > 1 ? <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label={isEn ? 'Login method' : 'روش ورود'}>
+            {otpLoginEnabled ? <button type="button" role="tab" aria-selected={mode === 'phone'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'phone' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('phone'); setError(null) }}>{t('auth.loginWithSms')}</button> : null}
+            {emailLoginEnabled ? <button type="button" role="tab" aria-selected={mode === 'email'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'email' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('email'); setError(null) }}>{t('auth.loginWithEmail')}</button> : null}
+          </div> : null}
           {mode === 'email' ? (
             <form noValidate className="space-y-4" onSubmit={(event) => void onEmailSubmit(event)}>
               <div className="flex gap-5 border-b border-slate-100 text-xs font-bold">

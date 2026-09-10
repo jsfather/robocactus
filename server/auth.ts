@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+import fs from 'node:fs/promises'
 import { promisify } from 'node:util'
 import type { CookieOptions, Request, Response, Router } from 'express'
 import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm'
@@ -356,7 +357,11 @@ export function registerAuthRoutes(router: Router): void {
       return
     }
     const user = await findUserByEmail(email)
-    if (user && !await accountIsSuspended(user.id)) {
+    if (user && await accountIsSuspended(user.id)) {
+      response.status(403).json({ error: 'account_suspended' })
+      return
+    }
+    if (user) {
       const token = await createOneTimeToken(user.id, 'magic_link', request.body?.redirectTo)
       const requested = new URL(String(request.body?.redirectTo ?? '/auth/callback'), config.appUrl)
       const callback = requested.origin === new URL(config.appUrl).origin
@@ -489,48 +494,42 @@ export function registerAuthRoutes(router: Router): void {
     const target = (await db.select().from(users).where(eq(users.id, targetId)).limit(1))[0]
     if (!target) return void response.status(404).json({ error: 'user_not_found' })
     try {
-      await db.transaction(async (transaction) => {
-        const unsafeDeletion = await transaction.execute(sql`
-          select
-            exists(select 1 from public.teams where captain_id=${targetId}::uuid) as captains_team,
-            exists(
-              select 1
-              from public.company_members owner
-              where owner.user_id=${targetId}::uuid and owner.is_owner=true and (
-                exists(select 1 from public.company_members member where member.company_id=owner.company_id and member.user_id<>${targetId}::uuid)
-                or exists(select 1 from public.teams where company_id=owner.company_id)
-                or exists(select 1 from public.invoices where company_id=owner.company_id)
-                or exists(select 1 from public.results where company_id=owner.company_id)
-                or exists(select 1 from public.company_achievements where company_id=owner.company_id)
-              )
-            ) as owned_company_history
+      const diskPaths = await db.transaction(async (transaction) => {
+        const storedObjects = await transaction.execute(sql`
+          select disk_path from app_private.storage_objects where owner_id=${targetId}::uuid
         `)
-        const historical = unsafeDeletion.rows[0] as { captains_team?: boolean; owned_company_history?: boolean } | undefined
-        if (historical?.captains_team || historical?.owned_company_history) {
-          throw new Error('participant_has_historical_records')
-        }
-        // Empty organizations created during an abandoned signup have no
-        // business value and otherwise remain orphaned after membership cascade.
+        await transaction.execute(sql`delete from storage.objects where owner=${targetId}::uuid`)
+        await transaction.execute(sql`delete from app_private.storage_objects where owner_id=${targetId}::uuid`)
+
+        // Records owned by the account that otherwise use restrictive foreign keys.
+        await transaction.execute(sql`delete from public.judge_scores where judge_id=${targetId}::uuid`)
+        await transaction.execute(sql`delete from public.team_technical_files where uploaded_by=${targetId}::uuid`)
+        await transaction.execute(sql`delete from public.team_withdrawal_requests where requested_by=${targetId}::uuid`)
+        await transaction.execute(sql`delete from public.review_audit_log where subject_type='account' and subject_id=${targetId}::uuid`)
+        await transaction.execute(sql`update public.league_cycle_archives set archived_by=null where archived_by=${targetId}::uuid`)
+
+        // An owned organization is part of the participant account. Its team,
+        // invoice, payment, result, document and attendance graph cascades from
+        // companies/teams in the database.
         await transaction.execute(sql`
           delete from public.companies c
           where exists (
             select 1 from public.company_members cm
             where cm.company_id = c.id and cm.user_id = ${targetId}::uuid and cm.is_owner = true
           )
-          and not exists (select 1 from public.teams t where t.company_id = c.id)
         `)
+        await transaction.execute(sql`delete from public.teams where captain_id=${targetId}::uuid`)
         await transaction.delete(users).where(eq(users.id, targetId))
+        return storedObjects.rows.map((row) => String(row.disk_path ?? '')).filter(Boolean)
       })
+      await Promise.all(diskPaths.map((diskPath) => fs.unlink(diskPath).catch(() => undefined)))
       response.json({ ok: true })
     } catch (error) {
       const drizzleError = error as { code?: string; constraint?: string; message?: string; cause?: { code?: string; constraint?: string; message?: string } }
       const pgError = drizzleError.cause ?? drizzleError
       console.error('[auth] admin user deletion failed', { targetId, code: pgError.code, constraint: pgError.constraint, message: pgError.message })
-      if (String(pgError.message).includes('participant_has_historical_records')) {
-        return void response.status(409).json({ error: 'participant_has_historical_records', action: 'deactivate' })
-      }
       if (pgError.code === '23503') {
-        return void response.status(409).json({ error: 'participant_has_historical_records', action: 'deactivate' })
+        return void response.status(409).json({ error: 'user_dependency_delete_failed', constraint: pgError.constraint })
       }
       response.status(500).json({ error: 'user_delete_failed' })
     }
@@ -556,6 +555,23 @@ export function registerAuthRoutes(router: Router): void {
       return true
     })
     if (!updated) return void response.status(404).json({ error: 'participant_not_found' })
+    response.json({ ok: true })
+  })
+
+  router.post('/auth/admin/users/:userId/activate', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id=${actor.id}::uuid limit 1`)
+    if (roleResult.rows[0]?.role !== 'super_admin') return void response.status(403).json({ error: 'forbidden' })
+    const targetId = String(request.params.userId)
+    if (!validUuid(targetId)) return void response.status(400).json({ error: 'invalid_user_id' })
+    const result = await db.execute(sql`
+      update public.profiles
+      set account_status='active', activated_at=coalesce(activated_at,now()), rejection_reason=null
+      where id=${targetId}::uuid and role in ('company_admin','team_captain')
+      returning id
+    `)
+    if (!result.rows.length) return void response.status(404).json({ error: 'user_not_found' })
     response.json({ ok: true })
   })
 

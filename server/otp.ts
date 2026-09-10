@@ -105,6 +105,16 @@ export function registerOtpRoutes(router: Router): void {
           response.status(403).json({ error: 'phone_signup_disabled' })
           return
         }
+        if (purpose === 'login') {
+          const existingUser = (await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1))[0]
+          if (existingUser) {
+            const suspended = await db.execute(sql`select 1 from public.profiles where id=${existingUser.id}::uuid and account_status='suspended' limit 1`)
+            if (suspended.rows.length) {
+              response.status(403).json({ error: 'account_suspended' })
+              return
+            }
+          }
+        }
         if (purpose === 'profile') {
           const currentUser = await userFromRequest(request)
           if (!currentUser) {

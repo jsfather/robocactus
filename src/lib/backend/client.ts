@@ -225,6 +225,10 @@ const auth = {
     const response = await authCall(`admin/users/${encodeURIComponent(userId)}/deactivate`, {})
     return { data: response, error: response.error ?? null }
   },
+  async adminActivateUser(userId: string) {
+    const response = await authCall(`admin/users/${encodeURIComponent(userId)}/activate`, {})
+    return { data: response, error: response.error ?? null }
+  },
   async adminCreateCollaborator(input: { full_name: string; phone: string; email?: string; username?: string; password: string; role: 'staff' | 'league_admin' | 'super_admin' }) {
     const response = await authCall('admin/collaborators', input)
     return { data: response, error: response.error ?? null }

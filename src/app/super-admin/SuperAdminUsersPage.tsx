@@ -5,7 +5,7 @@ import {
   adminUpdateProfile,
   fetchAllProfiles,
 } from '@/features/leagues/adminApi'
-import { activateUserAccount, createAccountIssue } from '@/features/notifications/api'
+import { createAccountIssue } from '@/features/notifications/api'
 import { AccountIssuesAdminList } from '@/features/account-issues/AccountIssuesPanel'
 import { useToast } from '@/components/ui/Toast'
 import type { Profile } from '@/types/database'
@@ -152,22 +152,44 @@ export function SuperAdminUsersPage() {
     setCreating(false); await reload()
   }
   const deleteUser = async (profile: Profile) => {
-    if (!window.confirm(`حساب «${participantDisplayName(profile)}» و اطلاعات وابسته برای همیشه حذف شود؟`)) return
+    if (!window.confirm(`حساب «${participantDisplayName(profile)}» و تمام تیم‌ها، مجموعه‌ها، واریزی‌ها، مدارک و اطلاعات وابسته برای همیشه حذف شود؟ این عملیات قابل بازگشت نیست.`)) return
+    if (window.prompt('برای تأیید حذف دائمی، عبارت «حذف» را وارد کنید.')?.trim() !== 'حذف') return
     setBusy(true); const result = await backend.auth.adminDeleteUser(profile.id); setBusy(false)
     if (result.error) {
-      if (['participant_has_historical_records','user_has_related_records'].includes(result.error.message)) {
-        const deactivate = window.confirm('این حساب دارای سابقه تیم، ثبت‌نام یا مالی است و حذف آن امن نیست. آیا حساب غیرفعال و نشست‌های آن بسته شود؟')
-        if (!deactivate) return
-        setBusy(true)
-        const deactivated = await backend.auth.adminDeactivateUser(profile.id)
-        setBusy(false)
-        if (deactivated.error) return void toast.error(deactivated.error.message)
-        await reload()
-        return void toast.success('حساب غیرفعال شد و سوابق آن محفوظ ماند.')
-      }
-      return void toast.error(result.error.message === 'user_delete_failed' ? 'حذف حساب انجام نشد. جزئیات در گزارش سرور ثبت شد.' : result.error.message)
+      return void toast.error(['user_delete_failed', 'user_dependency_delete_failed'].includes(result.error.message) ? 'حذف کامل حساب انجام نشد؛ هیچ بخشی از اطلاعات حذف نشده است. جزئیات در گزارش سرور ثبت شد.' : result.error.message)
     }
     await reload(); toast.success('حساب کاربر حذف شد.')
+  }
+  const suspendUser = async (profile: Profile) => {
+    if (!window.confirm(`حساب «${participantDisplayName(profile)}» تعلیق و تمام نشست‌های فعال آن بسته شود؟`)) return
+    setBusy(true)
+    const result = await backend.auth.adminDeactivateUser(profile.id)
+    setBusy(false)
+    if (result.error) return void toast.error(result.error.message)
+    await reload(); toast.success('حساب کاربر تعلیق شد.')
+  }
+  const activateUser = async (profile: Profile) => {
+    setBusy(true)
+    const result = await backend.auth.adminActivateUser(profile.id)
+    setBusy(false)
+    if (result.error) return void toast.error(result.error.message)
+    await reload(); toast.success('حساب کاربر فعال شد و می‌تواند دوباره وارد شود.')
+  }
+  const runUserOperation = async (profile: Profile, operation: string) => {
+    if (operation === 'edit') return openEdit(profile)
+    if (operation === 'reset-link') {
+      const { error } = await backend.auth.adminRequestPasswordReset(profile.id)
+      return error ? void toast.error(error.message) : void toast.success('پیوند بازنشانی رمز به ایمیل کاربر ارسال شد.')
+    }
+    if (operation === 'set-password') { setPasswordTarget(profile); setAdminPassword({ next: '', repeat: '' }); return }
+    if (operation === 'activate') return void await activateUser(profile)
+    if (operation === 'suspend') return void await suspendUser(profile)
+    if (operation === 'delete') return void await deleteUser(profile)
+    if (operation === 'issue') {
+      const title = window.prompt(t('admin.users.issueTitle'))
+      if (!title) return
+      return void await createAccountIssue({ userId: profile.id, title }).then(() => toast.success(t('admin.users.issueLogged'))).catch((err: Error) => toast.error(err.message))
+    }
   }
   const accountStatusLabel: Record<string, string> = { active: 'فعال', pending: 'در انتظار تکمیل', suspended: 'تعلیق‌شده', rejected: 'ردشده', inactive: 'غیرفعال' }
 
@@ -286,7 +308,7 @@ export function SuperAdminUsersPage() {
               <tbody>
                 {filteredParticipants.map((profile) => (
                   <tr key={profile.id} className="border-b border-white/5">
-                    <td className="px-2 py-2">{`${profile.gender === 'female' ? 'خانم' : profile.gender === 'male' ? 'آقای' : ''} ${participantDisplayName(profile)}`.trim()}</td>
+                    <td className="px-2 py-2">{participantDisplayName(profile)}</td>
                     <td className="px-2 py-2 font-mono text-xs" dir="ltr">
                       {profile.phone}
                     </td>
@@ -298,58 +320,31 @@ export function SuperAdminUsersPage() {
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-600">{formatAppDate(profile.created_at, i18n.language, { withTime: true })}</td>
                     <td className="px-2 py-2 text-xs font-bold">
-                      {profile.requires_account_approval && !profile.signup_completed_at ? (
+                      {profile.account_status === 'suspended' ? (
+                        <span className="inline-flex rounded-full bg-rose-100 px-3 py-1 text-rose-800">{accountStatusLabel[profile.account_status]}</span>
+                      ) : profile.requires_account_approval && !profile.signup_completed_at ? (
                         <span className="inline-flex flex-col items-start rounded-xl bg-rose-100 px-3 py-1.5 text-rose-800"><span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-rose-500" />ثبت‌نام اولیه ناقص</span><small className="mt-0.5 font-medium text-rose-600">آخرین مرحله: {signupStepLabels[profile.signup_step ?? ''] ?? 'شروع ثبت‌نام'}</small></span>
                       ) : (
                         <span className={`inline-flex rounded-full px-3 py-1 ${profile.account_status === 'active' && profile.identity_completed_at ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{!profile.identity_completed_at ? 'پرونده هویتی ناقص' : accountStatusLabel[profile.account_status ?? 'active'] ?? profile.account_status}</span>
                       )}
                     </td>
                     <td className="px-2 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => openEdit(profile)}
-                        >
-                          {t('common.edit')}
-                        </Button>
-                        <Button type="button" variant="ghost" disabled={busy || !profile.email} onClick={() => void backend.auth.adminRequestPasswordReset(profile.id).then(({ error }) => error ? toast.error(error.message) : toast.success('پیوند بازنشانی رمز به ایمیل کاربر ارسال شد.'))}>بازنشانی رمز</Button>
-                        <Button type="button" variant="ghost" disabled={busy} onClick={() => { setPasswordTarget(profile); setAdminPassword({ next: '', repeat: '' }) }}>تعیین رمز جدید</Button>
-                        {profile.account_status === 'pending' && !(profile.requires_account_approval && !profile.signup_completed_at) ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() =>
-                              void activateUserAccount(profile.id)
-                                .then(reload)
-                                .then(() => toast.success(t('admin.users.activated')))
-                                .catch((err: Error) => {
-                                  setError(err.message)
-                                  toast.error(err.message)
-                                })
-                            }
-                          >
-                            {t('admin.users.activate')}
-                          </Button>
-                        ) : null}
-                        <Button type="button" variant="danger" disabled={busy} onClick={() => void deleteUser(profile)}>حذف</Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={busy}
-                          onClick={() => {
-                            const title = window.prompt(t('admin.users.issueTitle'))
-                            if (!title) return
-                            void createAccountIssue({ userId: profile.id, title })
-                              .then(() => toast.success(t('admin.users.issueLogged')))
-                              .catch((err: Error) => toast.error(err.message))
-                          }}
-                        >
-                          {t('admin.users.logIssue')}
-                        </Button>
-                      </div>
+                      <select
+                        aria-label={`عملیات حساب ${participantDisplayName(profile)}`}
+                        value=""
+                        disabled={busy}
+                        className="relative z-10 min-h-11 w-40 max-w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                        onChange={(event) => void runUserOperation(profile, event.target.value)}
+                      >
+                        <option value="">عملیات…</option>
+                        <option value="edit">ویرایش اطلاعات</option>
+                        {profile.email ? <option value="reset-link">ارسال لینک بازنشانی رمز</option> : null}
+                        <option value="set-password">تعیین رمز جدید</option>
+                        {profile.account_status === 'suspended' || (profile.account_status === 'pending' && !(profile.requires_account_approval && !profile.signup_completed_at)) ? <option value="activate">فعال‌سازی حساب</option> : null}
+                        {profile.account_status !== 'suspended' ? <option value="suspend">تعلیق حساب</option> : null}
+                        <option value="issue">ثبت مشکل حساب</option>
+                        <option value="delete">حذف دائمی حساب و وابستگی‌ها</option>
+                      </select>
                     </td>
                   </tr>
                 ))}

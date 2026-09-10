@@ -28,6 +28,7 @@ export function AccountProfilePage() {
   const [form, setForm] = useState<Profile | null>(profile)
   const [rules, setRules] = useState<ParticipantFieldRule[]>(fallbackRules)
   const [docs, setDocs] = useState<RegistrationDocType[]>([])
+  const [documentsEnabled, setDocumentsEnabled] = useState<boolean | null>(null)
   const [uploaded, setUploaded] = useState<Record<string, string>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -37,6 +38,9 @@ export function AccountProfilePage() {
   const [passwords, setPasswords] = useState({ current: '', next: '', repeat: '' })
 
   useEffect(() => setForm(profile), [profile])
+  useEffect(() => {
+    void backend.auth.getOptions().then(({ data }) => setDocumentsEnabled(data?.registration_documents_enabled !== false))
+  }, [])
   useEffect(() => {
     setForm((current) => current && (current.country_code ?? 'IR') === 'IR' && !current.nationality?.trim() ? { ...current, nationality: 'ایرانی', is_foreign: false } : current)
   }, [profile?.id])
@@ -58,16 +62,16 @@ export function AccountProfilePage() {
   const field = (key: string) => ({ name: key, required: required(key), error: errors[key] })
   const completion = useMemo(() => {
     if (!form) return 0
-    const requiredDocs = docs.filter((doc) => doc.is_required).length
-    const uploadedRequiredDocs = docs.filter((doc) => doc.is_required && uploaded[doc.id]).length
+    const requiredDocs = documentsEnabled === true ? docs.filter((doc) => doc.is_required).length : 0
+    const uploadedRequiredDocs = documentsEnabled === true ? docs.filter((doc) => doc.is_required && uploaded[doc.id]).length : 0
     return profileCompletionPercent(form, rules, uploadedRequiredDocs, requiredDocs)
-  }, [docs, form, rules, uploaded])
+  }, [docs, documentsEnabled, form, rules, uploaded])
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
     if (!form || !user) return
     const nextErrors = participantErrors(form, rules)
-    if (docs.some((doc) => doc.is_required && !uploaded[doc.id])) nextErrors.documents = 'همه مدارک الزامی را بارگذاری کنید.'
+    if (documentsEnabled === true && docs.some((doc) => doc.is_required && !uploaded[doc.id])) nextErrors.documents = 'همه مدارک الزامی را بارگذاری کنید.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
       requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"], [data-form-error="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
@@ -151,7 +155,7 @@ export function AccountProfilePage() {
 
   if (!form) return <p className="text-sm text-slate-500">در حال بارگذاری…</p>
   return <PanelPage index="ID.01" title="پرونده هویتی شرکت‌کننده" description="اطلاعات صاحب حساب را کامل کنید. سرپرست، مربی و اعضای تیم در پرونده همان تیم ثبت می‌شوند و حساب مستقل نمی‌سازند.">
-    <div className="grid gap-4 md:grid-cols-3"><section className="relative overflow-hidden rounded-[1.75rem] border border-sky-700 bg-gradient-to-br from-[#06364f] via-[#075d78] to-[#087052] p-6 text-white shadow-[0_18px_48px_rgb(6_54_79/0.2)] md:col-span-2"><div className="relative z-10 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black tracking-wide text-cyan-200">پرونده عضویت</p><p className="mt-2 text-3xl font-black text-white">{completion.toLocaleString('fa-IR')}٪ تکمیل شده</p><p className="mt-2 text-sm font-medium text-white/80">{completion === 100 ? 'اطلاعات اصلی پرونده کامل است.' : 'فیلدهای باقی‌مانده را تکمیل کنید تا ثبت‌نام لیگ بدون توقف ادامه یابد.'}</p></div><span className={`rounded-full border px-3 py-1.5 text-xs font-black ${completion === 100 ? 'border-emerald-200/40 bg-emerald-300/20 text-emerald-100' : 'border-amber-200/40 bg-amber-300/20 text-amber-100'}`}>{completion === 100 ? 'کامل' : 'نیازمند تکمیل'}</span></div><div className="relative z-10 mt-5 h-3 overflow-hidden rounded-full border border-white/10 bg-black/20"><span className="block h-full rounded-full bg-gradient-to-l from-cyan-300 to-emerald-300 transition-all duration-500" style={{ width: `${completion}%` }} /></div><span className="absolute -bottom-16 -start-12 size-48 rounded-full border-[28px] border-white/5" /></section><StatCard index="01" label={form.is_foreign ? 'تأیید حساب' : 'تأیید موبایل'} value={form.is_foreign ? 'از مسیر ایمیل' : form.phone_verified_at ? 'تأیید شده' : 'نیازمند تأیید'} hint={form.is_foreign ? 'شرکت‌کننده خارج از ایران' : 'احراز هویت پیامکی'} accent={form.is_foreign || form.phone_verified_at ? 'green' : 'orange'} /></div>
+    <div className="grid gap-4 md:grid-cols-3"><section className="relative overflow-hidden rounded-[1.75rem] border border-sky-700 bg-gradient-to-br from-[#06364f] via-[#075d78] to-[#087052] p-6 text-white shadow-[0_18px_48px_rgb(6_54_79/0.2)] md:col-span-2"><div className="relative z-10 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black tracking-wide text-cyan-200">پرونده کاربری</p><p className="mt-2 text-3xl font-black text-white">{completion.toLocaleString('fa-IR')}٪ تکمیل شده</p><p className="mt-2 text-sm font-medium text-white/80">{completion === 100 ? 'اطلاعات اصلی پرونده کامل است.' : 'فیلدهای باقی‌مانده را تکمیل کنید تا ثبت‌نام لیگ بدون توقف ادامه یابد.'}</p></div><span className={`rounded-full border px-3 py-1.5 text-xs font-black ${completion === 100 ? 'border-emerald-200/40 bg-emerald-300/20 text-emerald-100' : 'border-amber-200/40 bg-amber-300/20 text-amber-100'}`}>{completion === 100 ? 'کامل' : 'نیازمند تکمیل'}</span></div><div className="relative z-10 mt-5 h-3 overflow-hidden rounded-full border border-white/10 bg-black/20"><span className="block h-full rounded-full bg-gradient-to-l from-cyan-300 to-emerald-300 transition-all duration-500" style={{ width: `${completion}%` }} /></div><span className="absolute -bottom-16 -start-12 size-48 rounded-full border-[28px] border-white/5" /></section><StatCard index="01" label={form.is_foreign ? 'تأیید حساب' : 'تأیید موبایل'} value={form.is_foreign ? 'از مسیر ایمیل' : form.phone_verified_at ? 'تأیید شده' : 'نیازمند تأیید'} hint={form.is_foreign ? 'شرکت‌کننده خارج از ایران' : 'احراز هویت پیامکی'} accent={form.is_foreign || form.phone_verified_at ? 'green' : 'orange'} /></div>
     <form ref={formRef} className="space-y-5" noValidate onSubmit={(event) => void save(event)}>
       {Object.keys(errors).length ? <FieldError message="اطلاعات مشخص‌شده را اصلاح کنید؛ به اولین خطا هدایت می‌شوید." /> : null}
       <PanelCard title="تصویر و نوع حساب" description="تصویر در هدر پنل و پرونده شما نمایش داده می‌شود."><div className="flex flex-wrap items-center gap-5"><span className="grid size-24 overflow-hidden place-items-center rounded-3xl bg-slate-100 text-2xl font-black text-slate-400">{form.avatar_url ? <img src={form.avatar_url} alt="" className="size-full object-cover" /> : form.full_name.slice(0, 1)}</span><label className="cursor-pointer rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">انتخاب تصویر<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => void uploadAvatar(e.target.files?.[0])} /></label><Select label="نوع شرکت‌کننده" value={form.account_type ?? 'individual'} onChange={(e) => patch({ account_type: e.target.value as AccountType })}><option value="individual">شخص حقیقی</option><option value="legal">شخص حقوقی</option></Select></div></PanelCard>
@@ -167,7 +171,7 @@ export function AccountProfilePage() {
         <Textarea label="نشانی کامل" {...field('address')} className="md:col-span-2" value={form.address ?? ''} onChange={(e) => patch({ address: e.target.value })} />
       </div></PanelCard>
       {form.account_type === 'legal' ? <PanelCard title="اطلاعات شخص حقوقی"><div className="grid gap-4 md:grid-cols-2"><Input label="نام مجموعه" required error={errors.company_name} value={form.company_name ?? ''} onChange={(e) => patch({ company_name: e.target.value })} /><Input label="شناسه ملی مجموعه" required error={errors.company_national_id} dir="ltr" inputMode="numeric" value={form.company_national_id ?? ''} onChange={(e) => patch({ company_national_id: e.target.value.replace(/\D/g, '') })} /><Input label="کد اقتصادی" dir="ltr" inputMode="numeric" value={form.economic_code ?? ''} onChange={(e) => patch({ economic_code: e.target.value.replace(/\D/g, '') })} /><Input label="کد ملی نماینده قانونی" required error={errors.legal_representative_national_id} dir="ltr" inputMode="numeric" maxLength={10} value={form.legal_representative_national_id ?? ''} onChange={(e) => patch({ legal_representative_national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} /></div></PanelCard> : null}
-      <PanelCard title="مدارک احراز هویت" description="تصویر باید واضح، بدون برش و حداکثر ۵ مگابایت باشد. فقط فایل‌های JPG و PNG پذیرفته می‌شوند."><div data-form-error={Boolean(errors.documents)} className={`grid gap-4 md:grid-cols-2 ${errors.documents ? 'rounded-2xl ring-2 ring-rose-300 ring-offset-4' : ''}`}>{docs.map((doc) => <DocumentUploadField key={doc.id} label={doc.label_fa} required={doc.is_required} value={uploaded[doc.id]} busy={busy} onSelect={(file) => void uploadDoc(doc, file)} onRemove={() => void removeDoc(doc)} />)}</div></PanelCard>
+      {documentsEnabled === true ? <PanelCard title="مدارک احراز هویت" description="تصویر باید واضح، بدون برش و حداکثر ۵ مگابایت باشد. فقط فایل‌های JPG و PNG پذیرفته می‌شوند."><div data-form-error={Boolean(errors.documents)} className={`grid gap-4 md:grid-cols-2 ${errors.documents ? 'rounded-2xl ring-2 ring-rose-300 ring-offset-4' : ''}`}>{docs.map((doc) => <DocumentUploadField key={doc.id} label={doc.label_fa} required={doc.is_required} value={uploaded[doc.id]} busy={busy} onSelect={(file) => void uploadDoc(doc, file)} onRemove={() => void removeDoc(doc)} />)}</div></PanelCard> : null}
       <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره و تکمیل پرونده'}</Button>
     </form>
     <PanelCard title="امنیت حساب" description="قدرت رمز جدید را بررسی کنید؛ رمز عبور هرگز در پنل نمایش دائمی داده نمی‌شود."><form className="grid gap-4 md:grid-cols-3" onSubmit={(e) => void changePassword(e)}><PasswordField label="رمز فعلی" value={passwords.current} onChange={(value) => setPasswords((p) => ({ ...p, current: value }))} autoComplete="current-password" showStrength={false} /><PasswordField label="رمز جدید" value={passwords.next} onChange={(value) => setPasswords((p) => ({ ...p, next: value }))} /><PasswordField label="تکرار رمز جدید" value={passwords.repeat} onChange={(value) => setPasswords((p) => ({ ...p, repeat: value }))} confirmValue={passwords.next} /><Button type="submit" disabled={busy || !isStrongPassword(passwords.next) || passwords.next !== passwords.repeat}>تغییر امن رمز عبور</Button></form></PanelCard>

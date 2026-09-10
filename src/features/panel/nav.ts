@@ -125,6 +125,11 @@ export const ACCOUNT_NAV: PanelNavGroup = {
   ],
 }
 
+const ADMIN_ACCOUNT_NAV: PanelNavGroup = {
+  ...ACCOUNT_NAV,
+  items: ACCOUNT_NAV.items.filter((item) => item.to !== '/account/invoices'),
+}
+
 const roleHome: Record<UserRole, string> = {
   super_admin: '/super-admin',
   league_admin: '/league-admin',
@@ -152,7 +157,7 @@ export function canonicalizePanelPath(pathname: string, role: UserRole): string 
 export function panelsForRole(role: UserRole): PanelNavGroup[] {
   switch (role) {
     case 'super_admin':
-      return [...SUPER_ADMIN_NAV_GROUPS, ACCOUNT_NAV]
+      return [...SUPER_ADMIN_NAV_GROUPS, ADMIN_ACCOUNT_NAV]
     case 'league_admin':
       return [LEAGUE_ADMIN_NAV, ACCOUNT_NAV]
     case 'staff':

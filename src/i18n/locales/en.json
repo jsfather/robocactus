@@ -1177,7 +1177,7 @@
     "resolve": "Resolve",
     "resolved": "Issue resolved"
   },
-  "accountProfile": { "title": "Identity profile", "help": "Complete identity details and verification documents." },
+  "accountProfile": { "title": "Identity profile", "help": "Complete the account identity details." },
   "participants": { "title": "Organization records", "help": "Organizations, account owners, teams, and registration members." },
   "registrationLifecycle": { "title": "Incomplete registrations", "help": "Follow drafts, activity, and completion reminders." },
   "accessSettings": {
