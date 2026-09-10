@@ -147,8 +147,9 @@ export function LoginPage() {
   const welcomeText = (isEn ? settings?.login_welcome_text_en : settings?.login_welcome_text_fa) || (isEn ? 'Sign in to continue to your account.' : 'برای ادامه وارد حساب کاربری خود شوید.')
 
   const logoUrl = settings?.login_logo_url || settings?.logo_url
-  const otpLoginEnabled = options?.otp_login_enabled !== false
-  const emailLoginEnabled = options?.password_login_enabled !== false || options?.email_magic_login_enabled !== false
+  const optionsReady = options !== null
+  const otpLoginEnabled = options?.otp_login_enabled === true
+  const emailLoginEnabled = options?.password_login_enabled === true || options?.email_magic_login_enabled === true
   const loginMethodCount = Number(otpLoginEnabled) + Number(emailLoginEnabled)
 
   return (
@@ -175,6 +176,7 @@ export function LoginPage() {
             </div>
 
           {!configured ? <FieldError message={t('auth.backendMissing')} /> : null}
+          {!optionsReady ? <div className="grid min-h-80 place-items-center" aria-busy="true"><span className="size-8 animate-spin rounded-full border-2 border-slate-200 border-t-rc-blue" aria-label={t('app.loading')} /></div> : <>
           {loginMethodCount > 1 ? <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label={isEn ? 'Login method' : 'روش ورود'}>
             {otpLoginEnabled ? <button type="button" role="tab" aria-selected={mode === 'phone'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'phone' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('phone'); setError(null) }}>{t('auth.loginWithSms')}</button> : null}
             {emailLoginEnabled ? <button type="button" role="tab" aria-selected={mode === 'email'} className={`min-h-11 rounded-lg px-3 text-sm font-black transition ${mode === 'email' ? 'bg-white text-rc-blue shadow-sm ring-1 ring-slate-200/70' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => { setMode('email'); setError(null) }}>{t('auth.loginWithEmail')}</button> : null}
@@ -204,6 +206,7 @@ export function LoginPage() {
             </form>
           )}
             {options?.show_registration_link !== false && (options?.email_signup_enabled !== false || options?.phone_signup_enabled !== false) ? <div className="mt-7 border-t border-slate-100 pt-5 text-center text-sm text-slate-500"><span>{t('auth.noAccount')} </span><Link to="/signup" className="font-black text-rc-blue hover:underline">{t('nav.signup')}</Link></div> : null}
+          </>}
             <p className="mt-4 text-center text-xs leading-6 text-slate-400">{isEn ? 'By signing in, you accept the ' : 'با ورود به سایت، '}<Link to="/terms" className="font-bold text-sky-700 hover:underline">{t('nav.terms')}</Link>{isEn ? '.' : ' را می‌پذیرید.'} <Link to="/registration-guide" className="ms-2 font-bold text-emerald-700 hover:underline">{t('nav.registrationGuide')}</Link></p>
           </main>
 
@@ -211,7 +214,7 @@ export function LoginPage() {
             <div className="pointer-events-none absolute inset-0 opacity-20" aria-hidden style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
             <span className="absolute -end-28 -top-24 size-72 rounded-full border-[42px] border-white/10" aria-hidden />
             <div className="relative">
-              {logoUrl ? <div className="inline-flex rounded-2xl bg-white p-4 shadow-lg"><img src={logoUrl} alt={isEn ? 'Tabarestan Cup' : 'جام تبرستان'} className="h-16 w-auto max-w-44 object-contain" /></div> : <span className="grid size-16 place-items-center rounded-2xl bg-white text-3xl font-black text-rc-blue">ت</span>}
+              {logoUrl ? <img src={logoUrl} alt={isEn ? 'Tabarestan Cup' : 'جام تبرستان'} className="h-20 w-auto max-w-52 object-contain drop-shadow-lg" /> : <span className="grid size-16 place-items-center rounded-2xl bg-white/90 text-3xl font-black text-rc-blue">ت</span>}
             </div>
             <div className="relative max-w-sm">
               <span className="mb-5 block h-1 w-12 rounded-full bg-emerald-400" />

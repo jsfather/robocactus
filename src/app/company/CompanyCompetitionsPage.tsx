@@ -158,8 +158,8 @@ export function CompanyCompetitionsPage() {
                           </span>
                           {team ? (
                             <StatusBadge
-                              status={team.status}
-                              label={t(`team.statuses.${team.status}`, {
+                              status={team.lifecycle_status === 'awaiting_payment' ? 'under_review' : team.status}
+                              label={team.lifecycle_status === 'awaiting_payment' ? 'در انتظار پرداخت' : t(`team.statuses.${team.status}`, {
                                 defaultValue: team.status,
                               })}
                             />

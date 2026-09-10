@@ -69,27 +69,17 @@ export function TeamPaymentPage() {
         setTermsAccepted(Boolean(existing?.terms_accepted_at))
         setOptions(optionResponse.data)
 
-        const hasCaptain = members.some((member) => member.role === 'captain')
-        const hasIncompletePerson = members.some((member) => !member.first_name_fa || !member.last_name_fa || !member.birth_date || !member.photo_url || !member.national_id_doc_path)
-        const belowMinimum = selectedLeague?.team_size_min != null && members.length < selectedLeague.team_size_min
-        const aboveMaximum = selectedLeague?.team_size_max != null && members.length > selectedLeague.team_size_max
         const reachedPayment = row.lifecycle_status === 'awaiting_payment' || ['invoice', 'payment', 'completed'].includes(row.registration_stage ?? '')
-        const blockReason = !hasCaptain
-          ? 'اطلاعات سرپرست تیم هنوز ثبت نشده است.'
+        // Registration lifecycle is the canonical validator. Rechecking raw
+        // document fields here breaks disabled document types and auto-review.
+        const blockReason = reachedPayment
+          ? null
           : !members.length
             ? 'اعضای تیم هنوز ثبت نشده‌اند.'
-            : hasIncompletePerson
-              ? 'اطلاعات هویتی یا مدارک یک یا چند نفر کامل نشده است.'
-              : belowMinimum
-                ? `حداقل تعداد افراد این لیگ ${selectedLeague?.team_size_min?.toLocaleString('fa-IR')} نفر است.`
-                : aboveMaximum
-                  ? `حداکثر تعداد افراد این لیگ ${selectedLeague?.team_size_max?.toLocaleString('fa-IR')} نفر است.`
-                  : !reachedPayment
-                    ? 'ثبت‌نام هنوز به مرحله تأیید نهایی و صدور صورتحساب نرسیده است.'
-                    : null
+            : 'ثبت‌نام هنوز به مرحله تأیید نهایی و صدور صورتحساب نرسیده است.'
         setRegistrationBlock(existing?.status === 'paid' ? null : blockReason)
 
-        if (!blockReason && row.status === 'draft' && (!existing || existing.status !== 'paid')) {
+        if (!blockReason && (!existing || existing.status !== 'paid')) {
           const created = await createInvoiceForTeam(row.id)
           setInvoice(created)
         }
@@ -194,8 +184,8 @@ export function TeamPaymentPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-rc-muted">{t('team.status')}:</span>
             <StatusBadge
-              status={team.status}
-              label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
+              status={team.lifecycle_status === 'awaiting_payment' ? 'under_review' : team.status}
+              label={team.lifecycle_status === 'awaiting_payment' ? 'در انتظار پرداخت' : t(`team.statuses.${team.status}`, { defaultValue: team.status })}
             />
           </div>
           {invoice ? (

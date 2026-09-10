@@ -135,7 +135,7 @@ export function SuperAdminCompaniesPage() {
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
                 <div className="flex min-w-0 items-center gap-3">
                   {c.logo_url ? (
-                    <img src={c.logo_url} alt="" className="size-10 object-cover border border-rc-line" />
+                    <img src={c.logo_url} alt="" className="h-10 w-14 object-contain" />
                   ) : (
                     <span className="flex size-10 items-center justify-center border border-rc-blue/30 bg-rc-blue/10 font-mono text-xs text-rc-blue">
                       {c.name.slice(0, 2).toUpperCase()}

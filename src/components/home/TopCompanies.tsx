@@ -38,7 +38,7 @@ export function TopCompanies({ companies }: { companies: TopCompany[] }) {
                   <img
                     src={company.logo_url}
                     alt=""
-                    className="size-14 rounded-lg object-cover"
+                    className="h-14 w-16 shrink-0 object-contain drop-shadow-sm"
                     loading="lazy"
                   />
                 ) : (

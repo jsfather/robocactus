@@ -508,9 +508,18 @@ export function registerAuthRoutes(router: Router): void {
         await transaction.execute(sql`delete from public.review_audit_log where subject_type='account' and subject_id=${targetId}::uuid`)
         await transaction.execute(sql`update public.league_cycle_archives set archived_by=null where archived_by=${targetId}::uuid`)
 
-        // An owned organization is part of the participant account. Its team,
-        // invoice, payment, result, document and attendance graph cascades from
-        // companies/teams in the database.
+        // Delete teams before their owned company. This explicit ordering also
+        // supports installations that predate the company cascade constraint.
+        await transaction.execute(sql`
+          delete from public.teams t
+          where t.captain_id = ${targetId}::uuid
+             or exists (
+               select 1 from public.company_members cm
+               where cm.company_id = t.company_id
+                 and cm.user_id = ${targetId}::uuid
+                 and cm.is_owner = true
+             )
+        `)
         await transaction.execute(sql`
           delete from public.companies c
           where exists (
@@ -518,7 +527,6 @@ export function registerAuthRoutes(router: Router): void {
             where cm.company_id = c.id and cm.user_id = ${targetId}::uuid and cm.is_owner = true
           )
         `)
-        await transaction.execute(sql`delete from public.teams where captain_id=${targetId}::uuid`)
         await transaction.delete(users).where(eq(users.id, targetId))
         return storedObjects.rows.map((row) => String(row.disk_path ?? '')).filter(Boolean)
       })

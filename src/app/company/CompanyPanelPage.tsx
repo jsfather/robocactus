@@ -233,7 +233,7 @@ export function CompanyPanelPage({
                   <img
                     src={activeCompany.logo_url}
                     alt=""
-                    className="size-16 border border-rc-line object-cover"
+                    className="h-16 w-20 object-contain drop-shadow-sm"
                   />
                 ) : (
                   <div className="flex size-16 items-center justify-center border border-rc-line font-mono text-rc-blue">
@@ -332,8 +332,8 @@ export function CompanyPanelPage({
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge
-                        status={team.status}
-                        label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
+                        status={team.lifecycle_status === 'awaiting_payment' ? 'under_review' : team.status}
+                        label={team.lifecycle_status === 'awaiting_payment' ? 'در انتظار پرداخت' : t(`team.statuses.${team.status}`, { defaultValue: team.status })}
                       />
                       {(team.lifecycle_status ?? '') === 'awaiting_payment' ? (
                         <Link

@@ -85,7 +85,7 @@ export function CompanyPublicProfilePage() {
               <img
                 src={company.logo_url}
                 alt=""
-                className="size-28 rounded-3xl border-4 border-white/80 bg-white object-contain p-2 shadow-2xl"
+                className="h-24 w-32 object-contain drop-shadow-2xl sm:h-28 sm:w-40"
               />
             ) : (
               <div className="flex size-24 items-center justify-center border border-rc-blue/40 bg-rc-blue/10 font-mono text-xl text-rc-blue">

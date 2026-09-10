@@ -77,7 +77,7 @@ export function PublicHeader() {
       </div>
       <div className="relative flex h-[4.25rem] items-center overflow-hidden rounded-b-2xl border border-t-0 border-slate-100 bg-white px-1 shadow-[0_10px_35px_rgb(15_65_80/0.12)] lg:rounded-b-[1.4rem]"><span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-rc-blue to-rc-accent lg:hidden" aria-hidden />
         <Link to="/" className="flex min-w-0 items-center gap-3 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue sm:px-5">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 p-1.5 ring-1 ring-sky-100">{settings?.logo_url ? <img src={settings.logo_url} alt={brand} className="size-full object-contain" /> : <span className="text-sm font-black text-rc-blue">TC</span>}</span>
+          <span className="grid h-11 w-14 shrink-0 place-items-center sm:h-12 sm:w-16">{settings?.logo_url ? <img src={settings.logo_url} alt={brand} className="max-h-full max-w-full object-contain drop-shadow-sm" /> : <span className="text-sm font-black text-rc-blue">TC</span>}</span>
           <span className="min-w-0"><strong className="block truncate text-sm font-black text-slate-950 sm:text-base">{brand}</strong><small className="hidden text-[10px] font-bold tracking-wide text-slate-500 sm:block">{locale === 'en' ? 'National Robotics Competition' : 'مسابقات ملی رباتیک'}</small></span>
         </Link>
 

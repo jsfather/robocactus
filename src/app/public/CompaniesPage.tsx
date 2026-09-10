@@ -69,7 +69,7 @@ export function CompaniesPage() {
                     <img
                       src={company.logo_url}
                       alt=""
-                      className="size-16 rounded-2xl border border-slate-100 bg-white object-contain p-2 shadow-sm"
+                      className="h-16 w-20 object-contain drop-shadow-sm"
                     />
                   ) : (
                     <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-emerald-50 font-mono font-black text-rc-blue">
