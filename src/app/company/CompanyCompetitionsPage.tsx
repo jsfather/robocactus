@@ -121,7 +121,11 @@ export function CompanyCompetitionsPage() {
           companyId={activeCompanyId}
           initialLeagueId={registerLeagueId}
           initialTeamId={resumeTeamId ?? undefined}
-          onCancel={() => { setRegisterLeagueId(null); setResumeTeamId(null) }}
+          onCancel={() => {
+            setRegisterLeagueId(null)
+            setResumeTeamId(null)
+            if (activeCompanyId) void fetchCompanyTeams(activeCompanyId).then(withConfirmedClearance).then(setTeams).catch((err: Error) => setError(err.message))
+          }}
           onCompleted={(team) => {
             setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
             setRegisterLeagueId(null)

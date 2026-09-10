@@ -6,6 +6,7 @@ import { submitContactMessage } from '@/features/home/api'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sanitizeHtml } from '@/lib/sanitize'
+import { numericInput } from '@/lib/validation'
 
 export function ContactPage() {
   const { t, i18n } = useTranslation()
@@ -113,8 +114,10 @@ export function ContactPage() {
             <Input
               label={t('auth.phone')}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(numericInput(e.target.value, 11))}
               dir="ltr"
+              inputMode="numeric"
+              maxLength={11}
             />
             <Input
               label={t('home.contactSubject')}

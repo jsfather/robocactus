@@ -8,6 +8,7 @@ import { db, hashToken, type AuthUser, userFromRequest } from './db.js'
 import { verifyCaptcha } from './captcha.js'
 import { rateLimited } from './rate-limit.js'
 import { revealSecret, SECRET_SETTING_FIELDS } from './secrets.js'
+import { normalizePhoneIdentifier } from './phone.js'
 
 const scrypt = promisify(scryptCallback)
 const cookieOptions: CookieOptions = {
@@ -167,13 +168,7 @@ export async function getAuthSettings(includeSecrets = false): Promise<AuthSetti
 }
 
 function normalizeIranPhoneInput(value: string): string {
-  const digits = value.replace(/\D/g, '')
-  if (/^00989\d{9}$/.test(digits)) return `0${digits.slice(4)}`
-  if (/^989\d{9}$/.test(digits)) return `0${digits.slice(2)}`
-  if (/^9\d{9}$/.test(digits)) return `0${digits}`
-  if (value.trim().startsWith('+') && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`
-  if (/^00[1-9]\d{7,14}$/.test(digits)) return `+${digits.slice(2)}`
-  return digits
+  return normalizePhoneIdentifier(value)
 }
 
 async function findUserByIdentifier(identifier: string) {

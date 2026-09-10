@@ -298,7 +298,12 @@ export function CompanyPanelPage({
               companyId={activeCompanyId}
               initialTeamId={resumeTeamId ?? undefined}
               initialLeagueId={selectedLeagueId ?? teams.find((team) => team.id === resumeTeamId)?.league_id}
-              onCancel={() => setShowWizard(false)}
+              onCancel={() => {
+                setShowWizard(false)
+                setResumeTeamId(null)
+                setSelectedLeagueId(null)
+                if (activeCompanyId) void fetchCompanyTeams(activeCompanyId).then(setTeams).catch((err: Error) => setError(err.message))
+              }}
               onCompleted={(team) => {
                 setTeams((prev) => [team, ...prev.filter((x) => x.id !== team.id)])
                 setShowWizard(false)

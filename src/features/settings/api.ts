@@ -20,6 +20,9 @@ export function normalizeSiteBrand(settings: SiteSettings | null): SiteSettings 
     footer_en: replaceLegacyBrand(settings.footer_en, 'Tabarestan Cup'),
     copyright_fa: replaceLegacyBrand(settings.copyright_fa, 'جام تبرستان'),
     copyright_en: replaceLegacyBrand(settings.copyright_en, 'Tabarestan Cup'),
+    nav_items: (settings.nav_items ?? []).map((item) => item.href.replace(/\/$/, '') === '/companies' || item.href.replace(/\/$/, '') === '/participants'
+      ? { ...item, label_fa: 'شرکت‌کنندگان', label_en: 'Participants' }
+      : item),
     color_primary: '#087eb8',
     color_accent: '#13a94d',
   }

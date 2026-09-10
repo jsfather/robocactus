@@ -12,6 +12,7 @@ import {
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useToast } from '@/components/ui/Toast'
 import type { CommunicationChannel, SiteNavItem, SiteSettings } from '@/types/database'
+import { numericInput } from '@/lib/validation'
 
 const emptyNav = (): SiteNavItem => ({
   id: `nav-${Date.now()}`,
@@ -31,6 +32,15 @@ const emptyChannel = (): CommunicationChannel => ({
   enabled: true,
 })
 
+function siteSettingsErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  if (/forbidden|permission denied|row-level security/i.test(message)) return 'دسترسی ذخیره تنظیمات سایت برای این حساب فعال نیست.'
+  if (/invalid.*url|url.*invalid/i.test(message)) return 'یکی از لینک‌های واردشده معتبر نیست؛ نشانی را کامل و با https:// وارد کنید.'
+  if (/single_row_expected|not_found/i.test(message)) return 'رکورد اصلی تنظیمات سایت پیدا نشد. migrationهای پایگاه‌داده را بررسی کنید.'
+  if (/failed to fetch|network|timeout/i.test(message)) return 'ارتباط با سرور برقرار نشد. اتصال را بررسی کرده و دوباره ذخیره کنید.'
+  return `ذخیره تنظیمات انجام نشد: ${message}`
+}
+
 export function SuperAdminSettingsPage() {
   const { t } = useTranslation()
   const { refresh } = useSiteSettings()
@@ -39,16 +49,18 @@ export function SuperAdminSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     void fetchSiteSettings()
-      .then((s) => setForm(s))
-      .catch((err: Error) => setError(err.message))
+      .then((s) => { setForm(s); setDirty(false) })
+      .catch((err: Error) => setError(siteSettingsErrorMessage(err)))
       .finally(() => setLoading(false))
   }, [])
 
   const patch = (p: Partial<SiteSettings>) => {
     setForm((prev) => (prev ? { ...prev, ...p } : prev))
+    setDirty(true)
   }
 
   const onSave = async (e: FormEvent) => {
@@ -60,11 +72,14 @@ export function SuperAdminSettingsPage() {
       const { id: _id, updated_at: _u, ...rest } = form
       const saved = await updateSiteSettings(rest)
       setForm(saved)
+      setDirty(false)
       applySiteBrandColors(saved)
       await refresh()
-      toast.success('عنوان و توضیحات سایت با موفقیت ذخیره شد.')
+      toast.success('همه تنظیمات سایت با موفقیت ذخیره شد.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const message=siteSettingsErrorMessage(err)
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -90,9 +105,10 @@ export function SuperAdminSettingsPage() {
   const channels = Array.isArray(form.communication_channels) ? form.communication_channels : []
 
   return (
-    <PanelPage index="SYS.09" title={t('settings.title')} description={t('settings.subtitle')}>
+    <PanelPage index="SYS.09" title={t('settings.title')} description={t('settings.subtitle')} actions={<Button type="submit" form="site-settings-form" disabled={busy || !dirty}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیره تغییرات' : 'تغییری ثبت نشده'}</Button>}>
       <FieldError message={error ?? undefined} />
-      <form className="space-y-6" onSubmit={(e) => void onSave(e)}>
+      <form id="site-settings-form" className="space-y-6" onSubmit={(e) => void onSave(e)}>
+        <div className={`sticky top-20 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm backdrop-blur ${dirty?'border-amber-200 bg-amber-50/95':'border-emerald-200 bg-emerald-50/95'}`} role="status"><p className={`text-sm font-bold ${dirty?'text-amber-900':'text-emerald-800'}`}>{dirty?'تغییرات ذخیره‌نشده دارید.':'تنظیمات فعلی ذخیره شده است.'}</p><Button type="submit" disabled={busy || !dirty}>{busy?'در حال ذخیره…':'ذخیره تنظیمات سایت'}</Button></div>
         <HudFrame className="space-y-3 p-4">
           <SectionLabel index="BR.01" title={t('settings.brand')} />
           <div className="grid gap-3 md:grid-cols-2">
@@ -352,8 +368,10 @@ export function SuperAdminSettingsPage() {
             <Input
               label={t('settings.supportPhone')}
               value={form.support_phone ?? ''}
-              onChange={(e) => patch({ support_phone: e.target.value })}
+              onChange={(e) => patch({ support_phone: numericInput(e.target.value, 15) })}
               dir="ltr"
+              inputMode="numeric"
+              maxLength={15}
             />
             <Textarea
               label={t('settings.addressFa')}
@@ -411,7 +429,7 @@ export function SuperAdminSettingsPage() {
           </div>
         </HudFrame>
 
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || !dirty}>
           {busy ? t('app.loading') : t('common.save')}
         </Button>
       </form>

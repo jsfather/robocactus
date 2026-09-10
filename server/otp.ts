@@ -9,6 +9,7 @@ import { sendKavenegarLookup, sendKavenegarText } from './kavenegar.js'
 import { verifyCaptcha } from './captcha.js'
 import { classifyOtpChallenge } from './otp-state.js'
 import { rateLimited } from './rate-limit.js'
+import { normalizeIranMobileInput } from './phone.js'
 
 const MAX_ATTEMPTS = 5
 const captchaGrants = new Map<string, number>()
@@ -22,11 +23,7 @@ function captchaGrantKey(request: Request, phone: string, purpose: string) {
 }
 
 function normalizeIranPhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length === 11 && digits.startsWith('09')) return digits
-  if (digits.length === 12 && digits.startsWith('98')) return `0${digits.slice(2)}`
-  if (digits.length === 10 && digits.startsWith('9')) return `0${digits}`
-  return null
+  return normalizeIranMobileInput(raw)
 }
 
 function otpHash(phone: string, code: string): string {

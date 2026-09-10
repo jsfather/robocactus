@@ -18,6 +18,8 @@ import type { AccountType } from '@/types/database'
 import type { BackendAuthOptions } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { RegistrationStepper } from '@/components/auth/RegistrationStepper'
+import { withoutDigits } from '@/lib/iran'
+import { numericInput } from '@/lib/validation'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 import {
@@ -116,7 +118,7 @@ export function SignupPage() {
 
   useEffect(() => {
     if (phoneOnboardingRequested && user?.phone) {
-      setPhone(user.phone)
+      setPhone(numericInput(user.phone, 11))
       setAuthChannel('phone')
       setUserId(user.id)
     }
@@ -147,7 +149,7 @@ export function SignupPage() {
     setCompanyNationalId(hydrated.companyNationalId)
     setEconomicCode(hydrated.economicCode)
     setAddress(hydrated.address)
-    setPhone(hydrated.phone)
+    setPhone(numericInput(hydrated.phone, 11))
     setEmail(hydrated.email)
   }
 
@@ -685,10 +687,10 @@ export function SignupPage() {
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { setFirstNameFa(e.target.value); setFullName(`${e.target.value} ${lastNameFa}`.trim()) }} />
-            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { setLastNameFa(e.target.value); setFullName(`${firstNameFa} ${e.target.value}`.trim()) }} />
-            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} dir="ltr" />
-            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} dir="ltr" />
+            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setFirstNameFa(value); setFullName(`${value} ${lastNameFa}`.trim()) }} />
+            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setLastNameFa(value); setFullName(`${firstNameFa} ${value}`.trim()) }} />
+            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(withoutDigits(e.target.value))} dir="ltr" />
+            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(withoutDigits(e.target.value))} dir="ltr" />
           </div>
           <BirthDateField label="تاریخ تولد" value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
           <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" maxLength={10} />
@@ -742,7 +744,7 @@ export function SignupPage() {
               <Input
                 label={t('auth.phoneOptional')}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={(e) => setPhone(numericInput(e.target.value, 11))}
                 dir="ltr"
                 inputMode="numeric"
                 maxLength={11}
@@ -751,7 +753,7 @@ export function SignupPage() {
           ) : (
             <>
               <Input label={t('auth.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
-              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
+              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(numericInput(e.target.value, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
             </>
           )}
 
@@ -776,7 +778,7 @@ export function SignupPage() {
           {!otpSent ? (
             <form onSubmit={(e) => void onRequestOtp(e)} className="space-y-3">
               <p className="text-sm text-rc-muted">{t('auth.verifyPhoneHint')}</p>
-              <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
+              <Input label={t('auth.phone')} value={phone} onChange={(e) => setPhone(numericInput(e.target.value, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
               <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} />
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => void saveSignupStep('identity')}>

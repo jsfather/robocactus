@@ -7,6 +7,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { backend } from '@/lib/backend'
 import { upsertLeaguePerson } from '@/features/leagues/adminApi'
 import type { LeaguePerson } from '@/types/database'
+import { numericInput } from '@/lib/validation'
 
 export function SuperAdminPersonEditPage() {
   const { personId = '' } = useParams()
@@ -77,7 +78,7 @@ export function SuperAdminPersonEditPage() {
       </PanelCard>
 
       <PanelCard title="اطلاعات تماس عمومی">
-        <div className="grid gap-3 md:grid-cols-2"><Input label="ایمیل" type="email" value={form.email ?? ''} onChange={(event) => patch({ email: event.target.value })} dir="ltr" /><Input label="تلفن" value={form.phone ?? ''} onChange={(event) => patch({ phone: event.target.value })} dir="ltr" /><Input label="وب‌سایت" value={form.website_url ?? ''} onChange={(event) => patch({ website_url: event.target.value })} dir="ltr" /><Input label="LinkedIn" value={form.linkedin_url ?? ''} onChange={(event) => patch({ linkedin_url: event.target.value })} dir="ltr" /></div>
+        <div className="grid gap-3 md:grid-cols-2"><Input label="ایمیل" type="email" value={form.email ?? ''} onChange={(event) => patch({ email: event.target.value })} dir="ltr" /><Input label="تلفن" value={form.phone ?? ''} onChange={(event) => patch({ phone: numericInput(event.target.value, 15) })} dir="ltr" inputMode="numeric" maxLength={15} /><Input label="وب‌سایت" value={form.website_url ?? ''} onChange={(event) => patch({ website_url: event.target.value })} dir="ltr" /><Input label="LinkedIn" value={form.linkedin_url ?? ''} onChange={(event) => patch({ linkedin_url: event.target.value })} dir="ltr" /></div>
       </PanelCard>
       <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره کامل رزومه'}</Button>
     </form>

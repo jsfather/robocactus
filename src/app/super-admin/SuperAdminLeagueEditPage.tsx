@@ -52,6 +52,7 @@ import type {
   LeagueSponsor,
 } from '@/types/database'
 import { backend } from '@/lib/backend'
+import { numericInput } from '@/lib/validation'
 import type { AttendanceSettings } from '@/features/attendance/api'
 
 type Tab =
@@ -461,7 +462,7 @@ export function SuperAdminLeagueEditPage() {
               <Textarea label="قوانین بازپرداخت انگلیسی" value={form.refund_policy_en ?? ''} onChange={(e) => patch({ refund_policy_en: e.target.value })} dir="ltr" />
               <Input label={t('admin.leagueDetail.secretaryName')} value={form.secretary_name ?? ''} onChange={(e) => patch({ secretary_name: e.target.value })} />
               <Input label="نام دبیر انگلیسی" value={form.secretary_name_en ?? ''} onChange={(e) => patch({ secretary_name_en: e.target.value })} dir="ltr" />
-              <Input label={t('admin.leagueDetail.secretaryPhone')} value={form.secretary_phone ?? ''} onChange={(e) => patch({ secretary_phone: e.target.value })} dir="ltr" />
+              <Input label={t('admin.leagueDetail.secretaryPhone')} value={form.secretary_phone ?? ''} onChange={(e) => patch({ secretary_phone: numericInput(e.target.value, 15) })} dir="ltr" inputMode="numeric" maxLength={15} />
               <Input label={t('admin.leagues.email')} value={form.contact_email ?? ''} onChange={(e) => patch({ contact_email: e.target.value })} dir="ltr" />
               <Input label={t('admin.leagueDetail.secretaryTelegram')} value={form.secretary_telegram ?? ''} onChange={(e) => patch({ secretary_telegram: e.target.value })} dir="ltr" />
             </div>

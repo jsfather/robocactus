@@ -88,6 +88,12 @@ export async function adminDeleteTeam(teamId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function adminArchiveTeam(teamId: string, archived: boolean): Promise<Team> {
+  const { data, error } = await backend.rpc('admin_archive_team', { p_team_id: teamId, p_archived: archived })
+  if (error) throw new Error(error.message)
+  return data as Team
+}
+
 export async function getDocumentSignedUrl(filePath: string): Promise<string> {
   const { data, error } = await backend.storage
     .from('team-documents')

@@ -25,6 +25,12 @@ import { formatAppDateTime } from '@/lib/dates'
 import type { League, Profile, Ticket, TicketDepartment, TicketMessage } from '@/types/database'
 
 type Mode = 'team' | 'staff' | 'league'
+type TicketContext = {
+  teamName: string
+  companyName: string
+  leagueName: string
+  requester: Profile | null
+}
 
 function UnreadDot({ show }: { show: boolean }) {
   if (!show) return null
@@ -62,6 +68,7 @@ export function TicketInbox({
   const [referAdminId, setReferAdminId] = useState('')
   const [admins, setAdmins] = useState<Array<{ user_id: string }>>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [ticketContext, setTicketContext] = useState<TicketContext | null>(null)
   const [departments, setDepartments] = useState<TicketDepartment[]>([])
   const [assignDeptId, setAssignDeptId] = useState('')
   const [newSubject, setNewSubject] = useState('')
@@ -157,7 +164,6 @@ export function TicketInbox({
             void refreshUnread()
           }
 
-          void reload()
         },
       )
       .on(
@@ -198,6 +204,28 @@ export function TicketInbox({
   useEffect(() => {
     setAssignDeptId(selected?.department_id ?? '')
   }, [selected?.id, selected?.department_id])
+
+  useEffect(() => {
+    if (!selected) { setTicketContext(null); return }
+    let cancelled = false
+    const requesterId = messages[0]?.sender_id
+    void (async () => {
+      const teamResponse = await backend.from('teams').select('name,company_id,league_id').eq('id',selected.team_id).maybeSingle()
+      const team = teamResponse.data as { name?: string; company_id?: string; league_id?: string } | null
+      const [companyResponse, leagueResponse] = await Promise.all([
+        team?.company_id ? backend.from('companies').select('name').eq('id',team.company_id).maybeSingle() : Promise.resolve({data:null}),
+        (selected.league_id ?? team?.league_id) ? backend.from('leagues').select('name').eq('id',selected.league_id ?? team!.league_id!).maybeSingle() : Promise.resolve({data:null}),
+      ])
+      if (cancelled) return
+      setTicketContext({
+        teamName: team?.name ?? '—',
+        companyName: (companyResponse.data as {name?:string}|null)?.name ?? '—',
+        leagueName: (leagueResponse.data as {name?:string}|null)?.name ?? (selected.league_id ? 'لیگ تخصصی' : 'تیکت عمومی'),
+        requester: profiles.find((profile) => profile.id === requesterId) ?? null,
+      })
+    })().catch(() => { if (!cancelled) setTicketContext(null) })
+    return () => { cancelled=true }
+  }, [selected?.id, selected?.team_id, selected?.league_id, messages[0]?.sender_id, profiles])
 
   const onReply = async (event: FormEvent) => {
     event.preventDefault()
@@ -398,6 +426,17 @@ export function TicketInbox({
               <Button type="button" variant="danger" disabled={busy} onClick={() => void onDelete()}>حذف تیکت</Button>
             </div> : null}
           >
+            <section className="mb-4 overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-l from-sky-50 via-white to-emerald-50" aria-label="مشخصات تیکت">
+              <div className="border-b border-sky-100 px-4 py-3 sm:px-5"><span className="text-[11px] font-black text-sky-700">موضوع تیکت</span><h3 className="mt-1 text-base font-black leading-7 text-slate-900">{selected.subject}</h3></div>
+              <dl className="grid gap-px bg-sky-100 sm:grid-cols-2 xl:grid-cols-3">
+                <TicketDetail label="ارسال‌کننده" value={ticketContext?.requester?.full_name ?? messages[0]?.sender_name ?? 'در حال دریافت…'} />
+                <TicketDetail label="شماره تماس" value={ticketContext?.requester?.phone ?? '—'} dir="ltr" />
+                <TicketDetail label="ایمیل" value={ticketContext?.requester?.email ?? '—'} dir="ltr" />
+                <TicketDetail label="تیم / مجموعه" value={`${ticketContext?.teamName ?? '—'} · ${ticketContext?.companyName ?? '—'}`} />
+                <TicketDetail label="لیگ / واحد" value={`${ticketContext?.leagueName ?? '—'} · ${departments.find(item=>item.id===selected.department_id)?.name ?? 'بدون واحد'}`} />
+                <TicketDetail label="زمان ثبت / وضعیت" value={`${formatAppDateTime(selected.created_at, i18n.language)} · ${statusLabel(selected.status)}`} />
+              </dl>
+            </section>
             {mode === 'staff' ? (
               <div className="mb-4 flex flex-wrap items-end gap-2 border-b border-rc-line pb-4">
                 <div className="min-w-48 flex-1">
@@ -439,7 +478,7 @@ export function TicketInbox({
                       mine ? 'ms-auto rounded-ee-md bg-gradient-to-br from-sky-600 to-cyan-600 text-white' : 'me-auto rounded-es-md border border-slate-100 bg-white text-slate-700'
                     }`}
                   >
-                    {!mine && msg.sender_role && msg.sender_role !== 'شرکت‌کننده' ? <p className="mb-1 text-[11px] font-black text-sky-700">بررسی توسط {msg.sender_name || 'کارشناس'} · {msg.sender_role}</p> : null}
+                    <p className={`mb-1 text-[11px] font-black ${mine ? 'text-white/85' : 'text-sky-700'}`}>{msg.sender_name || (mine ? 'شما' : 'کاربر سامانه')} · {msg.sender_role || (mine ? 'ارسال‌کننده' : 'کاربر')}</p>
                     {msg.body && msg.body !== '📎' ? (
                       <p className="whitespace-pre-wrap">{msg.body}</p>
                     ) : null}
@@ -547,4 +586,8 @@ export function UnreadBadge({ count }: { count: number }) {
       {count > 99 ? '99+' : count}
     </span>
   )
+}
+
+function TicketDetail({label,value,dir}:{label:string;value:string;dir?:'ltr'|'rtl'}){
+  return <div className="min-w-0 bg-white/90 px-4 py-3"><dt className="text-[10px] font-bold text-slate-400">{label}</dt><dd className="mt-1 break-words text-xs font-black leading-6 text-slate-700" dir={dir}>{value}</dd></div>
 }

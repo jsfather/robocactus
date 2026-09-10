@@ -14,6 +14,7 @@ import { StatCard } from '@/components/panel/HudKit'
 import { backend } from '@/lib/backend'
 import { normalizeIranMobile, participantDisplayName } from '@/features/participants/identity'
 import { formatAppDate } from '@/lib/dates'
+import { numericInput } from '@/lib/validation'
 
 export function SuperAdminUsersPage() {
   const { t, i18n } = useTranslation()
@@ -187,7 +188,7 @@ export function SuperAdminUsersPage() {
           <Select label="نوع حساب" value={createForm.account_type} onChange={(event) => setCreateForm((form) => ({ ...form, account_type: event.target.value as 'individual' | 'legal' }))}><option value="individual">شخص حقیقی</option><option value="legal">شخص حقوقی / شرکت</option></Select>
           <Select label="وضعیت اولیه حساب" value={createForm.account_status} onChange={(event) => setCreateForm((form) => ({ ...form, account_status: event.target.value as 'pending' | 'active' }))}><option value="pending">در انتظار تکمیل و بررسی</option><option value="active">فعال</option></Select>
           <Input label="نام و نام خانوادگی / نام نماینده" value={createForm.full_name} onChange={(event) => setCreateForm((form) => ({ ...form, full_name: event.target.value }))} />
-          <Input label="شماره موبایل" value={createForm.phone} onChange={(event) => setCreateForm((form) => ({ ...form, phone: event.target.value }))} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" />
+          <Input label="شماره موبایل" value={createForm.phone} onChange={(event) => setCreateForm((form) => ({ ...form, phone: numericInput(event.target.value, 11) }))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
           <Input label="ایمیل (اختیاری)" value={createForm.email} onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} dir="ltr" type="email" />
           <Input label="نام کاربری (اختیاری)" value={createForm.username} onChange={(event) => setCreateForm((form) => ({ ...form, username: event.target.value }))} dir="ltr" />
           <Input label="رمز عبور اولیه (اختیاری، حداقل ۸ کاراکتر)" value={createForm.password} onChange={(event) => setCreateForm((form) => ({ ...form, password: event.target.value }))} dir="ltr" type="password" autoComplete="new-password" />
@@ -209,7 +210,9 @@ export function SuperAdminUsersPage() {
               label={t('auth.phone')}
               required
               value={editForm.phone}
-              onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              onChange={(e) => setEditForm((f) => ({ ...f, phone: numericInput(e.target.value, 11) }))}
+              inputMode="numeric"
+              maxLength={11}
               dir="ltr"
             />
             <Input

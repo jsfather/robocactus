@@ -1,12 +1,14 @@
 import type { ParticipantFieldRule, Profile } from '@/types/database'
+import { numericInput, toLatinDigits } from '@/lib/validation'
 
 export function normalizeIranMobile(value: string): string | null {
-  const digits = value.replace(/\D/g, '')
+  const normalized = toLatinDigits(value)
+  const digits = numericInput(normalized)
   if (/^00989\d{9}$/.test(digits)) return `0${digits.slice(4)}`
   if (/^989\d{9}$/.test(digits)) return `0${digits.slice(2)}`
   if (/^9\d{9}$/.test(digits)) return `0${digits}`
   if (/^09\d{9}$/.test(digits)) return digits
-  if (value.trim().startsWith('+') && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`
+  if (normalized.trim().startsWith('+') && /^[1-9]\d{7,14}$/.test(digits)) return `+${digits}`
   if (/^00[1-9]\d{7,14}$/.test(digits)) return `+${digits.slice(2)}`
   return null
 }
@@ -20,12 +22,13 @@ export function participantDisplayName(profile: Pick<Profile, 'account_type' | '
 
 export function participantErrors(profile: Profile, rules: ParticipantFieldRule[] = []): Record<string, string> {
   const errors: Record<string, string> = {}
+  const normalizedPhone = normalizeIranMobile(profile.phone ?? '')
   const required = rules.filter((rule) => rule.is_required && (rule.applies_to === 'both' || rule.applies_to === profile.account_type))
   for (const rule of required) {
     if (!String((profile as unknown as Record<string, unknown>)[rule.field_key] ?? '').trim()) errors[rule.field_key] = `${rule.label_fa} الزامی است.`
   }
-  if (!normalizeIranMobile(profile.phone ?? '')) errors.phone = profile.is_foreign ? 'شماره موبایل بین‌المللی معتبر با کد کشور وارد کنید.' : 'شماره موبایل معتبر ایران وارد کنید؛ مانند 09123456789.'
-  if (!profile.is_foreign && !/^09\d{9}$/.test(profile.phone ?? '')) errors.phone = 'شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'
+  if (!normalizedPhone) errors.phone = profile.is_foreign ? 'شماره موبایل بین‌المللی معتبر با کد کشور وارد کنید.' : 'شماره موبایل معتبر ایران وارد کنید؛ مانند 09123456789.'
+  if (!profile.is_foreign && !/^09\d{9}$/.test(normalizedPhone ?? '')) errors.phone = 'شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'
   if (profile.postal_code && !/^\d{10}$/.test(profile.postal_code)) errors.postal_code = 'کد پستی باید دقیقاً ۱۰ رقم باشد.'
   if (profile.is_foreign) {
     if (!profile.passport_number?.trim()) errors.passport_number = 'شماره گذرنامه برای اتباع خارجی الزامی است.'

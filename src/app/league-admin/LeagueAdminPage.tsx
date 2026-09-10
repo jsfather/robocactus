@@ -24,6 +24,7 @@ import {
   publishOfficialTeamResult,
   fetchTeamsForReview,
   getDocumentSignedUrl,
+  adminArchiveTeam,
   adminDeleteTeam,
 } from '@/features/judging/api'
 import {
@@ -278,7 +279,28 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
       toast.success('تیم با موفقیت حذف شد.')
     } catch (err) {
       const message = err instanceof Error ? err.message : t('common.error')
-      setError(message.includes('team_has_paid_invoice') ? 'این تیم پرداخت قطعی دارد و برای حفظ سوابق مالی قابل حذف نیست.' : message)
+      const friendly = message.includes('team_has_paid_invoice') ? 'این تیم پرداخت قطعی دارد و برای حفظ سوابق مالی قابل حذف نیست؛ از گزینه «بایگانی تیم» استفاده کنید.' : message
+      setError(friendly)
+      toast.error(friendly)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onArchiveTeam = async () => {
+    if (!selected || profile?.role !== 'super_admin') return
+    const archived = !selected.archived_at
+    if (!window.confirm(archived ? `تیم «${selected.name}» بایگانی و فقط‌خواندنی شود؟` : `تیم «${selected.name}» از بایگانی خارج شود؟`)) return
+    setBusy(true)
+    setError(null)
+    try {
+      const updated = await adminArchiveTeam(selected.id, archived)
+      setTeams((current) => current.map((team) => team.id === updated.id ? updated : team))
+      toast.success(archived ? 'تیم با حفظ سوابق مالی بایگانی شد.' : 'تیم از بایگانی خارج شد.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error')
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -440,7 +462,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     status={selected.status}
                     label={t(`team.statuses.${selected.status}`, { defaultValue: selected.status })}
                   />
-                  {profile?.role === 'super_admin' ? <><Link to={`/team/${selected.id}?edit=all`} className="inline-flex min-h-9 items-center rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800">ویرایش کلی</Link><Button type="button" variant="danger" disabled={busy} onClick={() => void onDeleteTeam()}>حذف تیم</Button></> : null}
+                  {profile?.role === 'super_admin' ? <><Link to={`/team/${selected.id}?edit=all`} className="inline-flex min-h-9 items-center rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800">ویرایش کلی</Link><Button type="button" variant="secondary" disabled={busy} onClick={() => void onArchiveTeam()}>{selected.archived_at ? 'خروج از بایگانی' : 'بایگانی تیم'}</Button>{!selected.archived_at ? <Button type="button" variant="danger" disabled={busy} onClick={() => void onDeleteTeam()}>حذف تیم</Button> : null}</> : null}
                 </div>
 
                 <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-6 text-sky-900">اکنون در پرونده همین تیم هستید. مدارک و اعضا در ادامه بررسی می‌شوند؛ تیکت‌ها بخش مستقلی در منوی پنل دارند و با انتخاب تیم به‌صورت ناخواسته باز نمی‌شوند.</p>

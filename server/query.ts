@@ -59,7 +59,7 @@ const READ_ONLY_TABLES = new Set([
 ])
 
 const RPCS = new Set([
-  'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'admin_delete_team', 'analytics_export_teams', 'analytics_snapshot',
+  'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'admin_delete_team', 'admin_archive_team', 'analytics_export_teams', 'analytics_snapshot',
   'apply_payment_result', 'close_live_chat_session', 'count_unread_tickets', 'create_company',
   'create_invoice_for_team', 'create_ticket', 'create_ticket_with_department', 'enqueue_broadcast_sms', 'enqueue_incomplete_profile_sms',
   'fetch_live_chat_guest_messages', 'home_stats', 'issue_mock_payment_authority',
@@ -73,6 +73,7 @@ const RPCS = new Set([
   'review_team_technical_files', 'accept_team_attendance_rules',
   'submit_team_member_correction',
   'request_team_withdrawal', 'review_team_withdrawal',
+  'cancel_incomplete_team_registration',
   'archive_league_cycle', 'archive_expired_incomplete_teams', 'search_podium_by_national_id',
   'set_league_cycle_podium', 'manage_ticket',
   'delete_registration_doc_type',
@@ -349,6 +350,11 @@ function sendError(response: Response, error: unknown): void {
   }
   const message = messages.join(' ')
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
+  const conflict = message.match(/\b(team_has_paid_invoice|registration_has_payment|registration_already_completed|registration_already_submitted)\b/i)?.[1]
+  if (conflict) {
+    response.status(409).json({ error: { code: conflict.toUpperCase(), message: conflict } })
+    return
+  }
 
   // Foreign-key violations on DELETE → the resource is still referenced.
   // Map to HTTP 409 Conflict with a stable machine-readable code so the

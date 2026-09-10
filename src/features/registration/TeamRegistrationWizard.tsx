@@ -16,6 +16,8 @@ import { ageFromBirthDate } from '@/lib/dates'
 import { backend } from '@/lib/backend'
 import {
   createDraftTeam,
+  cancelIncompleteTeamRegistration,
+  clearTeamDraft,
   emptyMemberDraft,
   emptyTeamDraft,
   fetchTeamDocuments,
@@ -37,6 +39,8 @@ import { teamFlowSteps, type TeamFlowStepKey } from '@/features/registration/flo
 import { fetchMemberRegistrationDocTypes, fetchTeamRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
 import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/api'
 import type { DocumentRow, League, Team } from '@/types/database'
+import { IRAN_PROVINCES, withoutDigits } from '@/lib/iran'
+import { numericInput } from '@/lib/validation'
 
 function MemberIdentityUpload({ label, required, file, storedUrl, busy, onChange }: { label: string; required: boolean; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState(storedUrl ?? '')
@@ -445,6 +449,30 @@ export function TeamRegistrationWizard({
   const roleLabel = (role?: string | null) => role === 'captain' ? 'سرپرست' : role === 'coach' ? 'مربی' : 'عضو تیم'
   const requiredTeamDocsMissing = teamDocTypes.filter((type) => type.is_required && !teamOnlyDocs.some((doc) => doc.doc_type === type.code))
 
+  const cancelRegistration = async () => {
+    const hasPersistedRegistration = Boolean(draft.teamId)
+    if (hasPersistedRegistration && !window.confirm('با انصراف، این ثبت‌نام ناقص و تمام اطلاعات تیم ثبت‌شده در آن حذف می‌شود. ادامه می‌دهید؟')) return
+    setBusy(true)
+    setError(null)
+    try {
+      if (draft.teamId) await cancelIncompleteTeamRegistration(draft.teamId)
+      clearTeamDraft(companyId)
+      onCancel()
+      toast.success('ثبت‌نام ناقص حذف شد.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error')
+      const friendly = message.includes('registration_has_payment')
+        ? 'این ثبت‌نام دارای سابقه پرداخت است و قابل حذف نیست.'
+        : message.includes('registration_already_completed') || message.includes('registration_already_submitted')
+          ? 'ثبت‌نام ارسال یا تکمیل‌شده از این مسیر قابل حذف نیست.'
+          : message
+      setError(friendly)
+      toast.error(friendly)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const finish = async () => {
     setBusy(true)
     setError(null)
@@ -483,8 +511,8 @@ export function TeamRegistrationWizard({
           <h2 className="text-lg font-semibold">{t('team.wizardTitle')}</h2>
           <p className="text-sm text-rc-muted">{t('team.wizardHint')}</p>
         </div>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          {t('common.cancel')}
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => void cancelRegistration()}>
+          {draft.teamId ? 'انصراف و حذف ثبت‌نام' : t('common.cancel')}
         </Button>
       </div>
 
@@ -526,15 +554,15 @@ export function TeamRegistrationWizard({
               </option>
             ))}
           </Select>
-          <Input
+          <Select
             label={t('team.province')}
             value={draft.province}
             onChange={(e) => patchDraft({ province: e.target.value })}
-          />
+          ><option value="">انتخاب استان</option>{IRAN_PROVINCES.map((province)=><option key={province} value={province}>{province}</option>)}</Select>
           <Input
             label={t('team.city')}
             value={draft.city}
-            onChange={(e) => patchDraft({ city: e.target.value })}
+            onChange={(e) => patchDraft({ city: withoutDigits(e.target.value) })}
           />
           <p className="md:col-span-2 rounded-2xl bg-sky-50 p-4 text-sm leading-7 text-sky-800">اطلاعات سرپرست، مربی و اعضا در مرحله بعد به‌عنوان اشخاص وابسته به همین تیم ثبت می‌شود؛ برای آن‌ها حساب کاربری ساخته نمی‌شود.</p>
         </div>
@@ -556,16 +584,16 @@ export function TeamRegistrationWizard({
                     label={t('team.memberFirstNameFa')}
                     required
                     value={member.first_name}
-                    onChange={(e) => patchMember(index, { first_name: e.target.value })}
+                    onChange={(e) => patchMember(index, { first_name: withoutDigits(e.target.value) })}
                   />
                   <Input
                     label={t('team.memberLastNameFa')}
                     required
                     value={member.last_name}
-                    onChange={(e) => patchMember(index, { last_name: e.target.value })}
+                    onChange={(e) => patchMember(index, { last_name: withoutDigits(e.target.value) })}
                   />
-                  <Input label={t('team.memberFirstNameEn')} required value={member.first_name_en} onChange={(e) => patchMember(index, { first_name_en: e.target.value })} dir="ltr" />
-                  <Input label={t('team.memberLastNameEn')} required value={member.last_name_en} onChange={(e) => patchMember(index, { last_name_en: e.target.value })} dir="ltr" />
+                  <Input label={t('team.memberFirstNameEn')} required value={member.first_name_en} onChange={(e) => patchMember(index, { first_name_en: withoutDigits(e.target.value) })} dir="ltr" />
+                  <Input label={t('team.memberLastNameEn')} required value={member.last_name_en} onChange={(e) => patchMember(index, { last_name_en: withoutDigits(e.target.value) })} dir="ltr" />
                   <Select
                     label={t('team.memberRole')}
                     value={member.role}
@@ -575,13 +603,13 @@ export function TeamRegistrationWizard({
                     <option value="coach">مربی</option>
                     <option value="member">{t('team.roles.member')}</option>
                   </Select>
-                  <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: e.target.value })} />
-                  <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: e.target.value })} dir="ltr" />
-                  {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" /> : null}
+                  <Input label="نام پدر فارسی" required value={member.father_name_fa} onChange={(e) => patchMember(index, { father_name_fa: withoutDigits(e.target.value) })} />
+                  <Input label="نام پدر انگلیسی" required value={member.father_name_en} onChange={(e) => patchMember(index, { father_name_en: withoutDigits(e.target.value) })} dir="ltr" />
+                  {['captain', 'coach'].includes(member.role) ? <Input label="شماره موبایل" required value={member.phone} onChange={(e) => patchMember(index, { phone: numericInput(e.target.value, 11) })} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" /> : null}
                   <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
                   {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
                   {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} dir="ltr" inputMode="numeric" maxLength={10} />}
-                  <Input label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })} /><Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: e.target.value })} />
+                  {member.country_code === 'IR' ? <Select label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })}><option value="">انتخاب استان</option>{IRAN_PROVINCES.map((province)=><option key={province} value={province}>{province}</option>)}</Select> : <Input label="استان / منطقه" value={member.province} onChange={(e) => patchMember(index, { province: withoutDigits(e.target.value) })} />}<Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: withoutDigits(e.target.value) })} />
                   <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
                   <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={member.role === 'member' ? selectedLeague?.min_age ?? 3 : 0} maxAge={member.role === 'member' ? selectedLeague?.max_age ?? 100 : 130} />
                   <Input

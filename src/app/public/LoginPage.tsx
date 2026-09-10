@@ -9,6 +9,7 @@ import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/Arcaptch
 import { useAuth } from '@/hooks/useAuth'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { backend, type BackendAuthOptions } from '@/lib/backend/client'
+import { numericInput } from '@/lib/validation'
 
 type Mode = 'email' | 'phone'
 type EmailSubMode = 'password' | 'magic'
@@ -187,7 +188,7 @@ export function LoginPage() {
             </form>
           ) : (
             <form noValidate className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (otpSent) void verifyOtp(); else void onRequestOtp(event) }}>
-              <Input label={t('auth.phone')} value={phone} onChange={(event) => setPhone(event.target.value)} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" disabled={otpSent} />
+              <Input label={t('auth.phone')} value={phone} onChange={(event) => setPhone(numericInput(event.target.value, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" disabled={otpSent} />
               {otpSent ? <div className="space-y-3"><div className="flex items-center justify-between"><p className="text-sm font-black text-slate-700">{t('auth.otpCode')}</p><span className={`rounded-full px-3 py-1 text-xs font-bold ${otpRemainingSeconds > 0 ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'}`}>{otpRemainingSeconds > 0 ? `${t('auth.otpValidity')} ${String(Math.floor(otpRemainingSeconds / 60)).padStart(2, '0')}:${String(otpRemainingSeconds % 60).padStart(2, '0')}` : t('auth.otpExpired')}</span></div><OtpCodeInput value={code} onChange={(value) => { setCode(value); setError(null) }} onComplete={(value) => void verifyOtp(value)} state={otpState} disabled={submitting || otpState === 'success'} /></div> : null}
               {devCode ? <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 font-mono text-xs text-sky-700">{t('auth.devOtp', { code: devCode })}</p> : null}
               {!otpSent ? <ArcaptchaField context="login" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}

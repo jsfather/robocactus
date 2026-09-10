@@ -12,7 +12,7 @@ import {
 } from '@/features/notifications/api'
 import { updateSiteSettings, fetchSiteSettings } from '@/features/settings/api'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
-import { slugify } from '@/lib/validation'
+import { numericInput, slugify } from '@/lib/validation'
 import { backend } from '@/lib/backend'
 import type { ParticipantFieldRule } from '@/types/database'
 
@@ -239,8 +239,10 @@ export function SuperAdminRegistrationSettingsPage() {
           <Input
             label={t('registrationSettings.supportPhone')}
             value={supportPhone}
-            onChange={(e) => setSupportPhone(e.target.value)}
+            onChange={(e) => setSupportPhone(numericInput(e.target.value, 15))}
             dir="ltr"
+            inputMode="numeric"
+            maxLength={15}
           />
           <label className="block space-y-1.5">
             <span className="text-sm text-rc-muted">{t('settings.inactiveFa')}</span>

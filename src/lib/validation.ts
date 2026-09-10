@@ -14,8 +14,21 @@ export function slugify(input: string): string {
   return compact || `org-${Date.now()}`
 }
 
+/** Normalize Persian and Arabic-Indic numerals before numeric validation. */
+export function toLatinDigits(value: string): string {
+  return value
+    .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+}
+
+/** Controlled-input sanitizer: accepts every supported numeral keyboard, stores ASCII digits only. */
+export function numericInput(value: string, maxLength?: number): string {
+  const digits = toLatinDigits(value).replace(/\D/g, '')
+  return maxLength == null ? digits : digits.slice(0, maxLength)
+}
+
 export function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
+  const digits = numericInput(phone)
   if (digits.startsWith('98') && digits.length === 12) {
     return `0${digits.slice(2)}`
   }

@@ -213,8 +213,14 @@ declare v_row public.team_attendance_clearances%rowtype; v_setting public.league
 begin
   if not exists(select 1 from public.teams t left join public.company_members cm on cm.company_id=t.company_id and cm.user_id=auth.uid()
     where t.id=p_team_id and (t.captain_id=auth.uid() or cm.user_id is not null)) then raise exception 'forbidden'; end if;
-  select t.league_id,s into v_league_id,v_setting from public.teams t join public.league_attendance_settings s on s.league_id=t.league_id where t.id=p_team_id;
+  -- A %rowtype record cannot be mixed with scalar INTO targets. Load the
+  -- complete settings row first, then derive its league id from that row.
+  select s.* into v_setting
+  from public.teams t
+  join public.league_attendance_settings s on s.league_id=t.league_id
+  where t.id=p_team_id;
   if not found then raise exception 'attendance_settings_not_found'; end if;
+  v_league_id:=v_setting.league_id;
   if not public.team_registration_step_enabled(v_league_id,'technical') then raise exception 'registration_step_disabled:technical'; end if;
   select * into v_row from public.sync_team_attendance(p_team_id);
   if v_row.stage<>'technical' or v_row.technical_status not in ('draft','rejected') then raise exception 'technical_submission_locked'; end if;

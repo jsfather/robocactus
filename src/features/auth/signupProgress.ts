@@ -81,6 +81,12 @@ export function mapSignupError(error: string | null | undefined, t: (key: string
   if (normalized.includes('duplicate_national_id') || (normalized.includes('national_id') && normalized.includes('unique'))) {
     return t('auth.duplicateNationalId')
   }
+  if (normalized.includes('invalid_name_characters')) {
+    return 'نام و نام خانوادگی نباید شامل عدد باشد.'
+  }
+  if (normalized.includes('invalid_location_characters')) {
+    return 'نام استان و شهر نباید شامل عدد باشد.'
+  }
   if (normalized.includes('failed query') || normalized.includes('profiles_email') || normalized.includes('unique constraint')) {
     if (normalized.includes('email')) return t('auth.duplicateEmail')
     if (normalized.includes('username')) return t('auth.duplicateUsername')

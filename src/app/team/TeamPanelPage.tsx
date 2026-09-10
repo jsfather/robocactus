@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Input, PanelCard, Select, StatusBadge } from '@/components/ui/FormControls'
 import { DocumentUploadField } from '@/components/ui/DocumentUploadField'
 import { BirthDateField } from '@/components/ui/BirthDateField'
+import { numericInput } from '@/lib/validation'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -23,6 +24,7 @@ import { backend } from '@/lib/backend'
 import { safeSameOriginUrl } from '@/lib/safe-url'
 import { fetchAttendanceSnapshot, type AttendanceClearance, type AttendanceSettings } from '@/features/attendance/api'
 import { fetchMemberRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
+import { withoutDigits } from '@/lib/iran'
 
 function TeamAsset({ path, alt, onOpen }: { path?: string | null; alt: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -233,14 +235,14 @@ export function TeamPanelPage() {
           {league?.team_edit_deadline ? <p className="mb-3 text-xs text-rc-muted">مهلت ویرایش: {formatAppDate(league.team_edit_deadline, i18n.language, { withTime: true })}</p> : null}
           {editing ? <div className="space-y-4">
             {memberEdits.filter((member) => isManagementView || team.status === 'draft' || (member.review_status === 'rejected' && (!editMemberId || member.id === editMemberId))).map((member, index) => <div key={member.id} className="grid gap-3 rounded-2xl border border-rc-line p-4 md:grid-cols-2">
-              <Input label="نام فارسی" value={member.first_name_fa ?? member.first_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_fa: event.target.value, first_name: event.target.value } : row))} />
-              <Input label="نام خانوادگی فارسی" value={member.last_name_fa ?? member.last_name ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_fa: event.target.value, last_name: event.target.value } : row))} />
-              <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: event.target.value } : row))} dir="ltr" />
-              <Input label="نام خانوادگی انگلیسی" value={member.last_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_en: event.target.value } : row))} dir="ltr" />
+              <Input label="نام فارسی" value={member.first_name_fa ?? member.first_name ?? ''} onChange={(event) => { const value=withoutDigits(event.target.value); setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_fa: value, first_name: value } : row)) }} />
+              <Input label="نام خانوادگی فارسی" value={member.last_name_fa ?? member.last_name ?? ''} onChange={(event) => { const value=withoutDigits(event.target.value); setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_fa: value, last_name: value } : row)) }} />
+              <Input label="نام انگلیسی" value={member.first_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, first_name_en: withoutDigits(event.target.value) } : row))} dir="ltr" />
+              <Input label="نام خانوادگی انگلیسی" value={member.last_name_en ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, last_name_en: withoutDigits(event.target.value) } : row))} dir="ltr" />
               <Input label="کد ملی" value={member.national_id ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, national_id: event.target.value } : row))} dir="ltr" />
               <BirthDateField label="تاریخ تولد" value={member.birth_date} minAge={member.role === 'member' ? league?.min_age ?? 0 : 0} maxAge={member.role === 'member' ? league?.max_age ?? 130 : 130} onChange={(date) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: date } : row))} />
               <Select label="سمت در تیم" value={member.role ?? 'member'} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, role: event.target.value } : row))}><option value="captain">سرپرست</option><option value="coach">مربی</option><option value="member">عضو تیم</option></Select>
-              <Input label="شماره تماس" value={member.phone ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, phone: event.target.value } : row))} dir="ltr" />
+              <Input label="شماره تماس" value={member.phone ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, phone: numericInput(event.target.value, 11) } : row))} dir="ltr" inputMode="numeric" maxLength={11} />
               <Input label="محل سکونت" value={member.residence ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, residence: event.target.value } : row))} />
               <Input label="رشته تحصیلی" value={member.field_of_study ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, field_of_study: event.target.value } : row))} />
               {memberPhotoEnabled ? <EditableMemberAsset label="تصویر پرسنلی" file={photoFiles[member.id]} stored={member.photo_url} busy={saving} onChange={(file) => setPhotoFiles((current) => ({ ...current, [member.id]: file }))} /> : null}

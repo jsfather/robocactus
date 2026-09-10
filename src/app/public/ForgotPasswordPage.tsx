@@ -5,14 +5,101 @@ import { backend } from '@/lib/backend'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { requestSmsOtp, verifySmsOtp } from '@/features/auth/smsOtp'
+import { numericInput } from '@/lib/validation'
 
 export function ForgotPasswordPage() {
-  const navigate = useNavigate(); const [method, setMethod] = useState<'phone' | 'email'>('phone'); const [identifier, setIdentifier] = useState(''); const [busy, setBusy] = useState(false); const [sent, setSent] = useState(false); const [error, setError] = useState<string | null>(null); const [captchaToken, setCaptchaToken] = useState(''); const [captchaReset, setCaptchaReset] = useState(0); const [challengeId, setChallengeId] = useState(''); const [code, setCode] = useState(''); const [otpState, setOtpState] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
-  const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(null)
-    if (method === 'email') { const { error: requestError } = await backend.auth.requestPasswordReset(identifier.trim(), captchaToken); setBusy(false); if (requestError) setError(requestError.message.startsWith('captcha_') ? captchaErrorMessage(requestError.message) : 'ارسال لینک بازیابی ناموفق بود.'); else setSent(true) }
-    else { const result = await requestSmsOtp(identifier, 'password_reset', captchaToken); setBusy(false); if (!result.ok) setError(result.error); else { setChallengeId(result.challenge_id); setSent(true) } }
-    setCaptchaToken(''); setCaptchaReset((v) => v + 1)
+  const navigate = useNavigate()
+  const [method, setMethod] = useState<'phone' | 'email'>('phone')
+  const [identifier, setIdentifier] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaReset, setCaptchaReset] = useState(0)
+  const [challengeId, setChallengeId] = useState('')
+  const [code, setCode] = useState('')
+  const [otpState, setOtpState] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    if (method === 'email') {
+      const { error: requestError } = await backend.auth.requestPasswordReset(identifier.trim(), captchaToken)
+      setBusy(false)
+      if (requestError) setError(requestError.message.startsWith('captcha_') ? captchaErrorMessage(requestError.message) : 'ارسال لینک بازیابی ناموفق بود.')
+      else setSent(true)
+    } else {
+      const result = await requestSmsOtp(identifier, 'password_reset', captchaToken)
+      setBusy(false)
+      if (!result.ok) setError(result.error)
+      else { setChallengeId(result.challenge_id); setSent(true) }
+    }
+    setCaptchaToken('')
+    setCaptchaReset((value) => value + 1)
   }
-  const verify = async (otp: string) => { if (!challengeId || busy) return; setBusy(true); setOtpState('verifying'); const result = await verifySmsOtp({ phone: identifier, code: otp, challengeId, purpose: 'password_reset' }); setBusy(false); if (!result.ok || !('password_reset_token' in result)) { setOtpState('error'); setError(!result.ok ? result.error : 'server_error'); setCode(''); return } setOtpState('success'); window.setTimeout(() => navigate(`/reset-password?code=${encodeURIComponent(result.password_reset_token)}`), 5000) }
-  return <div className="auth-stage mx-auto flex min-h-[72vh] max-w-xl items-center px-4 py-12"><div className="w-full rounded-[2rem] border border-white bg-white p-6 shadow-[0_30px_90px_rgb(18_76_98/0.16)] sm:p-10"><p className="text-sm font-black text-emerald-700">جام تبرستان</p><h1 className="mt-2 text-3xl font-black text-slate-950">بازیابی رمز عبور</h1><p className="mt-3 text-sm leading-7 text-slate-500">روش دریافت کد یا لینک بازیابی را انتخاب کنید.</p><div className="mt-6 grid grid-cols-2 rounded-2xl bg-slate-100 p-1"><button onClick={() => { setMethod('phone'); setSent(false); setError(null) }} className={`rounded-xl py-2.5 text-sm font-black ${method === 'phone' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-500'}`}>شماره موبایل</button><button onClick={() => { setMethod('email'); setSent(false); setError(null) }} className={`rounded-xl py-2.5 text-sm font-black ${method === 'email' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-500'}`}>ایمیل</button></div>{sent && method === 'phone' ? <div className="mt-7 space-y-4"><p className="text-sm text-slate-600">کد شش‌رقمی ارسال‌شده را وارد کنید.</p><OtpCodeInput value={code} onChange={setCode} onComplete={(value) => void verify(value)} state={otpState} disabled={busy} /><Button variant="ghost" onClick={() => setSent(false)}>اصلاح شماره موبایل</Button></div> : sent ? <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-emerald-800">اگر حسابی با این ایمیل وجود داشته باشد، لینک بازیابی ارسال شده است.</div> : <form className="mt-7 space-y-5" onSubmit={(e) => void submit(e)}><Input label={method === 'phone' ? 'شماره موبایل حساب' : 'ایمیل حساب'} type={method === 'email' ? 'email' : 'tel'} required value={identifier} onChange={(e) => setIdentifier(e.target.value)} dir="ltr" /><ArcaptchaField context="password_reset" onToken={setCaptchaToken} resetKey={captchaReset} />{error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}<Button className="w-full" disabled={busy}>{busy ? 'در حال ارسال…' : method === 'phone' ? 'ارسال کد بازیابی' : 'ارسال لینک بازیابی'}</Button></form>}{error && sent ? <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}<Link to="/login" className="mt-6 inline-flex text-sm font-black text-sky-700 hover:underline">بازگشت به ورود</Link></div></div>
+
+  const verify = async (otp: string) => {
+    if (!challengeId || busy) return
+    setBusy(true)
+    setOtpState('verifying')
+    const result = await verifySmsOtp({ phone: identifier, code: otp, challengeId, purpose: 'password_reset' })
+    setBusy(false)
+    if (!result.ok || !('password_reset_token' in result)) {
+      setOtpState('error')
+      setError(!result.ok ? result.error : 'server_error')
+      setCode('')
+      return
+    }
+    setOtpState('success')
+    window.setTimeout(() => navigate(`/reset-password?code=${encodeURIComponent(result.password_reset_token)}`), 5000)
+  }
+
+  const changeMethod = (next: 'phone' | 'email') => {
+    setMethod(next)
+    setIdentifier('')
+    setSent(false)
+    setError(null)
+  }
+
+  return (
+    <div className="auth-stage mx-auto flex min-h-[72vh] max-w-xl items-center px-4 py-12">
+      <div className="w-full rounded-[2rem] border border-white bg-white p-6 shadow-[0_30px_90px_rgb(18_76_98/0.16)] sm:p-10">
+        <p className="text-sm font-black text-emerald-700">جام تبرستان</p>
+        <h1 className="mt-2 text-3xl font-black text-slate-950">بازیابی رمز عبور</h1>
+        <p className="mt-3 text-sm leading-7 text-slate-500">روش دریافت کد یا لینک بازیابی را انتخاب کنید.</p>
+        <div className="mt-6 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+          <button type="button" onClick={() => changeMethod('phone')} className={`rounded-xl py-2.5 text-sm font-black ${method === 'phone' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-500'}`}>شماره موبایل</button>
+          <button type="button" onClick={() => changeMethod('email')} className={`rounded-xl py-2.5 text-sm font-black ${method === 'email' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-500'}`}>ایمیل</button>
+        </div>
+        {sent && method === 'phone' ? (
+          <div className="mt-7 space-y-4">
+            <p className="text-sm text-slate-600">کد شش‌رقمی ارسال‌شده را وارد کنید.</p>
+            <OtpCodeInput value={code} onChange={setCode} onComplete={(value) => void verify(value)} state={otpState} disabled={busy} />
+            <Button variant="ghost" onClick={() => setSent(false)}>اصلاح شماره موبایل</Button>
+          </div>
+        ) : sent ? (
+          <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-emerald-800">اگر حسابی با این ایمیل وجود داشته باشد، لینک بازیابی ارسال شده است.</div>
+        ) : (
+          <form className="mt-7 space-y-5" onSubmit={(event) => void submit(event)}>
+            <Input
+              label={method === 'phone' ? 'شماره موبایل حساب' : 'ایمیل حساب'}
+              type={method === 'email' ? 'email' : 'tel'}
+              required
+              value={identifier}
+              onChange={(event) => setIdentifier(method === 'phone' ? numericInput(event.target.value, 11) : event.target.value)}
+              dir="ltr"
+              inputMode={method === 'phone' ? 'numeric' : undefined}
+              maxLength={method === 'phone' ? 11 : undefined}
+            />
+            <ArcaptchaField context="password_reset" onToken={setCaptchaToken} resetKey={captchaReset} />
+            {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+            <Button className="w-full" disabled={busy}>{busy ? 'در حال ارسال…' : method === 'phone' ? 'ارسال کد بازیابی' : 'ارسال لینک بازیابی'}</Button>
+          </form>
+        )}
+        {error && sent ? <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+        <Link to="/login" className="mt-6 inline-flex text-sm font-black text-sky-700 hover:underline">بازگشت به ورود</Link>
+      </div>
+    </div>
+  )
 }

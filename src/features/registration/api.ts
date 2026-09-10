@@ -90,6 +90,11 @@ export function clearTeamDraft(companyId: string) {
   localStorage.removeItem(DRAFT_KEY(companyId))
 }
 
+export async function cancelIncompleteTeamRegistration(teamId: string): Promise<void> {
+  const { error } = await backend.rpc('cancel_incomplete_team_registration', { p_team_id: teamId })
+  if (error) throw new Error(error.message)
+}
+
 export function emptyMemberDraft(role: 'captain' | 'coach' | 'member' = 'member'): TeamMemberDraft {
   return {
     first_name: '',

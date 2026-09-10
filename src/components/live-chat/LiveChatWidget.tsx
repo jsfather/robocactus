@@ -10,7 +10,7 @@ import {
   startLiveChat,
   type LiveChatMessage,
 } from '@/features/live-chat/api'
-import { normalizePhone } from '@/lib/validation'
+import { normalizePhone, numericInput } from '@/lib/validation'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { formatAppTime } from '@/lib/dates'
 
@@ -201,8 +201,10 @@ export function LiveChatWidget() {
                 label={t('chat.phone')}
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(numericInput(e.target.value, 11))}
                 dir="ltr"
+                inputMode="numeric"
+                maxLength={11}
               />
               <ArcaptchaField context="live_chat" onToken={setCaptchaToken} resetKey={captchaReset} />
               <FieldError message={error ?? undefined} />

@@ -1,6 +1,7 @@
 /** SMS providers: IPPanel + Kavenegar (+ mock) */
 
 import { getPublicEnvMap } from '@/lib/env'
+import { numericInput } from '@/lib/validation'
 
 export type SmsProviderKind = 'ippanel' | 'kavenegar'
 
@@ -46,7 +47,7 @@ const DEFAULT_PATTERNS: Record<string, string> = {
 }
 
 export function normalizeIranPhone(phone: string): string | null {
-  const digits = phone.replace(/\D/g, '')
+  const digits = numericInput(phone)
   if (digits.length === 11 && digits.startsWith('09')) return digits
   if (digits.length === 12 && digits.startsWith('98')) return `0${digits.slice(2)}`
   if (digits.length === 10 && digits.startsWith('9')) return `0${digits}`
