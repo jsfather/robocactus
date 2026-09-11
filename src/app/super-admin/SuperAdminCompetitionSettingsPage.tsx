@@ -42,6 +42,15 @@ export function SuperAdminCompetitionSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
 
+  const readableError = (err: unknown, fallback: string) => {
+    const value = err instanceof Error ? err.message : String(err ?? '')
+    if (/rpc_not_found/i.test(value)) return 'عملیات در پایگاه‌داده نصب نشده است. ابتدا مهاجرت‌های پایگاه‌داده را اجرا کنید.'
+    if (/forbidden|permission denied|row-level security/i.test(value)) return 'شما اجازه انجام این عملیات را ندارید.'
+    if (/league_judging_disabled/i.test(value)) return 'برای لیگ انتخاب‌شده داوری غیرفعال است و این داور به آن نسبت داده نشد.'
+    if (/internal_server_error/i.test(value)) return 'ذخیره‌سازی در سرور انجام نشد. لطفاً دوباره تلاش کنید؛ اگر ادامه داشت، وضعیت مهاجرت پایگاه‌داده بررسی شود.'
+    return value || fallback
+  }
+
   const reload = async () => {
     setError(null)
     setData(await fetchCompetitionSettings())
@@ -81,8 +90,15 @@ export function SuperAdminCompetitionSettingsPage() {
         ? personLeagues.filter((id) => (data?.leagues ?? []).find((league) => league.id === id)?.judging_enabled !== false)
         : personLeagues
       await setCompetitionPersonLeagues(person.id, selectedLeagues)
-      await reload(); editPerson(person); setMessage('رزومه و نسبت لیگ‌ها ذخیره شد.')
-    } catch (err) { setError(err instanceof Error ? err.message : 'ذخیره رزومه ناموفق بود.') } finally { setBusy(false) }
+      await reload()
+      // Keep the just-saved assignments instead of deriving them from the
+      // previous render's snapshot. React state updates are asynchronous, so
+      // calling editPerson here could otherwise restore stale checkboxes.
+      setTab('people')
+      setPersonForm({ ...person, id: person.id })
+      setPersonLeagues(selectedLeagues)
+      setMessage('رزومه و نسبت لیگ‌ها ذخیره شد.')
+    } catch (err) { setError(readableError(err, 'ذخیره رزومه ناموفق بود.')) } finally { setBusy(false) }
   }
   const saveSponsor = async () => {
     if (!sponsorForm?.name.trim()) return
@@ -90,8 +106,12 @@ export function SuperAdminCompetitionSettingsPage() {
     try {
       const sponsor = await upsertCompetitionSponsor(sponsorForm)
       await setCompetitionSponsorLeagues(sponsor.id, sponsorLeagues)
-      await reload(); editSponsor(sponsor); setMessage('اسپانسر و لیگ‌های مرتبط ذخیره شد.')
-    } catch (err) { setError(err instanceof Error ? err.message : 'ذخیره اسپانسر ناموفق بود.') } finally { setBusy(false) }
+      await reload()
+      setTab('sponsors')
+      setSponsorForm({ ...sponsor, id: sponsor.id })
+      setSponsorLeagues(sponsorLeagues)
+      setMessage('اسپانسر و لیگ‌های مرتبط ذخیره شد.')
+    } catch (err) { setError(readableError(err, 'ذخیره اسپانسر ناموفق بود.')) } finally { setBusy(false) }
   }
   const removePerson = async (person: CompetitionPerson) => {
     if (!window.confirm(`رزومه «${person.full_name}» حذف شود؟`)) return

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadContentMedia } from '@/features/content/api'
@@ -27,6 +27,11 @@ export function ImageUploadField({
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewFailed, setPreviewFailed] = useState(false)
+
+  useEffect(() => {
+    setPreviewFailed(false)
+  }, [value])
 
   const onFile = async (file: File | undefined) => {
     if (!file) return
@@ -49,11 +54,20 @@ export function ImageUploadField({
   return (
     <div className="space-y-2">
       <p className="text-sm text-rc-muted">{label}</p>
-      {value && preview === 'image' ? (
+      {value && preview === 'image' && !previewFailed ? (
         <div className="overflow-hidden rounded-lg border border-rc-line">
-          <img src={value} alt="" className="h-40 w-full object-cover" />
+          <img
+            src={value}
+            alt=""
+            className="h-40 w-full object-cover"
+            onError={() => {
+              setPreviewFailed(true)
+              setError('پیش‌نمایش تصویر در دسترس نیست؛ نشانی تصویر را بررسی کنید.')
+            }}
+          />
         </div>
       ) : null}
+      {value && preview === 'image' && previewFailed ? <p className="text-xs text-amber-700">پیش‌نمایش تصویر در دسترس نیست؛ خود فایل هنوز ذخیره شده است.</p> : null}
       {value && preview === 'file' ? <a href={value} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-100"><span className="rounded bg-red-600 px-2 py-1 text-xs text-white">PDF</span><span className="truncate" dir="ltr">مشاهده فایل آیین‌نامه</span></a> : null}
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex cursor-pointer">

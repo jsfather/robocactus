@@ -314,13 +314,29 @@ async function executeRpc(transaction: Transaction, name: string, args: Record<s
   if (teamReviewRpcs.has(name)) await enforceCollaboratorPermission(transaction, 'team_review')
   if (name === 'review_team') await enforceTeamReviewPermission(transaction)
   const entries = Object.entries(args)
-  const argumentsSql = sql.join(entries.map(([key, value]) => sql`${identifier(key)} => ${value}`), sql`, `)
+  const argumentsSql = sql.join(entries.map(([key, value]) => {
+    // Drizzle expands a JavaScript array as a SQL tuple. RPC parameters that
+    // represent UUID collections must be emitted as a typed PostgreSQL array
+    // so functions such as the shared competition assignments receive the
+    // declared uuid[] value instead of an invalid row expression.
+    const isLeagueUuidArray = Array.isArray(value)
+      && (name === 'set_competition_person_leagues' || name === 'set_competition_sponsor_leagues')
+      && key === 'p_league_ids'
+    if (isLeagueUuidArray) {
+      const values = value.map((item) => sql`${item}`)
+      return values.length
+        ? sql`${identifier(key)} => ARRAY[${sql.join(values, sql`, `)}]::uuid[]`
+        : sql`${identifier(key)} => ARRAY[]::uuid[]`
+    }
+    return sql`${identifier(key)} => ${value}`
+  }), sql`, `)
   const metadata = await db.execute(sql`
     select p.proretset
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = ${name}
     order by p.oid desc limit 1
   `)
+  if (!metadata.rows.length) throw new Error('rpc_not_found')
   const returnsSet = Boolean(metadata.rows[0]?.proretset)
   const result = await transaction.execute(sql`select to_jsonb(public.${identifier(name)}(${argumentsSql})) as result`)
   if (returnsSet) return result.rows.map((row: Record<string, unknown>) => row.result)
@@ -375,7 +391,7 @@ function sendError(response: Response, error: unknown): void {
     return
   }
 
-  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|duplicate_[a-z_]+|phone_in_use|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|incomplete_team_person(?::[0-9a-f-]+)?|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|rpc_not_found|duplicate_[a-z_]+|phone_in_use|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|incomplete_team_person(?::[0-9a-f-]+)?|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
     response.status(500).json({ error: { message: 'internal_server_error' } })
