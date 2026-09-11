@@ -18,16 +18,12 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import {
   deleteLeagueFaq,
   deleteLeagueFile,
-  deleteLeaguePastResult,
   deleteLeaguePerson,
   deleteLeagueSponsor,
   fetchAllLeagues,
   fetchLeagueById,
   fetchLeagueFaqs,
   fetchLeagueFiles,
-  fetchLeaguePastResults,
-  fetchLeaguePeople,
-  fetchLeagueSponsors,
   listToLines,
   linesToList,
   scheduleToText,
@@ -39,7 +35,6 @@ import {
   updateLeague,
   upsertLeagueFaq,
   upsertLeagueFile,
-  upsertLeaguePastResult,
   upsertLeaguePerson,
   upsertLeagueSponsor,
   type LeagueInput,
@@ -48,7 +43,6 @@ import type {
   League,
   LeagueFaq,
   LeagueFile,
-  LeaguePastResult,
   LeaguePerson,
   LeagueSponsor,
 } from '@/types/database'
@@ -78,10 +72,9 @@ export function SuperAdminLeagueEditPage() {
   const [league, setLeague] = useState<League | null>(null)
   const [allLeagues, setAllLeagues] = useState<League[]>([])
   const [files, setFiles] = useState<LeagueFile[]>([])
-  const [people, setPeople] = useState<LeaguePerson[]>([])
-  const [sponsors, setSponsors] = useState<LeagueSponsor[]>([])
+  const [people] = useState<LeaguePerson[]>([])
+  const [sponsors] = useState<LeagueSponsor[]>([])
   const [faqs, setFaqs] = useState<LeagueFaq[]>([])
-  const [past, setPast] = useState<LeaguePastResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [editorRevision, setEditorRevision] = useState(0)
@@ -118,22 +111,15 @@ export function SuperAdminLeagueEditPage() {
   const [faqQEn, setFaqQEn] = useState('')
   const [faqA, setFaqA] = useState('')
   const [faqAEn, setFaqAEn] = useState('')
-  const [year, setYear] = useState(String(new Date().getFullYear() - 1))
-  const [first, setFirst] = useState('')
-  const [second, setSecond] = useState('')
-  const [third, setThird] = useState('')
 
   const reload = async () => {
     if (!leagueId) return
     setError(null)
-    const [l, all, f, p, s, q, r] = await Promise.all([
+    const [l, all, f, q] = await Promise.all([
       fetchLeagueById(leagueId),
       fetchAllLeagues(),
       fetchLeagueFiles(leagueId),
-      fetchLeaguePeople(leagueId),
-      fetchLeagueSponsors(leagueId),
       fetchLeagueFaqs(leagueId),
-      fetchLeaguePastResults(leagueId),
     ])
     if (!l) {
       setError(t('leaguePage.notFound'))
@@ -142,10 +128,7 @@ export function SuperAdminLeagueEditPage() {
     setLeague(l)
     setAllLeagues(all.filter((x) => x.id !== l.id))
     setFiles(f)
-    setPeople(p)
-    setSponsors(s)
     setFaqs(q)
-    setPast(r)
     setForm({
       name: l.name,
       name_en: l.name_en ?? '',
@@ -160,6 +143,7 @@ export function SuperAdminLeagueEditPage() {
       member_fee: Number(l.member_fee ?? 0),
       coach_fee: Number(l.coach_fee ?? 0),
       result_formula: l.result_formula ?? 'average',
+      judging_enabled: l.judging_enabled !== false,
       required_judge_count: l.required_judge_count ?? null,
       team_edit_deadline: l.team_edit_deadline ?? null,
       min_age: l.min_age ?? null,
@@ -297,8 +281,6 @@ export function SuperAdminLeagueEditPage() {
     'schedule',
     'equipment',
     'files',
-    'people',
-    'sponsors',
     'faqs',
     'results',
     'attendance',
@@ -428,12 +410,12 @@ export function SuperAdminLeagueEditPage() {
               <div><Input label="حداقل سرپرست" type="number" min={0} value={form.min_captains ?? 1} onChange={(e) => patch({ min_captains: Math.max(0, Number(e.target.value)) })} dir="ltr" /><p className="mt-1 text-xs text-rc-muted">عدد صفر یعنی حضور سرپرست برای این لیگ الزامی نیست.</p></div>
               <div><Input label="حداقل مربی" type="number" min={0} value={form.min_coaches ?? 0} onChange={(e) => patch({ min_coaches: Math.max(0, Number(e.target.value)) })} dir="ltr" /><p className="mt-1 text-xs text-rc-muted">عدد صفر یعنی تیم می‌تواند بدون مربی ثبت شود.</p></div>
               <Select label="تأیید اعضای تیم" value={form.auto_approve_team_members ? 'auto' : 'manual'} onChange={(e) => patch({ auto_approve_team_members: e.target.value === 'auto' })}><option value="manual">بررسی و تأیید توسط کارشناس</option><option value="auto">تأیید خودکار اطلاعات کامل و معتبر</option></Select>
+              <Select label="وضعیت داوری لیگ" value={form.judging_enabled === false ? 'disabled' : 'enabled'} onChange={(e) => patch({ judging_enabled: e.target.value === 'enabled' })}><option value="enabled">داوری فعال است</option><option value="disabled">داوری غیرفعال است؛ ثبت دستی برندگان</option></Select>
               <Input label={t('admin.leagues.fee')} type="number" value={form.registration_fee ?? 0} onChange={(e) => patch({ registration_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه سرپرست (ریال)" type="number" value={form.captain_fee ?? 0} onChange={(e) => patch({ captain_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه هر عضو (ریال)" type="number" value={form.member_fee ?? 0} onChange={(e) => patch({ member_fee: Number(e.target.value) })} dir="ltr" />
               <Input label="هزینه مربی (ریال)" type="number" value={form.coach_fee ?? 0} onChange={(e) => patch({ coach_fee: Number(e.target.value) })} dir="ltr" />
-              <Input label="تعداد داور الزامی" type="number" min={1} value={form.required_judge_count ?? ''} onChange={(e) => patch({ required_judge_count: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
-              <Select label="فرمول نتیجه رسمی" value={form.result_formula ?? 'average'} onChange={(e) => patch({ result_formula: e.target.value as 'average' | 'sum' })}><option value="average">میانگین امتیاز داوران</option><option value="sum">مجموع امتیاز داوران</option></Select>
+              {form.judging_enabled !== false ? <><Input label="تعداد داور الزامی" type="number" min={1} value={form.required_judge_count ?? ''} onChange={(e) => patch({ required_judge_count: e.target.value ? Number(e.target.value) : null })} dir="ltr" /><Select label="فرمول نتیجه رسمی" value={form.result_formula ?? 'average'} onChange={(e) => patch({ result_formula: e.target.value as 'average' | 'sum' })}><option value="average">میانگین امتیاز داوران</option><option value="sum">مجموع امتیاز داوران</option></Select></> : <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">داوری این لیگ غیرفعال است؛ نتایج و مقام‌های نهایی از بخش «برندگان و آرشیو دوره» به‌صورت دستی ثبت می‌شوند.</p>}
               <Input label="حداقل سن" type="number" value={form.min_age ?? ''} onChange={(e) => patch({ min_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <Input label="حداکثر سن" type="number" value={form.max_age ?? ''} onChange={(e) => patch({ max_age: e.target.value ? Number(e.target.value) : null })} dir="ltr" />
               <CompetitionCycleFields year={Number(form.current_season_year ?? new Date().getFullYear())} month={Number(form.current_season_month ?? new Date().getMonth() + 1)} onChange={(cycle) => patch({ current_season_year: cycle.year, current_season_month: cycle.month })} />
@@ -493,7 +475,6 @@ export function SuperAdminLeagueEditPage() {
               </div>
             </div>
           </PanelCard>
-          <LeagueArchiveControl league={league} />
         </>)}
 
         {tab === 'rules' && (
@@ -597,7 +578,7 @@ export function SuperAdminLeagueEditPage() {
                 league_id: leagueId,
                 full_name: personName,
                 full_name_en: personNameEn,
-                role_kind: personRole,
+                role_kind: form.judging_enabled === false && personRole === 'judge' ? 'committee' : personRole,
                 specialty: personSpecialty,
                 specialty_en: personSpecialtyEn,
                 bio: personBio,
@@ -619,10 +600,11 @@ export function SuperAdminLeagueEditPage() {
           >
             <Input label="نام و نام خانوادگی فارسی" value={personName} onChange={(e) => setPersonName(e.target.value)} required />
             <Input label="Full name in English" value={personNameEn} onChange={(e) => setPersonNameEn(e.target.value)} required dir="ltr" />
-            <Select label="Role" value={personRole} onChange={(e) => setPersonRole(e.target.value)}>
-              <option value="judge">judge</option>
+            <Select label="Role" value={form.judging_enabled === false && personRole === 'judge' ? 'committee' : personRole} onChange={(e) => setPersonRole(e.target.value)}>
+              {form.judging_enabled !== false ? <option value="judge">judge</option> : null}
               <option value="committee">committee</option>
             </Select>
+            {form.judging_enabled === false ? <p className="text-xs leading-6 text-amber-700">داوری غیرفعال است؛ افزودن داور برای این لیگ ممکن نیست.</p> : null}
             <Input label={t('leaguePage.specialty')} value={personSpecialty} onChange={(e) => setPersonSpecialty(e.target.value)} />
             <Input label="Specialty in English" value={personSpecialtyEn} onChange={(e) => setPersonSpecialtyEn(e.target.value)} dir="ltr" />
             <div className="md:col-span-2">
@@ -727,46 +709,7 @@ export function SuperAdminLeagueEditPage() {
       )}
 
       {tab === 'results' && (
-        <PanelCard title={t('admin.leagueDetail.tabs.results')}>
-          <form
-            className="mb-4 grid gap-3 md:grid-cols-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void upsertLeaguePastResult({
-                league_id: leagueId,
-                season_year: Number(year),
-                first_place: first,
-                second_place: second,
-                third_place: third,
-              })
-                .then(() => {
-                  setFirst('')
-                  setSecond('')
-                  setThird('')
-                  return reload()
-                })
-                .catch((err: Error) => setError(err.message))
-            }}
-          >
-            <Input label={t('rankings.year')} value={year} onChange={(e) => setYear(e.target.value)} dir="ltr" />
-            <Input label={t('companies.gold')} value={first} onChange={(e) => setFirst(e.target.value)} />
-            <Input label={t('companies.silver')} value={second} onChange={(e) => setSecond(e.target.value)} />
-            <Input label={t('companies.bronze')} value={third} onChange={(e) => setThird(e.target.value)} />
-            <Button type="submit">{t('common.save')}</Button>
-          </form>
-          <ul className="divide-y divide-rc-line">
-            {past.map((r) => (
-              <li key={r.id} className="flex items-center justify-between py-2 text-sm">
-                <span>
-                  {r.season_year}: {r.first_place} / {r.second_place} / {r.third_place}
-                </span>
-                <Button type="button" variant="danger" onClick={() => void deleteLeaguePastResult(r.id).then(reload)}>
-                  {t('common.delete')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </PanelCard>
+        <LeagueArchiveControl league={league} />
       )}
       {tab === 'attendance' && <div className="space-y-5"><TeamDocumentsSettingsForm leagueId={leagueId} /><AttendanceSettingsForm leagueId={leagueId} /><WithdrawalSettingsForm leagueId={leagueId} /></div>}
     </PanelPage>
@@ -777,16 +720,38 @@ type LeagueCycleArchiveRow = { id:string; season_year:number; season_month:numbe
 type PodiumTeamOption = { id:string; name:string }
 function LeagueArchiveControl({league}:{league:League}) {
   const leagueId=league.id
+  const judgingEnabled=league.judging_enabled!==false
   const [rows,setRows]=useState<LeagueCycleArchiveRow[]>([]),[teams,setTeams]=useState<PodiumTeamOption[]>([]),[podium,setPodium]=useState(['','','']),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
-  const load=()=>void Promise.all([
-    backend.from('league_cycle_archives').select('id,season_year,season_month,label_fa,archived_at').eq('league_id',leagueId).order('season_year',{ascending:false}).order('season_month',{ascending:false}),
-    backend.from('teams').select('id,name').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).eq('season_month',league.current_season_month??new Date().getMonth()+1).eq('lifecycle_status','completed').is('archived_at',null).order('name'),
-    backend.from('results').select('team_id,rank').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).in('rank',[1,2,3]),
-  ]).then(([archives,teamRows,resultRows])=>{const error=archives.error??teamRows.error??resultRows.error;if(error)setMessage(error.message);else{setRows((archives.data??[]) as LeagueCycleArchiveRow[]);setTeams((teamRows.data??[]) as PodiumTeamOption[]);const next=['','',''];for(const row of (resultRows.data??[]) as Array<{team_id:string;rank:number}>)if(row.rank>=1&&row.rank<=3)next[row.rank-1]=row.team_id;setPodium(next)}})
-  useEffect(load,[leagueId,league.current_season_year,league.current_season_month])
-  const savePodium=async()=>{if(podium.some(value=>!value)||new Set(podium).size!==3){setMessage('سه تیم متفاوت را برای مقام‌های اول تا سوم انتخاب کنید.');return false}const {error}=await backend.rpc('set_league_cycle_podium',{p_league_id:leagueId,p_first_team_id:podium[0],p_second_team_id:podium[1],p_third_team_id:podium[2]});if(error){setMessage(error.message);return false}setMessage('مقام‌های این دوره ثبت و منتشر شدند.');return true}
-  const archive=async()=>{if(!window.confirm('پس از بایگانی، ثبت‌نام‌های این دوره قفل می‌شوند. ادامه می‌دهید؟'))return;setBusy(true);setMessage('');const saved=await savePodium();if(!saved){setBusy(false);return}const {error}=await backend.rpc('archive_league_cycle',{p_league_id:leagueId});setBusy(false);if(error)setMessage(error.message==='league_results_required'?'ابتدا نتایج و مقام‌های این دوره را ثبت و منتشر کنید.':error.message);else{setMessage('دوره با موفقیت بایگانی شد. اکنون سال و ماه دوره جدید را تنظیم و وضعیت دوره را باز کنید.');load()}}
-  return <PanelCard title="بایگانی دوره لیگ" description="همین لیگ برای دوره‌های بعد باقی می‌ماند؛ تیم‌ها، پرداخت‌ها و مقام‌های دوره فعلی به‌صورت تاریخی قفل می‌شوند."><div className="grid gap-3 md:grid-cols-3">{['مقام اول','مقام دوم','مقام سوم'].map((label,index)=><Select key={label} label={label} value={podium[index]} onChange={event=>setPodium(current=>current.map((value,i)=>i===index?event.target.value:value))}><option value="">انتخاب تیم واجد شرایط</option>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</Select>)}</div><div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" variant="secondary" disabled={busy} onClick={()=>void savePodium()}>ذخیره مقام‌ها</Button><Button type="button" variant="danger" disabled={busy} onClick={()=>void archive()}>{busy?'در حال بایگانی…':'آرشیو نتایج و پایان دوره'}</Button><span className="text-xs leading-6 text-slate-500">فقط تیم‌های دارای پرداخت و مجوز نهایی در فهرست انتخاب نمایش داده می‌شوند.</span></div>{message?<p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{message}</p>:null}{rows.length?<ul className="mt-4 divide-y divide-slate-100 border-t border-slate-200">{rows.map(row=><li key={row.id} className="flex items-center justify-between py-3 text-sm"><b>{row.label_fa}</b><span className="text-slate-500">{new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium'}).format(new Date(row.archived_at))}</span></li>)}</ul>:null}</PanelCard>
+  const load=async()=>{
+    const archiveRequest=backend.from('league_cycle_archives').select('id,season_year,season_month,label_fa,archived_at').eq('league_id',leagueId).order('season_year',{ascending:false}).order('season_month',{ascending:false})
+    if (judgingEnabled) {
+      const {data,error}=await archiveRequest
+      if(error)setMessage(error.message);else setRows((data??[]) as LeagueCycleArchiveRow[])
+      setTeams([])
+      setPodium(['','',''])
+      return
+    }
+    const [archives,teamRows,resultRows]=await Promise.all([
+      archiveRequest,
+      backend.from('teams').select('id,name').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).eq('season_month',league.current_season_month??new Date().getMonth()+1).eq('lifecycle_status','completed').is('archived_at',null).order('name'),
+      backend.from('results').select('team_id,rank').eq('league_id',leagueId).eq('season_year',league.current_season_year??new Date().getFullYear()).in('rank',[1,2,3]),
+    ])
+    const error=archives.error??teamRows.error??resultRows.error
+    if(error)setMessage(error.message)
+    else {setRows((archives.data??[]) as LeagueCycleArchiveRow[]);const eligibleTeams=(teamRows.data??[]) as PodiumTeamOption[];setTeams(eligibleTeams);const eligibleIds=new Set(eligibleTeams.map(team=>team.id));const next=['','',''];for(const row of (resultRows.data??[]) as Array<{team_id:string;rank:number}>)if(eligibleIds.has(row.team_id)&&row.rank>=1&&row.rank<=3)next[row.rank-1]=row.team_id;setPodium(next)}
+  }
+  useEffect(()=>{void load()},[leagueId,league.current_season_year,league.current_season_month,judgingEnabled])
+  const formatDomainError=(message:string)=>({
+    league_results_required:'ابتدا نتایج و مقام‌های این دوره را ثبت و منتشر کنید.',
+    league_cycle_already_archived:'این دوره قبلاً بایگانی شده است؛ سال و ماه دوره جدید را تنظیم کنید.',
+    archive_cycle_required:'برای وضعیت بایگانی، از بخش «برندگان و آرشیو دوره» استفاده کنید.',
+    manual_podium_requires_judging_disabled:'برای ثبت دستی مقام‌ها ابتدا داوری این لیگ را غیرفعال کنید.',
+    podium_team_not_eligible:'فقط تیم‌های تکمیل‌شده و واجد شرایط این دوره قابل انتخاب هستند.',
+    podium_teams_must_be_distinct:'سه تیم متفاوت را برای مقام‌های اول تا سوم انتخاب کنید.',
+  } as Record<string,string>)[message] ?? message
+  const savePodium=async()=>{if(judgingEnabled){setMessage(formatDomainError('manual_podium_requires_judging_disabled'));return false}if(podium.some(value=>!value)||new Set(podium).size!==3){setMessage(formatDomainError('podium_teams_must_be_distinct'));return false}const {error}=await backend.rpc('set_league_cycle_podium',{p_league_id:leagueId,p_first_team_id:podium[0],p_second_team_id:podium[1],p_third_team_id:podium[2]});if(error){setMessage(formatDomainError(error.message));return false}setMessage('مقام‌های این دوره ثبت و منتشر شدند.');return true}
+  const archive=async()=>{if(!window.confirm('پس از بایگانی، ثبت‌نام‌های این دوره قفل می‌شوند. ادامه می‌دهید؟'))return;setBusy(true);setMessage('');const saved=judgingEnabled?true:await savePodium();if(!saved){setBusy(false);return}const {error}=await backend.rpc('archive_league_cycle',{p_league_id:leagueId});setBusy(false);if(error)setMessage(formatDomainError(error.message));else{setMessage('دوره با موفقیت بایگانی شد. اکنون سال و ماه دوره جدید را تنظیم و وضعیت دوره را باز کنید.');void load()}}
+  return <PanelCard title="برندگان و آرشیو دوره" description="مقام‌های دوره هنگام بایگانی از نتایج همان دوره ثبت می‌شوند و در این بخش نگهداری تاریخی می‌شوند.">{!judgingEnabled && <div className="grid gap-3 md:grid-cols-3">{['مقام اول','مقام دوم','مقام سوم'].map((label,index)=><Select key={label} label={label} value={podium[index]} onChange={event=>setPodium(current=>current.map((value,i)=>i===index?event.target.value:value))}><option value="">انتخاب تیم واجد شرایط</option>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</Select>)}</div>}<div className="mt-4 flex flex-wrap items-center gap-3">{!judgingEnabled ? <Button type="button" variant="secondary" disabled={busy} onClick={()=>void savePodium()}>ذخیره مقام‌ها</Button> : null}<Button type="button" variant="danger" disabled={busy} onClick={()=>void archive()}>{busy?'در حال بایگانی…':'بایگانی دوره و ثبت برندگان'}</Button><span className="text-xs leading-6 text-slate-500">{judgingEnabled ? 'پس از انتشار نتیجه رسمی سه مقام اول، ثبت برندگان خودکار انجام می‌شود.' : 'برای داوری غیرفعال، مقام‌ها را انتخاب و سپس بایگانی کنید.'}</span></div>{message?<p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{message}</p>:null}{rows.length?<ul className="mt-4 divide-y divide-slate-100 border-t border-slate-200">{rows.map(row=><li key={row.id} className="flex items-center justify-between py-3 text-sm"><b>{row.label_fa}</b><span className="text-slate-500">{new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium'}).format(new Date(row.archived_at))}</span></li>)}</ul>:null}</PanelCard>
 }
 
 function TeamDocumentsSettingsForm({leagueId}:{leagueId:string}){

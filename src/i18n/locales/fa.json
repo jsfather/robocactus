@@ -288,6 +288,7 @@
       "ops": "عملیات",
       "registry": "ثبت‌نام‌ها",
       "competitionArchives": "آرشیو دوره‌های مسابقات",
+      "competitionSettings": "تنظیمات مسابقات",
       "content": "محتوا",
       "system": "سیستم",
       "account": "حساب کاربری"
@@ -453,6 +454,9 @@
     "notFoundTitle": "تیم پیدا نشد",
     "notFoundHint": "این تیم وجود ندارد یا به آن دسترسی ندارید."
   },
+  "competitionSettings": {
+    "title": "تنظیمات مسابقات"
+  },
   "competitions": {
     "nav": "مسابقات",
     "title": "مسابقات / لیگ‌های من",
@@ -592,7 +596,7 @@
         "people": "داوران و کمیته فنی",
         "sponsors": "اسپانسرها",
         "faqs": "سوالات متداول",
-        "results": "نتایج گذشته",
+        "results": "برندگان و آرشیو دوره",
         "attendance": "مجوز حضور"
       },
       "judgingPath": "مسیر داوری",

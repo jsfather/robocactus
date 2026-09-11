@@ -289,6 +289,7 @@
       "ops": "Operations",
       "registry": "Registry",
       "competitionArchives": "Competition cycle archive",
+      "competitionSettings": "Competition settings",
       "content": "Content",
       "system": "System",
       "account": "Account"
@@ -454,6 +455,9 @@
     "notFoundTitle": "Team not found",
     "notFoundHint": "This team is missing or you do not have access."
   },
+  "competitionSettings": {
+    "title": "Competition settings"
+  },
   "competitions": {
     "nav": "Competitions",
     "title": "Competitions / My leagues",
@@ -593,7 +597,7 @@
         "people": "Judges & committee",
         "sponsors": "Sponsors",
         "faqs": "FAQ",
-        "results": "Past results",
+        "results": "Winners & cycle archive",
         "attendance": "Attendance clearance"
       },
       "judgingPath": "Judging path",

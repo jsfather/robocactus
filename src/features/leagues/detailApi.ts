@@ -62,14 +62,15 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
     participantsRes,
   ] = await Promise.all([
     backend.from('league_files').select('*').eq('league_id', league.id).order('sort_order'),
-    backend.from('league_people').select('*').eq('league_id', league.id).order('sort_order'),
-    backend.from('league_sponsors').select('*').eq('league_id', league.id).order('sort_order'),
+    backend.from('public_league_people').select('*').eq('league_id', league.id).order('sort_order'),
+    backend.from('public_league_sponsors').select('*').eq('league_id', league.id).order('sort_order'),
     backend.from('league_faqs').select('*').eq('league_id', league.id).order('sort_order'),
     backend
       .from('league_past_results')
       .select('*')
       .eq('league_id', league.id)
-      .order('season_year', { ascending: false }),
+      .order('season_year', { ascending: false })
+      .order('season_month', { ascending: false }),
     backend
       .from('gallery_items')
       .select('*')
@@ -109,7 +110,7 @@ export async function fetchLeagueDetailBundle(slug: string): Promise<LeagueDetai
   return {
     league,
     files: (filesRes.data ?? []) as LeagueFile[],
-    judges: people.filter((p) => p.role_kind === 'judge'),
+    judges: league.judging_enabled === false ? [] : people.filter((p) => p.role_kind === 'judge'),
     committee: people.filter((p) => p.role_kind === 'committee'),
     sponsors: (sponsorsRes.data ?? []) as LeagueSponsor[],
     faqs: (faqsRes.data ?? []) as LeagueFaq[],

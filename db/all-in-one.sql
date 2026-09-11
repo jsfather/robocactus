@@ -12379,6 +12379,400 @@ set body = '<h2>جام تبرستان</h2><p>جام تبرستان بستری ح
 where slug = 'about'
   and body = '<h2>جام تبرستان</h2><p>جام تبرستان بستری حرفه‌ای برای رقابت، یادگیری و دیده‌شدن استعدادهای رباتیک، مکاترونیک و هوش مصنوعی است.</p><h2>ماموریت و چشم‌انداز</h2><p>هدف ما برگزاری رقابت‌های شفاف و استاندارد، رشد مهارت‌های فنی و ساختن مسیر پایدار از تجربه نخست تا فعالیت حرفه‌ای است.</p><h2>حوزه‌های فعالیت</h2><ul><li>رباتیک و مکاترونیک</li><li>هوش مصنوعی و سامانه‌های هوشمند</li><li>مسابقات حرفه‌ای و داوری تخصصی</li></ul>';
 
+-- ===== 0098_league_cycle_podium_and_judging_mode.sql =====
+-- A league has one reusable identity, while every completed cycle owns its
+-- own immutable podium.  Keep the public archive in sync with cycle archive.
+alter table public.leagues
+  add column if not exists judging_enabled boolean not null default true;
+
+alter table public.league_past_results
+  add column if not exists season_month integer;
+
+update public.league_past_results p
+set season_month = coalesce(
+  (select a.season_month from public.league_cycle_archives a
+   where a.league_id = p.league_id and a.season_year = p.season_year
+   order by a.archived_at desc limit 1),
+  1
+)
+where p.season_month is null;
+
+alter table public.league_past_results
+  alter column season_month set default 1,
+  alter column season_month set not null;
+alter table public.league_past_results
+  drop constraint if exists league_past_results_league_id_season_year_key;
+alter table public.league_past_results
+  add constraint league_past_results_cycle_unique unique (league_id, season_year, season_month);
+alter table public.league_past_results
+  add constraint league_past_results_season_month_check check (season_month between 1 and 12);
+
+create or replace function public._guard_disabled_league_judging()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if exists (select 1 from public.leagues l where l.id = new.league_id and not l.judging_enabled) then
+    raise exception 'league_judging_disabled';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_disabled_league_judging on public.judge_scores;
+create trigger guard_disabled_league_judging
+before insert or update of league_id, team_id, season_year, score_payload, total_score, status on public.judge_scores
+for each row execute function public._guard_disabled_league_judging();
+
+create or replace function public._guard_disabled_official_result()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.notes = 'official_multi_judge_engine'
+     and exists (select 1 from public.leagues l where l.id = new.league_id and not l.judging_enabled) then
+    raise exception 'league_judging_disabled';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_disabled_official_result on public.results;
+create trigger guard_disabled_official_result
+before insert or update of league_id, team_id, season_year, notes on public.results
+for each row execute function public._guard_disabled_official_result();
+
+revoke all on function public._guard_disabled_league_judging() from public;
+revoke all on function public._guard_disabled_official_result() from public;
+
+create or replace function public._guard_disabled_league_person_role()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role_kind = 'judge'
+     and exists (select 1 from public.leagues l where l.id = new.league_id and not l.judging_enabled) then
+    raise exception 'league_judging_disabled';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_disabled_league_person_role on public.league_people;
+create trigger guard_disabled_league_person_role
+before insert or update of league_id, role_kind on public.league_people
+for each row execute function public._guard_disabled_league_person_role();
+revoke all on function public._guard_disabled_league_person_role() from public;
+
+create or replace function public._guard_manual_league_archive_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.registration_cycle_status = 'archived'
+     and not exists (
+       select 1 from public.league_cycle_archives a
+       where a.league_id = new.id
+         and a.season_year = new.current_season_year
+         and a.season_month = new.current_season_month
+     ) then
+    raise exception 'archive_cycle_required';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_manual_league_archive_status on public.leagues;
+create trigger guard_manual_league_archive_status
+before insert or update of registration_cycle_status on public.leagues
+for each row execute function public._guard_manual_league_archive_status();
+revoke all on function public._guard_manual_league_archive_status() from public;
+
+create or replace function public.aggregate_official_league_results(p_league_id uuid,p_season_year integer)
+returns void language plpgsql security definer set search_path=public as $$
+declare v_required integer; v_formula text; v_enabled boolean;
+begin
+  select coalesce(required_judge_count,(select count(*) from league_admins where league_id=p_league_id and assignment_role in ('judge','head_judge'))),result_formula,judging_enabled
+    into v_required,v_formula,v_enabled from leagues where id=p_league_id;
+  if not coalesce(v_enabled,true) or v_required < 1 then return; end if;
+  insert into results(league_id,team_id,company_id,season_year,score,rank,notes,published_at)
+  select p_league_id,t.id,t.company_id,p_season_year,
+    case when v_formula='sum' then sum(js.total_score) else avg(js.total_score) end,null,
+    'official_multi_judge_engine',null
+  from teams t
+  join judge_scores js on js.team_id=t.id and js.season_year=p_season_year and js.status='submitted'
+  join league_admins assigned on assigned.league_id=p_league_id and assigned.user_id=js.judge_id and assigned.assignment_role in ('judge','head_judge')
+  where t.league_id=p_league_id group by t.id,t.company_id
+  having count(distinct js.judge_id)>=v_required
+  on conflict(team_id,season_year) do update set score=excluded.score,notes=excluded.notes;
+  with ranked as(select id,dense_rank() over(order by score desc nulls last)::integer as calculated_rank from results where league_id=p_league_id and season_year=p_season_year and notes='official_multi_judge_engine')
+  update results r set rank=ranked.calculated_rank from ranked where r.id=ranked.id;
+end $$;
+
+create or replace function public.set_league_cycle_podium(p_league_id uuid,p_first_team_id uuid,p_second_team_id uuid,p_third_team_id uuid)
+returns void language plpgsql security definer set search_path=public as $$
+declare l public.leagues%rowtype; v_team_id uuid; v_rank integer;
+begin
+  if not public.is_super_admin() then raise exception 'forbidden'; end if;
+  select * into l from public.leagues where id=p_league_id; if not found then raise exception 'league_not_found'; end if;
+  if l.judging_enabled then raise exception 'manual_podium_requires_judging_disabled'; end if;
+  if cardinality(array(select distinct unnest(array[p_first_team_id,p_second_team_id,p_third_team_id])))<>3 then raise exception 'podium_teams_must_be_distinct'; end if;
+  if p_first_team_id is null or p_second_team_id is null or p_third_team_id is null then raise exception 'podium_teams_required'; end if;
+  update public.results r set rank=null where r.league_id=l.id and r.season_year=l.current_season_year and r.rank between 1 and 3
+    and exists(select 1 from public.teams t where t.id=r.team_id and coalesce(t.season_month,l.current_season_month)=l.current_season_month);
+  for v_team_id,v_rank in select * from unnest(array[p_first_team_id,p_second_team_id,p_third_team_id],array[1,2,3]) loop
+    if not exists(select 1 from public.teams t where t.id=v_team_id and t.league_id=l.id and t.season_year=l.current_season_year and coalesce(t.season_month,l.current_season_month)=l.current_season_month and t.lifecycle_status='completed') then raise exception 'podium_team_not_eligible'; end if;
+    insert into public.results(league_id,team_id,company_id,season_year,rank,notes,published_at)
+    select t.league_id,t.id,t.company_id,l.current_season_year,v_rank,'official_cycle_podium',now() from public.teams t where t.id=v_team_id
+    on conflict(team_id,season_year) do update set rank=excluded.rank,published_at=coalesce(public.results.published_at,now()),notes=excluded.notes;
+  end loop;
+end $$;
+
+create or replace function public.archive_league_cycle(p_league_id uuid)
+returns public.league_cycle_archives language plpgsql security definer set search_path=public as $$
+declare l public.leagues%rowtype; a public.league_cycle_archives%rowtype; month_names text[]:=array['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
+begin
+  if not public.is_super_admin() then raise exception 'forbidden'; end if;
+  select * into l from public.leagues where id=p_league_id for update; if not found then raise exception 'league_not_found'; end if;
+  if exists (select 1 from public.league_cycle_archives a where a.league_id=l.id and a.season_year=l.current_season_year and a.season_month=l.current_season_month) then
+    raise exception 'league_cycle_already_archived';
+  end if;
+  if (select count(distinct r.rank) from public.results r join public.teams t on t.id=r.team_id where r.league_id=l.id and r.season_year=l.current_season_year and coalesce(t.season_month,l.current_season_month)=l.current_season_month and r.rank between 1 and 3 and r.published_at is not null)<>3 then raise exception 'league_results_required'; end if;
+  insert into public.league_cycle_archives(league_id,season_year,season_month,label_fa,label_en,teams_snapshot,results_snapshot,archived_by)
+  values(l.id,l.current_season_year,l.current_season_month,month_names[l.current_season_month]||' '||l.current_season_year,l.current_season_year||'-'||lpad(l.current_season_month::text,2,'0'),
+    (select coalesce(jsonb_agg(to_jsonb(t)),'[]') from public.teams t where t.league_id=l.id and t.season_year=l.current_season_year and coalesce(t.season_month,l.current_season_month)=l.current_season_month),
+    (select coalesce(jsonb_agg(to_jsonb(r)),'[]') from public.results r join public.teams rt on rt.id=r.team_id where r.league_id=l.id and r.season_year=l.current_season_year and coalesce(rt.season_month,l.current_season_month)=l.current_season_month and r.published_at is not null),auth.uid()) returning * into a;
+  insert into public.league_past_results(league_id,season_year,season_month,first_place,second_place,third_place)
+  select l.id,l.current_season_year,l.current_season_month,
+    max(t.name) filter (where r.rank=1),max(t.name) filter (where r.rank=2),max(t.name) filter (where r.rank=3)
+  from public.results r join public.teams t on t.id=r.team_id
+  where r.league_id=l.id and r.season_year=l.current_season_year and coalesce(t.season_month,l.current_season_month)=l.current_season_month and r.rank between 1 and 3 and r.published_at is not null
+  on conflict (league_id,season_year,season_month) do update set first_place=excluded.first_place,second_place=excluded.second_place,third_place=excluded.third_place;
+  update public.teams set archived_at=coalesce(archived_at,now()) where league_id=l.id and season_year=l.current_season_year and coalesce(season_month,l.current_season_month)=l.current_season_month;
+  update public.leagues set registration_cycle_status='archived',results_status='hidden' where id=l.id;
+  return a;
+end $$;
+
+-- ===== 0099_shared_competition_people_and_sponsors.sql =====
+-- Shared competition directory.  A person or sponsor is stored once and is
+-- assigned to any number of league pages through the relation tables.
+create table if not exists public.competition_people (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null,
+  full_name text not null,
+  full_name_en text,
+  photo_url text,
+  specialty text,
+  specialty_en text,
+  bio text,
+  bio_en text,
+  identity_summary_fa text,
+  identity_summary_en text,
+  education_fa text,
+  education_en text,
+  honors_fa text,
+  honors_en text,
+  awards_fa text,
+  awards_en text,
+  courses_fa text,
+  courses_en text,
+  company_info_fa text,
+  company_info_en text,
+  birth_date date,
+  nationality_fa text,
+  nationality_en text,
+  city_fa text,
+  city_en text,
+  email text,
+  phone text,
+  website_url text,
+  linkedin_url text,
+  is_profile_published boolean not null default true,
+  role_kind text not null default 'judge' check (role_kind in ('judge','committee')),
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists competition_people_slug_uidx on public.competition_people(lower(slug));
+
+create table if not exists public.competition_people_leagues (
+  person_id uuid not null references public.competition_people(id) on delete cascade,
+  league_id uuid not null references public.leagues(id) on delete cascade,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  primary key (person_id, league_id)
+);
+create index if not exists competition_people_leagues_league_idx
+  on public.competition_people_leagues(league_id, sort_order, person_id);
+
+create table if not exists public.competition_sponsors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  name_en text,
+  logo_url text,
+  website_url text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.competition_sponsor_leagues (
+  sponsor_id uuid not null references public.competition_sponsors(id) on delete cascade,
+  league_id uuid not null references public.leagues(id) on delete cascade,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  primary key (sponsor_id, league_id)
+);
+create index if not exists competition_sponsor_leagues_league_idx
+  on public.competition_sponsor_leagues(league_id, sort_order, sponsor_id);
+
+-- Preserve all existing league-specific records and their public URLs.  The
+-- old tables remain intact for historical compatibility; new management uses
+-- the shared directory and relation tables.
+insert into public.competition_people (
+  id, slug, full_name, full_name_en, photo_url, specialty, specialty_en,
+  bio, bio_en, identity_summary_fa, identity_summary_en, education_fa,
+  education_en, honors_fa, honors_en, awards_fa, awards_en, courses_fa,
+  courses_en, company_info_fa, company_info_en, birth_date, nationality_fa,
+  nationality_en, city_fa, city_en, email, phone, website_url, linkedin_url,
+  is_profile_published, role_kind, sort_order, created_at, updated_at
+)
+select p.id, p.slug, p.full_name, p.full_name_en, p.photo_url, p.specialty,
+  p.specialty_en, p.bio, p.bio_en, p.identity_summary_fa,
+  p.identity_summary_en, p.education_fa, p.education_en, p.honors_fa,
+  p.honors_en, p.awards_fa, p.awards_en, p.courses_fa, p.courses_en,
+  p.company_info_fa, p.company_info_en, p.birth_date, p.nationality_fa,
+  p.nationality_en, p.city_fa, p.city_en, p.email, p.phone, p.website_url,
+  p.linkedin_url, p.is_profile_published, p.role_kind, p.sort_order,
+  p.created_at, coalesce(p.updated_at, p.created_at)
+from public.league_people p
+on conflict (id) do nothing;
+
+insert into public.competition_people_leagues(person_id, league_id, sort_order)
+select p.id, p.league_id, p.sort_order
+from public.league_people p
+on conflict (person_id, league_id) do nothing;
+
+insert into public.competition_sponsors(id, name, name_en, logo_url, website_url, sort_order, created_at, updated_at)
+select s.id, s.name, s.name_en, s.logo_url, s.website_url, s.sort_order, s.created_at, s.created_at
+from public.league_sponsors s
+on conflict (id) do nothing;
+
+insert into public.competition_sponsor_leagues(sponsor_id, league_id, sort_order)
+select s.id, s.league_id, s.sort_order
+from public.league_sponsors s
+on conflict (sponsor_id, league_id) do nothing;
+
+alter table public.competition_people enable row level security;
+alter table public.competition_people_leagues enable row level security;
+alter table public.competition_sponsors enable row level security;
+alter table public.competition_sponsor_leagues enable row level security;
+
+drop policy if exists competition_people_public_read on public.competition_people;
+create policy competition_people_public_read on public.competition_people
+for select using (is_profile_published = true or public.is_super_admin());
+drop policy if exists competition_people_admin on public.competition_people;
+create policy competition_people_admin on public.competition_people
+for all to authenticated using (public.is_super_admin()) with check (public.is_super_admin());
+grant select, insert, update, delete on public.competition_people to authenticated;
+
+drop policy if exists competition_people_leagues_public_read on public.competition_people_leagues;
+create policy competition_people_leagues_public_read on public.competition_people_leagues
+for select using (true);
+drop policy if exists competition_people_leagues_admin on public.competition_people_leagues;
+create policy competition_people_leagues_admin on public.competition_people_leagues
+for all to authenticated using (public.is_super_admin()) with check (public.is_super_admin());
+grant select, insert, update, delete on public.competition_people_leagues to authenticated;
+
+drop policy if exists competition_sponsors_admin on public.competition_sponsors;
+create policy competition_sponsors_admin on public.competition_sponsors
+for all to authenticated using (public.is_super_admin()) with check (public.is_super_admin());
+grant select, insert, update, delete on public.competition_sponsors to authenticated;
+drop policy if exists competition_sponsor_leagues_public_read on public.competition_sponsor_leagues;
+create policy competition_sponsor_leagues_public_read on public.competition_sponsor_leagues
+for select using (true);
+drop policy if exists competition_sponsor_leagues_admin on public.competition_sponsor_leagues;
+create policy competition_sponsor_leagues_admin on public.competition_sponsor_leagues
+for all to authenticated using (public.is_super_admin()) with check (public.is_super_admin());
+grant select, insert, update, delete on public.competition_sponsor_leagues to authenticated;
+
+create or replace function public._guard_shared_judge_assignment()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if exists (
+    select 1
+    from public.competition_people p
+    join public.leagues l on l.id = new.league_id
+    where p.id = new.person_id and p.role_kind = 'judge' and not l.judging_enabled
+  ) then
+    raise exception 'league_judging_disabled';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists guard_shared_judge_assignment on public.competition_people_leagues;
+create trigger guard_shared_judge_assignment
+before insert or update of person_id, league_id on public.competition_people_leagues
+for each row execute function public._guard_shared_judge_assignment();
+revoke all on function public._guard_shared_judge_assignment() from public;
+
+create or replace function public.set_competition_person_leagues(p_person_id uuid, p_league_ids uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then raise exception 'forbidden'; end if;
+  if not exists (select 1 from public.competition_people where id = p_person_id) then raise exception 'competition_person_not_found'; end if;
+  delete from public.competition_people_leagues where person_id = p_person_id;
+  insert into public.competition_people_leagues(person_id, league_id, sort_order)
+  select p_person_id, v.league_id, row_number() over ()::integer - 1
+  from unnest(coalesce(p_league_ids, '{}'::uuid[])) as v(league_id);
+end;
+$$;
+revoke all on function public.set_competition_person_leagues(uuid, uuid[]) from public;
+grant execute on function public.set_competition_person_leagues(uuid, uuid[]) to authenticated;
+
+create or replace function public.set_competition_sponsor_leagues(p_sponsor_id uuid, p_league_ids uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then raise exception 'forbidden'; end if;
+  if not exists (select 1 from public.competition_sponsors where id = p_sponsor_id) then raise exception 'competition_sponsor_not_found'; end if;
+  delete from public.competition_sponsor_leagues where sponsor_id = p_sponsor_id;
+  insert into public.competition_sponsor_leagues(sponsor_id, league_id, sort_order)
+  select p_sponsor_id, v.league_id, row_number() over ()::integer - 1
+  from unnest(coalesce(p_league_ids, '{}'::uuid[])) as v(league_id);
+end;
+$$;
+revoke all on function public.set_competition_sponsor_leagues(uuid, uuid[]) from public;
+grant execute on function public.set_competition_sponsor_leagues(uuid, uuid[]) to authenticated;
+
+create or replace view public.public_league_people
+with (security_invoker = false) as
+select p.*, a.league_id, a.sort_order as assignment_sort_order
+from public.competition_people p
+join public.competition_people_leagues a on a.person_id = p.id
+join public.leagues l on l.id = a.league_id
+where p.is_profile_published = true
+  and l.is_active = true
+  and (p.role_kind <> 'judge' or l.judging_enabled = true);
+grant select on public.public_league_people to anon, authenticated;
+
+create or replace view public.public_league_sponsors
+with (security_invoker = false) as
+select s.*, a.league_id, a.sort_order as assignment_sort_order
+from public.competition_sponsors s
+join public.competition_sponsor_leagues a on a.sponsor_id = s.id
+join public.leagues l on l.id = a.league_id
+where l.is_active = true;
+grant select on public.public_league_sponsors to anon, authenticated;
+
 -- ===== 9999_application_runtime.sql =====
 -- Runtime privileges and database-backed realtime event capture.
 

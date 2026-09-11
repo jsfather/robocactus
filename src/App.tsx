@@ -37,6 +37,7 @@ import { TeamAttendancePage } from '@/app/team/TeamAttendancePage'
 import { SuperAdminFinancePage } from '@/app/super-admin/SuperAdminFinancePage'
 import { SuperAdminLeagueEditPage } from '@/app/super-admin/SuperAdminLeagueEditPage'
 import { SuperAdminLeaguesPage } from '@/app/super-admin/SuperAdminLeaguesPage'
+import { SuperAdminCompetitionSettingsPage } from '@/app/super-admin/SuperAdminCompetitionSettingsPage'
 import { SuperAdminLeagueArchivesPage } from '@/app/super-admin/SuperAdminLeagueArchivesPage'
 import { SuperAdminUsersPage } from '@/app/super-admin/SuperAdminUsersPage'
 import { SuperAdminCollaboratorsPage } from '@/app/super-admin/SuperAdminCollaboratorsPage'
@@ -128,6 +129,7 @@ export default function App() {
                 <Route element={<ProtectedRoute roles={['super_admin']} />}>
                   <Route path="super-admin" element={<SuperAdminHomePage />} />
                   <Route path="super-admin/leagues" element={<SuperAdminLeaguesPage />} />
+                  <Route path="super-admin/competition-settings" element={<SuperAdminCompetitionSettingsPage />} />
                   <Route path="super-admin/league-archives" element={<SuperAdminLeagueArchivesPage />} />
                   <Route path="super-admin/leagues/:leagueId" element={<SuperAdminLeagueEditPage />} />
                   <Route path="super-admin/people/:personId" element={<SuperAdminPersonEditPage />} />

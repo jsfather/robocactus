@@ -38,6 +38,7 @@ const emptyForm = (): LeagueInput & { id?: string } => ({
   member_fee: 0,
   coach_fee: 0,
   result_formula: 'average',
+  judging_enabled: true,
   min_age: null,
   max_age: null,
   team_size_min: null,
@@ -102,6 +103,7 @@ export function SuperAdminLeaguesPage() {
       member_fee: Number(league.member_fee ?? 0),
       coach_fee: Number(league.coach_fee ?? 0),
       result_formula: league.result_formula ?? 'average',
+      judging_enabled: league.judging_enabled !== false,
       min_age: league.min_age ?? null,
       max_age: league.max_age ?? null,
       team_size_min: league.team_size_min ?? null,
@@ -260,6 +262,7 @@ export function SuperAdminLeaguesPage() {
           <Input label="حداقل مربی" type="number" min={0} value={form.min_coaches??0} onChange={(e)=>setForm(prev=>({...prev,min_coaches:Math.max(0,Number(e.target.value))}))} dir="ltr" />
           <p className="md:col-span-2 -mt-2 rounded-xl bg-sky-50 px-4 py-3 text-xs leading-6 text-sky-800">عدد صفر برای سرپرست یا مربی یعنی حضور آن نقش در این لیگ الزامی نیست.</p>
           <Select label="روش تأیید اعضا" value={form.auto_approve_team_members?'auto':'manual'} onChange={(e)=>setForm(prev=>({...prev,auto_approve_team_members:e.target.value==='auto'}))}><option value="manual">بررسی دستی کارشناس</option><option value="auto">تأیید خودکار اطلاعات کامل و سن معتبر</option></Select>
+          <Select label="وضعیت داوری لیگ" value={form.judging_enabled === false ? 'disabled' : 'enabled'} onChange={(e)=>setForm(prev=>({...prev,judging_enabled:e.target.value === 'enabled'}))}><option value="enabled">داوری فعال است</option><option value="disabled">داوری غیرفعال است؛ ثبت دستی برندگان</option></Select>
           <DateTimeField label="مهلت نهایی پرداخت" value={form.payment_deadline} onChange={(iso)=>setForm(prev=>({...prev,payment_deadline:iso}))} />
           <Input label="بایگانی پرونده ناقص پس از سررسید (روز)" type="number" min={1} max={90} value={form.incomplete_archive_after_days??4} onChange={(e)=>setForm(prev=>({...prev,incomplete_archive_after_days:Math.max(1,Number(e.target.value))}))} dir="ltr" />
           <Select label="وضعیت دوره" value={form.registration_cycle_status ?? 'open'} onChange={(e) => setForm((prev) => ({ ...prev, registration_cycle_status: e.target.value }))}><option value="draft">پیش‌نویس</option><option value="open">باز</option><option value="closed">بسته</option><option value="archived">بایگانی‌شده</option></Select>

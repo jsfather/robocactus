@@ -8,10 +8,11 @@ export type PublicPersonProfile = {
 
 export async function fetchPersonProfile(slug: string): Promise<PublicPersonProfile | null> {
   const { data: person, error } = await backend
-    .from('league_people')
+    .from('public_league_people')
     .select('*')
     .eq('slug', slug)
     .eq('is_profile_published', true)
+    .limit(1)
     .maybeSingle()
   if (error) throw new Error(error.message)
   if (!person) return null
@@ -25,4 +26,3 @@ export async function fetchPersonProfile(slug: string): Promise<PublicPersonProf
   if (!league) return null
   return { person: person as LeaguePerson, league: league as League }
 }
-

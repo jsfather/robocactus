@@ -210,6 +210,11 @@ export type LeaguePerson = {
   created_at: string
 }
 
+export type CompetitionPerson = Omit<LeaguePerson, 'league_id'> & {
+  league_id?: string
+  assignment_sort_order?: number
+}
+
 export type LeagueSponsor = {
   id: string
   league_id: string
@@ -220,6 +225,14 @@ export type LeagueSponsor = {
   sort_order: number
   created_at: string
 }
+
+export type CompetitionSponsor = Omit<LeagueSponsor, 'league_id'> & {
+  league_id?: string
+  assignment_sort_order?: number
+}
+
+export type CompetitionPersonLeague = { person_id: string; league_id: string; sort_order: number }
+export type CompetitionSponsorLeague = { sponsor_id: string; league_id: string; sort_order: number }
 
 export type LeagueFaq = {
   id: string
@@ -236,6 +249,7 @@ export type LeaguePastResult = {
   id: string
   league_id: string
   season_year: number
+  season_month?: number
   first_place: string | null
   second_place: string | null
   third_place: string | null
@@ -318,6 +332,7 @@ export type League = {
   member_fee?: number
   coach_fee?: number
   result_formula?: 'average' | 'sum'
+  judging_enabled?: boolean
   required_judge_count?: number | null
   team_edit_deadline?: string | null
   min_age?: number | null

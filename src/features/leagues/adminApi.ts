@@ -35,6 +35,7 @@ export type LeagueInput = {
   member_fee?: number
   coach_fee?: number
   result_formula?: 'average' | 'sum'
+  judging_enabled?: boolean
   required_judge_count?: number | null
   team_edit_deadline?: string | null
   min_age?: number | null
@@ -122,6 +123,7 @@ function leaguePayloadBasic(input: LeagueInput) {
     member_fee: input.member_fee ?? 0,
     coach_fee: input.coach_fee ?? 0,
     result_formula: input.result_formula ?? 'average',
+    judging_enabled: input.judging_enabled ?? true,
     required_judge_count: input.required_judge_count ?? null,
     team_edit_deadline: input.team_edit_deadline || null,
     min_age: input.min_age ?? null,
@@ -507,6 +509,7 @@ export async function fetchLeaguePastResults(leagueId: string): Promise<LeaguePa
     .select('*')
     .eq('league_id', leagueId)
     .order('season_year', { ascending: false })
+    .order('season_month', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as LeaguePastResult[]
 }
@@ -515,6 +518,7 @@ export async function upsertLeaguePastResult(input: {
   id?: string
   league_id: string
   season_year: number
+  season_month?: number
   first_place?: string | null
   second_place?: string | null
   third_place?: string | null
@@ -522,6 +526,7 @@ export async function upsertLeaguePastResult(input: {
   const payload = {
     league_id: input.league_id,
     season_year: input.season_year,
+    season_month: input.season_month ?? 1,
     first_place: input.first_place || null,
     second_place: input.second_place || null,
     third_place: input.third_place || null,

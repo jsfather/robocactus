@@ -5,31 +5,31 @@ import { BirthDateField } from '@/components/ui/BirthDateField'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { backend } from '@/lib/backend'
-import { upsertLeaguePerson } from '@/features/leagues/adminApi'
-import type { LeaguePerson } from '@/types/database'
+import { upsertCompetitionPerson } from '@/features/competitions/settingsApi'
+import type { CompetitionPerson } from '@/types/database'
 import { numericInput } from '@/lib/validation'
 
 export function SuperAdminPersonEditPage() {
   const { personId = '' } = useParams()
-  const [form, setForm] = useState<LeaguePerson | null>(null)
+  const [form, setForm] = useState<CompetitionPerson | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    void backend.from('league_people').select('*').eq('id', personId).maybeSingle().then(({ data, error: fetchError }) => {
+    void backend.from('competition_people').select('*').eq('id', personId).maybeSingle().then(({ data, error: fetchError }) => {
       if (fetchError) setError(fetchError.message)
-      else setForm(data as LeaguePerson | null)
+      else setForm(data as CompetitionPerson | null)
     })
   }, [personId])
 
-  const patch = (value: Partial<LeaguePerson>) => setForm((current) => current ? { ...current, ...value } : current)
+  const patch = (value: Partial<CompetitionPerson>) => setForm((current) => current ? { ...current, ...value } : current)
   const save = async (event: FormEvent) => {
     event.preventDefault()
     if (!form) return
     setBusy(true)
     setError(null)
     try {
-      setForm(await upsertLeaguePerson({ ...form, id: form.id }))
+      setForm(await upsertCompetitionPerson({ ...form, id: form.id }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ذخیره رزومه ناموفق بود.')
     } finally {
@@ -40,7 +40,7 @@ export function SuperAdminPersonEditPage() {
   if (!form) return <div className="px-4 py-12 text-rc-muted">{error || 'در حال بارگذاری…'}</div>
 
   return <PanelPage index="CV.01" title="رزومه داور یا عضو کمیته" description="اطلاعات عمومی فرد را به فارسی و انگلیسی مدیریت کنید.">
-    <div className="mb-4 flex flex-wrap gap-3 text-sm"><Link to={`/super-admin/leagues/${form.league_id}`} className="text-rc-blue">بازگشت به تنظیمات لیگ</Link><Link to={`/people/${form.slug}`} target="_blank" className="text-emerald-600">مشاهده صفحه عمومی</Link></div>
+    <div className="mb-4 flex flex-wrap gap-3 text-sm"><Link to="/super-admin/competition-settings" className="text-rc-blue">بازگشت به تنظیمات مسابقات</Link><Link to={`/people/${form.slug}`} target="_blank" className="text-emerald-600">مشاهده صفحه عمومی</Link></div>
     <form className="space-y-6" onSubmit={(event) => void save(event)}>
       <FieldError message={error ?? undefined} />
       <PanelCard title="مشخصات اصلی و تصویر">
