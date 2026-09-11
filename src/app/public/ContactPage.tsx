@@ -7,11 +7,12 @@ import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/Arcaptch
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { numericInput } from '@/lib/validation'
+import type { StaticPage } from '@/types/database'
 
 export function ContactPage() {
   const { t, i18n } = useTranslation()
   const { settings } = useSiteSettings()
-  const [introHtml, setIntroHtml] = useState<string | null>(null)
+  const [contactPage, setContactPage] = useState<StaticPage | null>(null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -31,10 +32,11 @@ export function ContactPage() {
     ['Instagram', settings?.instagram_url], ['Telegram', settings?.telegram_url],
     ['LinkedIn', settings?.linkedin_url], ['WhatsApp', settings?.whatsapp_url],
   ].filter((item): item is [string, string] => Boolean(item[1]?.trim() && /^https:\/\//i.test(item[1])))
+  const introHtml = sanitizeHtml((i18n.language.startsWith('en') ? contactPage?.body_en : contactPage?.body) || contactPage?.body || '')
 
   useEffect(() => {
     void fetchStaticPage('contact')
-      .then((page) => setIntroHtml(page?.body ? sanitizeHtml(page.body) : null))
+      .then(setContactPage)
       .catch(() => undefined)
   }, [])
 

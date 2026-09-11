@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchStaticPage } from '@/features/leagues/adminApi'
-import { sanitizeHtml } from '@/lib/sanitize'
+import type { StaticPage } from '@/types/database'
+import { StaticContentPage } from './StaticContentPage'
 
 type FaqItem = { q: string; a: string }
 type FaqCategory = { id: string; title: string; items: FaqItem[] }
 
 export function FaqPage() {
   const { t, i18n } = useTranslation()
-  const [introHtml, setIntroHtml] = useState<string | null>(null)
+  const [page, setPage] = useState<StaticPage | null>(null)
   const [openKey, setOpenKey] = useState<string | null>(null)
 
   useEffect(() => {
     void fetchStaticPage('faq')
-      .then((page) => setIntroHtml(page?.body ? sanitizeHtml(page.body) : null))
+      .then(setPage)
       .catch(() => undefined)
   }, [])
 
   const categories = t('home.faqCategories', { returnObjects: true }) as FaqCategory[]
   const list = Array.isArray(categories) ? categories : []
+  const localizedBody = (i18n.language.startsWith('en') ? page?.body_en : page?.body) || page?.body
+  if (localizedBody) return <StaticContentPage slug="faq" fallbackTitleKey="nav.faq" />
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
@@ -26,13 +29,6 @@ export function FaqPage() {
         <h1 className="text-3xl font-semibold">{t('nav.faq')}</h1>
         <p className="mt-1 text-rc-muted">{t('home.faqSubtitle')}</p>
       </div>
-
-      {introHtml ? (
-        <div
-          className="leading-relaxed text-rc-muted [&_a]:text-rc-blue"
-          dangerouslySetInnerHTML={{ __html: introHtml }}
-        />
-      ) : null}
 
       <div className="space-y-8" key={i18n.language}>
         {list.map((cat) => (
