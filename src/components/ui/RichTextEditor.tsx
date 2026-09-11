@@ -123,6 +123,16 @@ export function RichTextEditor({
           >
             Link
           </ToolbarBtn>
+          <label className="inline-flex items-center gap-1 rounded border border-rc-line px-2 py-1 text-xs text-rc-muted hover:bg-rc-hover hover:text-rc-text" title="Text color">
+            <span className="font-bold">A</span>
+            <input
+              type="color"
+              aria-label="Text color"
+              className="size-4 cursor-pointer border-0 bg-transparent p-0"
+              defaultValue="#087eb8"
+              onChange={(event) => exec('foreColor', event.target.value)}
+            />
+          </label>
           <ToolbarBtn title="HR" onClick={() => insertHtml('<hr/><p><br/></p>')}>
             —
           </ToolbarBtn>

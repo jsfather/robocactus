@@ -283,6 +283,11 @@ export function LeagueDetailPage() {
     [t('leaguePage.difficulty'), league.difficulty_level],
     [t('leaguePage.language'), league.competition_language],
   ].filter(([, v]) => Boolean(v)) as [string, string][]
+  const feeBreakdown = [
+    [t('team.captainFee'), Number(league.captain_fee ?? 0)],
+    [t('team.coachFee', { defaultValue: isFa ? 'هزینه هر مربی' : 'Coach fee' }), Number(league.coach_fee ?? 0)],
+    [t('team.memberFee', { defaultValue: isFa ? 'هزینه هر عضو' : 'Member fee' }), Number(league.member_fee ?? 0)],
+  ].filter(([, value]) => Number(value) > 0) as [string, number][]
 
   return (
     <div className="league-detail-v2 relative overflow-hidden bg-[#f7fbfa]">
@@ -732,6 +737,12 @@ export function LeagueDetailPage() {
               {formatAmountToman(Number(league.registration_fee))}{' '}
               <span className="text-sm font-bold text-slate-600">{t('payment.currency')}</span>
             </p>
+            {feeBreakdown.length ? <div className="mt-4 grid gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+              {feeBreakdown.map(([label, value]) => <div key={label} className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-3 py-2.5">
+                <span className="flex min-w-0 items-center gap-2"><span className="grid size-6 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700" aria-hidden="true"><svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M17 7.5c0-1.7-2-3-5-3s-5 1.3-5 3 2 3 5 3 5 1.3 5 3-2 3-5 3-5-1.3-5-3" /></svg></span><span className="truncate">{label}</span></span>
+                <strong className="shrink-0 font-mono text-emerald-700">{formatAmountToman(value)} <span className="font-sans text-[10px] text-slate-500">{t('payment.currency')}</span></strong>
+              </div>)}
+            </div> : null}
             </div></div>
             <Link to={regPath} className="shrink-0"><Button type="button" className="!px-6 shadow-xl">{ctaLabel}</Button></Link>
             </div>

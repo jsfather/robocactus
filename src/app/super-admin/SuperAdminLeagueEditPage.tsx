@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/FormControls'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
+import { RichTextEditor } from '@/components/ui/RichTextEditor'
 import { CompetitionCycleFields } from '@/components/ui/CompetitionCycleFields'
 import { useToast } from '@/components/ui/Toast'
 import { PanelPage } from '@/components/layout/PanelShell'
@@ -83,6 +84,7 @@ export function SuperAdminLeagueEditPage() {
   const [past, setPast] = useState<LeaguePastResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [editorRevision, setEditorRevision] = useState(0)
 
   const [form, setForm] = useState<LeagueInput | null>(null)
   const [scoringText, setScoringText] = useState('')
@@ -219,6 +221,7 @@ export function SuperAdminLeagueEditPage() {
       technical_committee_notes_en: l.technical_committee_notes_en ?? '',
       results_status: (l.results_status as string) || 'auto',
     })
+    setEditorRevision((value) => value + 1)
     setScoringText(scoringToText(l.scoring_rows))
     setScoringTextEn(scoringToText(l.scoring_rows_en))
     setTimelineText(timelineToText(l.timeline_steps))
@@ -389,8 +392,8 @@ export function SuperAdminLeagueEditPage() {
             <div className="space-y-4">
               <Textarea label={t('admin.leagueDetail.shortDesc')} value={form.short_description ?? ''} onChange={(e) => patch({ short_description: e.target.value })} />
               <Textarea label="توضیح کوتاه انگلیسی" value={form.short_description_en ?? ''} onChange={(e) => patch({ short_description_en: e.target.value })} dir="ltr" />
-              <Textarea label={t('admin.leagueDetail.fullDesc')} className="min-h-40" value={form.full_description ?? ''} onChange={(e) => patch({ full_description: e.target.value })} />
-              <Textarea label="توضیح کامل انگلیسی" className="min-h-40" value={form.full_description_en ?? ''} onChange={(e) => patch({ full_description_en: e.target.value })} dir="ltr" />
+              <RichTextEditor label={t('admin.leagueDetail.fullDesc')} value={form.full_description ?? ''} onChange={(value) => patch({ full_description: value })} resetKey={`${leagueId}-full-fa-${editorRevision}`} hint="تیتر، رنگ، لینک، فهرست و قالب‌بندی متن را از نوار ابزار انتخاب کنید." />
+              <RichTextEditor label="توضیح کامل انگلیسی" value={form.full_description_en ?? ''} onChange={(value) => patch({ full_description_en: value })} resetKey={`${leagueId}-full-en-${editorRevision}`} />
               <ImageUploadField
                 label={t('admin.leagueDetail.coverImage')}
                 value={form.cover_image_url}
@@ -495,8 +498,8 @@ export function SuperAdminLeagueEditPage() {
 
         {tab === 'rules' && (
           <PanelCard title={t('admin.leagueDetail.tabs.rules')}>
-            <Textarea label={t('leaguePage.rules')} className="min-h-32" value={form.rules_summary ?? ''} onChange={(e) => patch({ rules_summary: e.target.value })} />
-            <Textarea label="خلاصه قوانین انگلیسی" className="min-h-32" value={form.rules_summary_en ?? ''} onChange={(e) => patch({ rules_summary_en: e.target.value })} dir="ltr" />
+            <RichTextEditor label={t('leaguePage.rules')} value={form.rules_summary ?? ''} onChange={(value) => patch({ rules_summary: value })} resetKey={`${leagueId}-rules-fa-${editorRevision}`} hint="قوانین را با تیتر، فهرست، رنگ و لینک مرتب کنید." />
+            <RichTextEditor label="خلاصه قوانین انگلیسی" value={form.rules_summary_en ?? ''} onChange={(value) => patch({ rules_summary_en: value })} resetKey={`${leagueId}-rules-en-${editorRevision}`} />
             <ImageUploadField label={t('admin.leagueDetail.rulesPdf')} value={form.rules_pdf_url} accept="application/pdf" preview="file" allowUrl={false} hint="فقط فایل PDF قوانین را بارگذاری کنید." onChange={(url) => patch({ rules_pdf_url: url })} />
             <Textarea label={t('admin.leagueDetail.scoringHint')} className="min-h-28 font-mono text-sm" value={scoringText} onChange={(e) => setScoringText(e.target.value)} />
             <Textarea label="امتیازدهی انگلیسی (عنوان | امتیاز)" className="min-h-28 font-mono text-sm" value={scoringTextEn} onChange={(e) => setScoringTextEn(e.target.value)} dir="ltr" />
@@ -577,20 +580,10 @@ export function SuperAdminLeagueEditPage() {
       {tab === 'people' && (
         <div className="space-y-4">
           <PanelCard title={t('admin.leagueDetail.judgingPath')}>
-            <Textarea
-              label={t('admin.leagueDetail.judgingPath')}
-              className="min-h-32"
-              value={form.judging_path ?? ''}
-              onChange={(e) => patch({ judging_path: e.target.value })}
-            />
-            <Textarea label="مسیر داوری انگلیسی" className="mt-3 min-h-32" value={form.judging_path_en ?? ''} onChange={(e) => patch({ judging_path_en: e.target.value })} dir="ltr" />
-            <Textarea
-              label={t('admin.leagueDetail.techNotes')}
-              className="mt-3 min-h-28"
-              value={form.technical_committee_notes ?? ''}
-              onChange={(e) => patch({ technical_committee_notes: e.target.value })}
-            />
-            <Textarea label="توضیحات کمیته فنی انگلیسی" className="mt-3 min-h-28" value={form.technical_committee_notes_en ?? ''} onChange={(e) => patch({ technical_committee_notes_en: e.target.value })} dir="ltr" />
+            <RichTextEditor label={t('admin.leagueDetail.judgingPath')} value={form.judging_path ?? ''} onChange={(value) => patch({ judging_path: value })} resetKey={`${leagueId}-judging-fa-${editorRevision}`} />
+            <RichTextEditor label="مسیر داوری انگلیسی" value={form.judging_path_en ?? ''} onChange={(value) => patch({ judging_path_en: value })} resetKey={`${leagueId}-judging-en-${editorRevision}`} />
+            <RichTextEditor label={t('admin.leagueDetail.techNotes')} value={form.technical_committee_notes ?? ''} onChange={(value) => patch({ technical_committee_notes: value })} resetKey={`${leagueId}-tech-fa-${editorRevision}`} />
+            <RichTextEditor label="توضیحات کمیته فنی انگلیسی" value={form.technical_committee_notes_en ?? ''} onChange={(value) => patch({ technical_committee_notes_en: value })} resetKey={`${leagueId}-tech-en-${editorRevision}`} />
             <Button type="button" className="mt-3" onClick={() => void saveMain({ preventDefault() {} } as FormEvent)}>
               {t('common.save')}
             </Button>
