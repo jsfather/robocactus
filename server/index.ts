@@ -59,6 +59,9 @@ api.all('/health', async (_request, response) => {
     response.status(503).json({ status: 'database_unavailable' })
   }
 })
+api.get('/time', (_request, response) => {
+  response.json({ server_time: new Date().toISOString() })
+})
 registerAuthRoutes(api)
 registerOtpRoutes(api)
 registerQueryRoutes(api)

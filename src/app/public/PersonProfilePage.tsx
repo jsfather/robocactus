@@ -8,7 +8,7 @@ import { contentLocale, localizeLeague, localizePerson } from '@/features/league
 function Lines({ value }: { value?: string | null }) {
   const lines = (value ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   if (!lines.length) return null
-  return <ul className="grid gap-2">{lines.map((line, index) => <li key={`${line}-${index}`} className="flex gap-3 text-sm leading-7 text-rc-muted"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-500" /><span>{line}</span></li>)}</ul>
+  return <ul className="grid gap-2">{lines.map((line, index) => <li key={`${line}-${index}`} className="flex gap-3 text-sm leading-7 text-slate-700"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-500" /><span>{line}</span></li>)}</ul>
 }
 
 export function PersonProfilePage() {
@@ -70,4 +70,3 @@ export function PersonProfilePage() {
     </div>
   </div>
 }
-

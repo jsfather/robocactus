@@ -160,8 +160,22 @@ export function PanelShell() {
   }, [mobileOpen])
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000)
-    return () => window.clearInterval(id)
+    let offsetMs = 0
+    let disposed = false
+    const sync = async () => {
+      const requestedAt = Date.now()
+      try {
+        const response = await fetch('/api/time', { credentials: 'include', cache: 'no-store' })
+        const payload = await response.json() as { server_time?: string }
+        const serverMs = payload.server_time ? new Date(payload.server_time).getTime() : NaN
+        if (Number.isFinite(serverMs)) offsetMs = serverMs - Math.round((requestedAt + Date.now()) / 2)
+      } catch { /* local clock remains a safe fallback */ }
+      if (!disposed) setNow(new Date(Date.now() + offsetMs))
+    }
+    void sync()
+    const id = window.setInterval(() => setNow(new Date(Date.now() + offsetMs)), 60_000)
+    const resync = window.setInterval(() => void sync(), 5 * 60_000)
+    return () => { disposed = true; window.clearInterval(id); window.clearInterval(resync) }
   }, [])
 
   useEffect(() => {

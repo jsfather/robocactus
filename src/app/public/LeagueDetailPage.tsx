@@ -68,12 +68,12 @@ function CountdownHud({ target }: { target: string }) {
         {cells.map((cell) => (
           <div
             key={cell.label}
-            className="min-w-0 rounded-2xl border border-white/30 bg-white/15 px-2 py-3 text-center text-white shadow-lg backdrop-blur-md"
+            className="min-w-0 rounded-2xl border border-white/25 bg-slate-950/65 px-2 py-3 text-center text-white shadow-lg backdrop-blur-md"
           >
-            <p className="text-2xl font-black tabular-nums text-white md:text-3xl">
+            <p className="text-2xl font-black tabular-nums text-amber-300 md:text-3xl">
               {String(cell.value).padStart(2, '0')}
             </p>
-            <p className="text-[10px] font-bold text-white/65">{cell.label}</p>
+            <p className="text-[10px] font-bold text-white/85">{cell.label}</p>
           </div>
         ))}
       </div>
@@ -249,11 +249,11 @@ export function LeagueDetailPage() {
   const rich = (html: string) =>
     /<\/?[a-z][\s\S]*>/i.test(html) ? (
       <div
-        className="max-w-3xl leading-relaxed text-rc-muted [&_a]:text-rc-blue [&_h2]:text-rc-text [&_strong]:text-rc-text"
+        className="w-full max-w-none text-start leading-8 text-slate-700 [&_a]:text-rc-blue [&_h2]:text-slate-900 [&_h3]:text-slate-900 [&_strong]:text-slate-900 [&_p]:mb-4 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pe-6 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pe-6"
         dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
       />
     ) : (
-      <p className="max-w-3xl whitespace-pre-wrap leading-relaxed text-rc-muted">{html}</p>
+      <p className="w-full whitespace-pre-wrap text-start leading-8 text-slate-700">{html}</p>
     )
 
   const ctaLabel = user

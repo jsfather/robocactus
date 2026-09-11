@@ -336,6 +336,7 @@ export async function uploadContentMedia(userId: string, file: File): Promise<st
     'image/gif',
     'video/mp4',
     'video/webm',
+    'application/pdf',
   ]
   if (!allowed.includes(file.type)) throw new Error('invalid_type')
   if (file.size > 10 * 1024 * 1024) throw new Error('too_large')

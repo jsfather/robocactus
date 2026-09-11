@@ -403,7 +403,7 @@ export function SuperAdminLeagueEditPage() {
               />
               <Input label={t('admin.leagueDetail.heroVideo')} value={form.hero_video_url ?? ''} onChange={(e) => patch({ hero_video_url: e.target.value })} dir="ltr" />
               <Input label={t('admin.leagueDetail.introVideo')} value={form.intro_video_url ?? ''} onChange={(e) => patch({ intro_video_url: e.target.value })} dir="ltr" />
-              <Input label={t('admin.leagueDetail.regulationPdf')} value={form.regulation_pdf_url ?? ''} onChange={(e) => patch({ regulation_pdf_url: e.target.value })} dir="ltr" />
+              <ImageUploadField label={t('admin.leagueDetail.regulationPdf')} value={form.regulation_pdf_url} accept="application/pdf" preview="file" allowUrl={false} hint="فقط فایل PDF آیین‌نامه را بارگذاری کنید." onChange={(url) => patch({ regulation_pdf_url: url })} />
               <p className="text-xs text-rc-muted">{t('admin.leagueDetail.galleryHint')}</p>
               <p className="text-xs text-rc-muted">{t('admin.leagueDetail.newsHint')}</p>
             </div>
@@ -497,7 +497,7 @@ export function SuperAdminLeagueEditPage() {
           <PanelCard title={t('admin.leagueDetail.tabs.rules')}>
             <Textarea label={t('leaguePage.rules')} className="min-h-32" value={form.rules_summary ?? ''} onChange={(e) => patch({ rules_summary: e.target.value })} />
             <Textarea label="خلاصه قوانین انگلیسی" className="min-h-32" value={form.rules_summary_en ?? ''} onChange={(e) => patch({ rules_summary_en: e.target.value })} dir="ltr" />
-            <Input label={t('admin.leagueDetail.rulesPdf')} value={form.rules_pdf_url ?? ''} onChange={(e) => patch({ rules_pdf_url: e.target.value })} dir="ltr" />
+            <ImageUploadField label={t('admin.leagueDetail.rulesPdf')} value={form.rules_pdf_url} accept="application/pdf" preview="file" allowUrl={false} hint="فقط فایل PDF قوانین را بارگذاری کنید." onChange={(url) => patch({ rules_pdf_url: url })} />
             <Textarea label={t('admin.leagueDetail.scoringHint')} className="min-h-28 font-mono text-sm" value={scoringText} onChange={(e) => setScoringText(e.target.value)} />
             <Textarea label="امتیازدهی انگلیسی (عنوان | امتیاز)" className="min-h-28 font-mono text-sm" value={scoringTextEn} onChange={(e) => setScoringTextEn(e.target.value)} dir="ltr" />
           </PanelCard>
