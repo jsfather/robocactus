@@ -390,7 +390,7 @@ export function TeamRegistrationWizard({
         const incomplete = draft.members.some(
           (m) =>
             (m.first_name || m.last_name || m.full_name).trim() &&
-            (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.father_name_fa.trim() || !m.father_name_en.trim() || !m.birth_date || !(m.is_foreign ? m.passport_number.trim() : m.national_id.trim()) || !m.role || !m.residence.trim() || !m.country_code || !m.nationality.trim() || (memberEducationEnabled && !m.education_level) || (['captain', 'coach'].includes(m.role) && !m.phone.trim())),
+            (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.father_name_fa.trim() || !m.father_name_en.trim() || !m.birth_date || !(m.is_foreign ? m.passport_number.trim() : m.national_id.trim()) || !m.role || !m.country_code || !m.nationality.trim() || (memberEducationEnabled && !m.education_level) || (['captain', 'coach'].includes(m.role) && !m.phone.trim())),
         )
         if (incomplete) throw new Error(t('auth.required'))
         const invalidIranianIdentity = draft.members.some((member) => !member.is_foreign && !/^\d{10}$/.test(member.national_id))
@@ -677,7 +677,6 @@ export function TeamRegistrationWizard({
                   <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
                   {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
                   {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} dir="ltr" inputMode="numeric" maxLength={10} />}
-                  <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
                   <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={member.role === 'member' ? selectedLeague?.min_age ?? 3 : 0} maxAge={member.role === 'member' ? selectedLeague?.max_age ?? 100 : 130} />
                   <Input
                     label={t('team.memberAge')}

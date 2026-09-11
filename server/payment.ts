@@ -1,4 +1,4 @@
-import type { Router } from 'express'
+import type { Request, Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { getAuthSettings } from './auth.js'
 import { config } from './config.js'
@@ -21,6 +21,20 @@ async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<Payabl
 
 const gatewayBase = (sandbox: boolean) => sandbox ? 'https://sandbox.zarinpal.com/pg/v4/payment' : 'https://api.zarinpal.com/pg/v4/payment'
 const startPayBase = (sandbox: boolean) => sandbox ? 'https://sandbox.zarinpal.com/pg/StartPay/' : 'https://www.zarinpal.com/pg/StartPay/'
+
+function requestPublicOrigin(request: Request): string {
+  const forwardedProtocol = request.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
+  const forwardedHost = request.get('x-forwarded-host')?.split(',', 1)[0]?.trim()
+  const origin = request.get('origin')
+  for (const candidate of [origin, `${forwardedProtocol ?? request.protocol}://${forwardedHost ?? request.get('host')}`]) {
+    if (!candidate) continue
+    try {
+      const url = new URL(candidate)
+      if (url.protocol === 'http:' || url.protocol === 'https:') return url.origin
+    } catch { /* fall through to configured origin */ }
+  }
+  return config.appUrl
+}
 
 function providerError(body: ZarinPalBody, fallback: string) {
   const error = Array.isArray(body.errors) ? body.errors[0] : body.errors
@@ -120,7 +134,8 @@ export function registerPaymentRoutes(router: Router): void {
 
     let upstream: { ok: boolean; body: ZarinPalBody }
     try {
-      upstream = await providerPost(`${gatewayBase(sandbox)}/request.json`, { merchant_id: merchantId, amount: Math.round(Number(invoice.amount)), description: String(request.body?.description ?? 'Tabarestan Cup registration'), callback_url: `${config.appUrl}/payments/callback?invoice=${encodeURIComponent(invoice.id)}`, metadata: { invoice_id: invoice.id, user_id: user.id } })
+      const callbackOrigin = requestPublicOrigin(request)
+      upstream = await providerPost(`${gatewayBase(sandbox)}/request.json`, { merchant_id: merchantId, amount: Math.round(Number(invoice.amount)), description: String(request.body?.description ?? 'Tabarestan Cup registration'), callback_url: `${callbackOrigin}/payments/callback?invoice=${encodeURIComponent(invoice.id)}`, metadata: { invoice_id: invoice.id, user_id: user.id } })
     } catch (error) {
       const message = error instanceof Error && error.name === 'AbortError' ? 'zarinpal_timeout' : 'zarinpal_unreachable'
       return void response.status(503).json({ error: message })

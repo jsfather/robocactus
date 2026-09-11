@@ -177,7 +177,7 @@ export function TeamPanelPage() {
             birth_date: member.birth_date,
             role: member.role,
             phone: member.phone,
-            residence: member.residence,
+            residence: null,
             nationality: member.nationality,
             education_level: member.education_level,
             field_of_study: member.field_of_study,
@@ -247,7 +247,6 @@ export function TeamPanelPage() {
               <BirthDateField label="تاریخ تولد" value={member.birth_date} minAge={member.role === 'member' ? league?.min_age ?? 0 : 0} maxAge={member.role === 'member' ? league?.max_age ?? 130 : 130} onChange={(date) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, birth_date: date } : row))} />
               <Select label="سمت در تیم" value={member.role ?? 'member'} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, role: event.target.value } : row))}><option value="captain">سرپرست</option><option value="coach">مربی</option><option value="member">عضو تیم</option></Select>
               <Input label="شماره تماس" value={member.phone ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, phone: numericInput(event.target.value, 11) } : row))} dir="ltr" inputMode="numeric" maxLength={11} />
-              <Input label="محل سکونت" value={member.residence ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, residence: event.target.value } : row))} />
               {memberEducationEnabled ? <Select label="آخرین مدرک تحصیلی" value={member.education_level ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, education_level: event.target.value as TeamMember['education_level'] } : row))}><option value="">انتخاب کنید</option><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">دیپلم / متوسطه دوم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></Select> : null}
               {memberFieldOfStudyEnabled ? <Input label="رشته تحصیلی" value={member.field_of_study ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, field_of_study: event.target.value } : row))} /> : null}
               {memberPhotoEnabled ? <EditableMemberAsset label="تصویر پرسنلی" file={photoFiles[member.id]} stored={member.photo_url} busy={saving} onChange={(file) => setPhotoFiles((current) => ({ ...current, [member.id]: file }))} /> : null}

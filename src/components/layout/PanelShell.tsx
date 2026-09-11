@@ -46,11 +46,10 @@ function profileLooksIncomplete(profile: {
   city?: string | null
   country_code?: string | null
   nationality?: string | null
-  residence?: string | null
   is_foreign?: boolean
   passport_number?: string | null
 }): boolean {
-  if (!profile.full_name?.trim() || !profile.email?.trim() || !profile.first_name_fa?.trim() || !profile.last_name_fa?.trim() || !profile.first_name_en?.trim() || !profile.last_name_en?.trim() || !profile.postal_code?.trim() || !profile.address?.trim() || !profile.province?.trim() || !profile.city?.trim() || !profile.country_code?.trim() || !profile.nationality?.trim() || !profile.residence?.trim() || (!profile.is_foreign && !profile.phone_verified_at) || !profile.identity_completed_at) return true
+  if (!profile.full_name?.trim() || !profile.email?.trim() || !profile.first_name_fa?.trim() || !profile.last_name_fa?.trim() || !profile.first_name_en?.trim() || !profile.last_name_en?.trim() || !profile.postal_code?.trim() || !profile.address?.trim() || !profile.province?.trim() || !profile.city?.trim() || !profile.country_code?.trim() || !profile.nationality?.trim() || (!profile.is_foreign && !profile.phone_verified_at) || !profile.identity_completed_at) return true
   if (profile.account_type === 'legal') {
     return !profile.company_name?.trim() || !profile.company_national_id?.trim() || !profile.legal_representative_national_id?.trim()
   }

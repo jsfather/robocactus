@@ -247,7 +247,16 @@ export function registerOtpRoutes(router: Router): void {
         }
 
         let user = (await db.select().from(users).where(eq(users.phone, phone)).limit(1))[0]
-        const isNewUser = !user
+        // Auth rows can outlive a failed/partial account deletion. Treat an
+        // orphaned auth row like a new registration and recreate its profile;
+        // otherwise login incorrectly routes to /dashboard and waits for a
+        // profile that can never load.
+        let profileExists = false
+        if (user) {
+          const profileResult = await db.execute(sql`select 1 from public.profiles where id=${user.id}::uuid limit 1`)
+          profileExists = profileResult.rows.length > 0
+        }
+        const isNewUser = !user || !profileExists
         const fullName = String(request.body?.full_name ?? '').trim()
         if (!user) {
           const settings = await getAuthSettings()
@@ -262,6 +271,13 @@ export function registerOtpRoutes(router: Router): void {
           user = inserted[0]
         }
         if (!user) throw new Error('session_failed')
+        if (!profileExists) {
+          await db.execute(sql`
+            insert into public.profiles(id, full_name, phone, role)
+            values (${user.id}::uuid, ${fullName || 'کاربر جدید'}, ${phone}, 'team_captain'::public.user_role)
+            on conflict (id) do nothing
+          `)
+        }
         await db.execute(sql`update public.profiles set phone = ${phone}, phone_verified_at = now() where id = ${user.id}`)
         if (fullName) {
           await db.execute(sql`update public.profiles set full_name = ${fullName} where id = ${user.id} and full_name = 'کاربر جدید'`)

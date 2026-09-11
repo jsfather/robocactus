@@ -43,6 +43,7 @@ export function SignupPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const phoneOnboardingRequested = params.get('onboarding') === 'phone'
+  const resumeHydrationKey = useRef('')
 
   const [step, setStep] = useState<Step>(() =>
     params.get('resume') === 'docs' ? 'docs' : 'type',
@@ -164,6 +165,9 @@ export function SignupPage() {
     }
 
     const uid = user.id
+    const hydrationKey = `${uid}:${profile.id}:${profile.signup_step ?? ''}:${documentsEnabled === false ? 'nodocs' : 'docs'}`
+    if (resumeHydrationKey.current === hydrationKey) return
+    resumeHydrationKey.current = hydrationKey
     setUserId(uid)
     applyHydratedForm(hydrateSignupFormFromProfile(profile))
 
@@ -179,9 +183,17 @@ export function SignupPage() {
         setEmailCheckInbox(true)
       }
       setResumeReady(true)
-      toast.info(t('auth.resumeSignup'))
+      try {
+        const noticeKey = `rc-signup-resume-notice:${uid}:${resumedStep}`
+        if (!sessionStorage.getItem(noticeKey)) {
+          sessionStorage.setItem(noticeKey, '1')
+          toast.info(t('auth.resumeSignup'))
+        }
+      } catch {
+        toast.info(t('auth.resumeSignup'))
+      }
     })
-  }, [user, profile, params, toast, t, documentsEnabled])
+  }, [documentsEnabled, params.get('resume'), profile?.account_type, profile?.auth_channel, profile?.email_verified_at, profile?.id, profile?.identity_completed_at, profile?.signup_completed_at, profile?.signup_step, user?.id])
 
   const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
   const shouldResumeSignup = Boolean(user && profile && isSignupIncomplete(profile))

@@ -281,7 +281,7 @@ export async function replaceTeamMembers(
         birth_date: toDateOnly(m.birth_date),
         education: m.education?.trim() || null,
         father_name_fa: m.father_name_fa.trim() || null, father_name_en: m.father_name_en.trim() || null,
-        phone: m.phone.trim() || null, residence: m.residence.trim() || null, province: m.province.trim() || null, city: m.city.trim() || null,
+        phone: m.phone.trim() || null, residence: null, province: m.province.trim() || null, city: m.city.trim() || null,
         country_code: m.country_code || 'IR', nationality: m.nationality.trim() || null, is_foreign: m.is_foreign,
         passport_number: m.passport_number.trim() || null, education_level: m.education_level || null, field_of_study: m.field_of_study.trim() || null,
         photo_url: m.photo_url || null,

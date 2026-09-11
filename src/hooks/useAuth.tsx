@@ -230,6 +230,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (nextSession?.user) {
           profileRequestUser.current = nextSession.user.id
+          setProfileLoading(true)
+          setProfileError(null)
           setSession(nextSession)
           setProfile((current) => current?.id === nextSession.user.id ? current : null)
           void loadProfile(nextSession.user.id)

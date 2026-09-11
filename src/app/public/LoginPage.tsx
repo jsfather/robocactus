@@ -135,7 +135,10 @@ export function LoginPage() {
     setOtpState('success')
     toast.success(result.registrationRequired ? t('auth.otpNewUser') : t('auth.otpExistingUser'))
     const destination = result.registrationRequired ? (result.nextPath || '/signup?onboarding=phone') : from
-    window.setTimeout(() => void navigate(destination, { replace: true }), 5000)
+    // The OTP verifier has already loaded the profile before returning. Do not
+    // keep an authenticated user on the public route: that creates a visible
+    // intermediate panel/profile render before the final destination wins.
+    void navigate(destination, { replace: true })
   }
   const onResend = async () => {
     if (resendSeconds || submitting) return
