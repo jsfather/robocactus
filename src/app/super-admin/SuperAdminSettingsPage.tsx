@@ -229,6 +229,18 @@ export function SuperAdminSettingsPage() {
           />
         </HudFrame>
 
+        <HudFrame className="space-y-4 p-4">
+          <SectionLabel index="RULES.05" title="هشدار قوانین لیگ" hint="این پیام در ابتدای قوانین همه لیگ‌های عمومی نمایش داده می‌شود و از همین‌جا قابل فعال‌سازی و ویرایش است." />
+          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+            <input type="checkbox" checked={form.league_rules_notice_enabled !== false} onChange={(e) => patch({ league_rules_notice_enabled: e.target.checked })} className="size-4 accent-sky-600" />
+            نمایش هشدار قوانین در صفحه عمومی لیگ‌ها
+          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Textarea label="متن هشدار (فارسی)" value={form.league_rules_notice_fa ?? ''} onChange={(e) => patch({ league_rules_notice_fa: e.target.value })} className="min-h-24" />
+            <Textarea label="Rules notice (English)" value={form.league_rules_notice_en ?? ''} onChange={(e) => patch({ league_rules_notice_en: e.target.value })} className="min-h-24" dir="ltr" />
+          </div>
+        </HudFrame>
+
         <HudFrame className="space-y-3 p-4">
           <SectionLabel index="NAV.04" title={t('settings.nav')} hint={t('settings.navHint')} />
           <ul className="space-y-3">

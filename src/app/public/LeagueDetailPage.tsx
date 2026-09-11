@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/FormControls'
 import { usePageSeo } from '@/components/seo/SeoManager'
 import { useAuth } from '@/hooks/useAuth'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { fetchLeagueDetailBundle, type LeagueDetailBundle } from '@/features/leagues/detailApi'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import { formatAmountToman } from '@/features/payments/api'
@@ -20,6 +21,14 @@ function safeMapEmbedUrl(value?: string | null): string | null {
     const host = url.hostname.toLowerCase()
     return url.protocol === 'https:' && (host === 'google.com' || host.endsWith('.google.com') || host === 'googleusercontent.com' || host.endsWith('.googleusercontent.com')) ? url.toString() : null
   } catch { return null }
+}
+
+function formatRulesRevision(value: string | null | undefined, language: string): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const locale = language.startsWith('fa') ? 'fa-IR-u-ca-persian' : 'en-US'
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(date)
 }
 
 function CountdownHud({ target }: { target: string }) {
@@ -82,15 +91,17 @@ function CountdownHud({ target }: { target: string }) {
 }
 
 function SectionFrame({
-  index,
+  index: _index,
   title,
   children,
   tone = 'default',
+  meta,
 }: {
-  index: string
+  index?: string
   title: string
   children: ReactNode
   tone?: 'default' | 'accent'
+  meta?: ReactNode
 }) {
   return (
     <motion.section
@@ -107,10 +118,11 @@ function SectionFrame({
             tone === 'accent' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-rc-blue',
           ].join(' ')}
         >
-          {index}
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z" /><path d="M14 3v4h4M9 12h6M9 16h4" /></svg>
         </span>
         <h2 className="text-2xl font-black tracking-tight text-slate-800 md:text-3xl">{title}</h2>
-        <span className="ms-auto hidden h-1 w-16 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue sm:block" />
+        {meta ? <span className="ms-auto">{meta}</span> : null}
+        {!meta ? <span className="ms-auto hidden h-1 w-16 rounded-full bg-gradient-to-l from-rc-accent to-rc-blue sm:block" /> : null}
       </div>
       {children}
     </motion.section>
@@ -175,6 +187,7 @@ export function LeagueDetailPage() {
   const { slug } = useParams()
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const { settings: siteSettings } = useSiteSettings()
   const [bundle, setBundle] = useState<LeagueDetailBundle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -240,6 +253,9 @@ export function LeagueDetailPage() {
   const regPath = user ? '/dashboard' : canRegister ? '/signup' : '/login'
   const cover = leagueCoverUrl(league)
   const mapEmbedUrl = safeMapEmbedUrl(league.venue_map_embed_url)
+  const rulesNoticeText = (isFa ? siteSettings?.league_rules_notice_fa : siteSettings?.league_rules_notice_en)?.trim() || ''
+  const showRulesNotice = siteSettings?.league_rules_notice_enabled !== false && rulesNoticeText.length > 0
+  const rulesRevision = formatRulesRevision(league.rules_updated_at, i18n.language)
   const showCountdown =
     Boolean(league.event_starts_at) && new Date(league.event_starts_at!).getTime() > Date.now()
 
@@ -357,7 +373,7 @@ export function LeagueDetailPage() {
                 to={regPath}
                 className="group relative inline-flex items-center gap-2 rounded-2xl bg-rc-accent px-6 py-3.5 text-sm font-bold text-white shadow-[0_14px_35px_rgb(19_169_77/0.3)] transition hover:-translate-y-1"
               >
-                <span className="font-mono text-[10px] tracking-widest opacity-80">01</span>
+                <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 {ctaLabel}
                 <span className="transition group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5">→</span>
               </Link>
@@ -366,9 +382,9 @@ export function LeagueDetailPage() {
                   href={league.regulation_pdf_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/35 bg-white/12 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-md transition hover:bg-white/20"
+                  className="group inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-sky-900 shadow-[0_12px_30px_rgb(0_0_0/0.18)] transition hover:-translate-y-0.5 hover:bg-sky-50"
                 >
-                  <span className="font-mono text-[10px] tracking-widest">02</span>
+                  <svg viewBox="0 0 24 24" className="size-5 transition-transform group-hover:translate-y-0.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" /></svg>
                   {t('leaguePage.downloadRules')}
                 </a>
               ) : null}
@@ -391,7 +407,7 @@ export function LeagueDetailPage() {
         {specs.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.specs')}>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {specs.map(([label, value], i) => (
+              {specs.map(([label, value]) => (
                 <li
                   key={label}
                   className="group relative overflow-hidden border border-rc-line bg-rc-surface/90 p-4 transition hover:border-rc-blue/45"
@@ -399,28 +415,32 @@ export function LeagueDetailPage() {
                   <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rc-blue/60 to-transparent opacity-0 transition group-hover:opacity-100" />
                   <p className="font-mono text-[10px] tracking-[0.25em] text-rc-muted uppercase">{label}</p>
                   <p className="mt-2 text-lg font-semibold leading-snug">{value}</p>
-                  <p className="mt-3 font-mono text-[10px] text-rc-blue/50">
-                    SYS.{String(i + 1).padStart(2, '0')}
-                  </p>
                 </li>
               ))}
             </ul>
           </SectionFrame>
         )}
 
-        {(league.rules_summary || league.rules_pdf_url) && (
-          <SectionFrame index={nextIndex()} title={t('leaguePage.rules')}>
+        {(league.rules_summary || league.rules_pdf_url || showRulesNotice) && (
+          <SectionFrame index={nextIndex()} title={t('leaguePage.rules')} meta={rulesRevision ? <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700">{isFa ? 'آخرین بروزرسانی' : 'Last updated'}: {rulesRevision}</span> : null}>
             <div className="relative border border-rc-line bg-rc-surface/80 p-6 md:p-8">
               <Corners />
+              {showRulesNotice ? (
+                <div className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm leading-7 text-rose-800 motion-safe:animate-[pulse_3.5s_ease-in-out_infinite] motion-reduce:animate-none">
+                  <svg viewBox="0 0 24 24" className="mt-1 size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v4M12 17h.01" /></svg>
+                  <p>{rulesNoticeText}</p>
+                </div>
+              ) : null}
               {league.rules_summary ? rich(league.rules_summary) : null}
               {league.rules_pdf_url ? (
                 <a
                   href={league.rules_pdf_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-5 inline-flex border border-rc-blue/40 bg-rc-blue/10 px-4 py-2 font-mono text-xs tracking-wide text-rc-blue hover:bg-rc-blue/20"
+                  className="mt-8 inline-flex items-center gap-2 rounded-xl bg-rc-blue px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700"
                 >
-                  {t('leaguePage.downloadRulesPdf')} ↗
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" /></svg>
+                  {isFa ? 'دانلود کامل قوانین' : 'Download the complete rules'}
                 </a>
               ) : null}
             </div>
@@ -474,7 +494,7 @@ export function LeagueDetailPage() {
                 <motion.li key={i} initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * .06 }} className="group relative grid grid-cols-[3rem_1fr] items-start gap-3 md:block md:min-w-64 md:flex-1">
                   <div className="relative z-10 grid size-12 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-[#087eb8] to-[#0b9b65] text-white shadow-[0_10px_25px_rgb(8_126_184/0.28)]"><TimelineIcon index={i} /></div>
                   <div className="relative min-h-28 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_10px_28px_rgb(18_76_98/0.06)] transition duration-300 group-hover:-translate-y-1 group-hover:border-emerald-200 group-hover:shadow-[0_18px_40px_rgb(18_76_98/0.12)] md:mt-5">
-                  <span className="absolute end-4 top-3 rounded-full bg-sky-50 px-2 py-1 font-mono text-[10px] font-black text-sky-700">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="absolute end-4 top-3 text-sky-600"><TimelineIcon index={i} /></span>
                   <p className="pe-10 text-base font-black text-slate-900">{step.title}</p>
                   {step.date ? (
                     <p className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
@@ -539,7 +559,7 @@ export function LeagueDetailPage() {
         {files.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.files')}>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {files.map((f, i) => (
+              {files.map((f) => (
                 <li key={f.id}>
                   <a
                     href={f.file_url}
@@ -547,10 +567,8 @@ export function LeagueDetailPage() {
                     rel="noreferrer"
                     className="group flex items-center justify-between gap-3 border border-rc-line bg-rc-surface px-4 py-3 transition hover:border-rc-blue/50 hover:bg-rc-hover"
                   >
-                    <span>
-                      <span className="me-2 font-mono text-[10px] text-rc-blue">
-                        F{String(i + 1).padStart(2, '0')}
-                      </span>
+                      <span className="inline-flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" className="size-4 text-rc-blue" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z" /><path d="M14 3v4h4M9 12h6M9 16h4" /></svg>
                       {f.title}
                     </span>
                     <span className="font-mono text-[10px] tracking-wide text-rc-muted uppercase">
@@ -650,7 +668,7 @@ export function LeagueDetailPage() {
         {faqs.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.faq')}>
             <ul className="mx-auto max-w-4xl space-y-4">
-              {faqs.map((item, i) => {
+              {faqs.map((item) => {
                 const open = openFaq === item.id
                 return (
                   <li key={item.id} className={`overflow-hidden rounded-[1.5rem] border bg-white shadow-[0_12px_35px_rgb(18_76_98/0.06)] transition ${open ? 'border-emerald-200 shadow-[0_18px_50px_rgb(18_76_98/0.1)]' : 'border-sky-100'}`}>
@@ -659,9 +677,7 @@ export function LeagueDetailPage() {
                       className="flex w-full items-center gap-4 px-5 py-5 text-start transition hover:bg-sky-50/60 sm:px-6"
                       onClick={() => setOpenFaq(open ? null : item.id)}
                     >
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-xs font-black text-rc-blue">
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-rc-blue"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 7h12M6 12h12M6 17h8" /></svg></span>
                       <span className="flex-1 font-bold text-slate-700">{item.question}</span>
                       <span className={`flex size-9 items-center justify-center rounded-full text-xl transition ${open ? 'rotate-45 bg-emerald-100 text-emerald-700' : 'bg-sky-50 text-rc-blue'}`}>+</span>
                     </button>

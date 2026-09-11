@@ -270,6 +270,7 @@ export type League = {
   rules_summary?: string | null
   rules_summary_en?: string | null
   rules_pdf_url?: string | null
+  rules_updated_at?: string | null
   age_range?: string | null
   age_range_en?: string | null
   participation_mode?: string | null
@@ -621,6 +622,9 @@ export type SiteSettings = {
   login_welcome_text_fa?: string | null
   login_welcome_text_en?: string | null
   communication_channels?: CommunicationChannel[] | null
+  league_rules_notice_enabled?: boolean
+  league_rules_notice_fa?: string | null
+  league_rules_notice_en?: string | null
 }
 
 export type TicketMessage = {
