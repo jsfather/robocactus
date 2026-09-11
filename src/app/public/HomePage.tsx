@@ -71,7 +71,7 @@ function HomeFinalCta() {
 }
 
 function loadSection<T>(fetcher: () => Promise<T>, onOk: (value: T) => void, fallback: T) {
-  void fetcher()
+  return fetcher()
     .then(onOk)
     .catch(() => onOk(fallback))
 }
@@ -90,11 +90,12 @@ export function HomePage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [liveBoards, setLiveBoards] = useState<LiveLeagueBoard[]>([])
   const [liveResultsEnabled, setLiveResultsEnabled] = useState(false)
+  const [bannersLoading, setBannersLoading] = useState(true)
 
   useEffect(() => {
     // Load each section independently so a slow/failing request
     // (e.g. live boards) does not block banners, stats, leagues, etc.
-    loadSection(fetchActiveBanners, setBanners, [])
+    void loadSection(fetchActiveBanners, setBanners, []).finally(() => setBannersLoading(false))
     loadSection(fetchActiveSponsors, setSponsors, [])
     loadSection(fetchActiveStatCards, setStats, [])
     loadSection(fetchActiveWhyCards, setWhy, [])
@@ -132,7 +133,7 @@ export function HomePage() {
 
   return (
     <div>
-      <HeroBanner banners={banners} />
+      <HeroBanner banners={banners} loading={bannersLoading} />
       <TabarestanStory />
       <CompetitionStats cards={stats} />
       <LeagueCards leagues={leagues} />

@@ -70,10 +70,10 @@ function CountdownHud({ target }: { target: string }) {
             key={cell.label}
             className="min-w-0 rounded-2xl border border-white/25 bg-slate-950/65 px-2 py-3 text-center text-white shadow-lg backdrop-blur-md"
           >
-            <p className="text-2xl font-black tabular-nums text-amber-300 md:text-3xl">
+            <p className="text-2xl font-black tabular-nums text-[#13A94D] md:text-3xl">
               {String(cell.value).padStart(2, '0')}
             </p>
-            <p className="text-[10px] font-bold text-white/85">{cell.label}</p>
+            <p className="text-[10px] font-bold text-[#13A94D]">{cell.label}</p>
           </div>
         ))}
       </div>

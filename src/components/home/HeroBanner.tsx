@@ -2,15 +2,20 @@ import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { HomeBanner } from '@/types/database'
 
-export function HeroBanner({ banners }: { banners: HomeBanner[] }) {
+export function HeroBanner({ banners, loading = false }: { banners: HomeBanner[]; loading?: boolean }) {
   const reduceMotion = useReducedMotion()
   const cmsBanner = banners[0]
+
+  if (loading) {
+    return <section aria-busy="true" className="min-h-[min(94dvh,880px)] animate-pulse bg-[#061624]" />
+  }
+  if (!cmsBanner) return null
 
   return (
     <section className="relative min-h-[min(94dvh,880px)] overflow-hidden bg-[#061624]">
       <img
-        src={cmsBanner?.image_url || '/images/tabarestan-hero.png'}
-        alt={cmsBanner?.title || 'چشم‌انداز جام تبرستان'}
+        src={cmsBanner.image_url}
+        alt={cmsBanner.title}
         className="absolute inset-0 h-full w-full object-cover object-[62%_center]"
         fetchPriority="high"
       />
@@ -24,12 +29,10 @@ export function HeroBanner({ banners }: { banners: HomeBanner[] }) {
             از قلب مازندران، رو به آینده
           </div>
           <p className="mb-3 font-mono text-xs tracking-[0.28em] text-sky-300 uppercase sm:text-sm">TABARESTAN CUP · AMOL</p>
-          <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">{cmsBanner?.title || 'جام تبرستان'}
-            {!cmsBanner ? <span className="mt-2 block text-2xl font-bold text-emerald-300 sm:text-3xl">برگزارکننده مسابقات ملی و بین‌المللی</span> : null}
-          </h1>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{cmsBanner?.subtitle || 'مرجع برگزاری رقابت‌های حرفه‌ای رباتیک در سطح کشور و عرصه بین‌المللی؛ از آمل و مازندران، میزبان تیم‌ها و قهرمانان ایران و جهان.'}</p>
+          <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">{cmsBanner.title}</h1>
+          {cmsBanner.subtitle ? <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{cmsBanner.subtitle}</p> : null}
           <div className="mt-9 flex flex-wrap gap-3">
-            <Link to={cmsBanner?.link_url || '/signup'} className="tabarestan-button-primary">ثبت‌نام در مسابقات <span aria-hidden="true">←</span></Link>
+            {cmsBanner.link_url ? <Link to={cmsBanner.link_url} className="tabarestan-button-primary">ثبت‌نام در مسابقات <span aria-hidden="true">←</span></Link> : null}
             <Link to="/leagues" className="tabarestan-button-secondary">مشاهده لیگ‌ها</Link>
           </div>
           <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">
