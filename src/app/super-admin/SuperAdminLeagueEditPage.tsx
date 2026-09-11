@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Button,
@@ -66,9 +66,10 @@ type Tab =
 
 export function SuperAdminLeagueEditPage() {
   const { leagueId = '' } = useParams()
+  const [searchParams] = useSearchParams()
   const { t } = useTranslation()
   const toast = useToast()
-  const [tab, setTab] = useState<Tab>('basics')
+  const [tab, setTab] = useState<Tab>(() => searchParams.get('tab') === 'results' ? 'results' : 'basics')
   const [league, setLeague] = useState<League | null>(null)
   const [allLeagues, setAllLeagues] = useState<League[]>([])
   const [files, setFiles] = useState<LeagueFile[]>([])

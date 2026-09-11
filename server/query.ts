@@ -41,6 +41,8 @@ const TABLES = new Set([
   'ticket_reads', 'tickets', 'league_attendance_settings', 'team_attendance_clearances', 'team_technical_files', 'review_audit_log', 'team_withdrawal_requests',
   'team_registration_change_log',
   'league_cycle_archives', 'public_competition_podium', 'public_league_participants', 'public_company_team_history',
+  'competition_people', 'competition_people_leagues', 'competition_sponsors', 'competition_sponsor_leagues',
+  'public_league_people', 'public_league_sponsors',
 ])
 
 // Audit history is exposed through the generic query endpoint for authorized
@@ -76,6 +78,7 @@ const RPCS = new Set([
   'cancel_incomplete_team_registration',
   'archive_league_cycle', 'archive_expired_incomplete_teams', 'search_podium_by_national_id',
   'set_league_cycle_podium', 'manage_ticket',
+  'set_competition_person_leagues', 'set_competition_sponsor_leagues',
   'delete_registration_doc_type',
 ])
 
