@@ -7,6 +7,7 @@ import { BirthDateField } from '@/components/ui/BirthDateField'
 import { numericInput } from '@/lib/validation'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import {
   fetchCaptainTeams,
   fetchTeamById,
@@ -47,6 +48,7 @@ export function TeamPanelPage() {
   const editMemberId = searchParams.get('editMember')
   const editAllRequested = searchParams.get('edit') === 'all'
   const { user, profile, loading: authLoading } = useAuth()
+  const { settings: siteSettings } = useSiteSettings()
   const [teams, setTeams] = useState<Team[]>([])
   const [team, setTeam] = useState<Team | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -149,6 +151,8 @@ export function TeamPanelPage() {
     const hasNoMembers = members.length === 0
     const memberPhotoEnabled = memberDocTypes.some((type) => type.code === 'member_photo')
     const memberIdentityEnabled = memberDocTypes.some((type) => type.code === 'member_identity')
+    const memberEducationEnabled = siteSettings?.member_education_enabled !== false
+    const memberFieldOfStudyEnabled = siteSettings?.member_field_of_study_enabled !== false
     const saveMemberEdits = async () => {
       setSaving(true)
       setError(null)
@@ -244,7 +248,8 @@ export function TeamPanelPage() {
               <Select label="سمت در تیم" value={member.role ?? 'member'} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, role: event.target.value } : row))}><option value="captain">سرپرست</option><option value="coach">مربی</option><option value="member">عضو تیم</option></Select>
               <Input label="شماره تماس" value={member.phone ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, phone: numericInput(event.target.value, 11) } : row))} dir="ltr" inputMode="numeric" maxLength={11} />
               <Input label="محل سکونت" value={member.residence ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, residence: event.target.value } : row))} />
-              <Input label="رشته تحصیلی" value={member.field_of_study ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, field_of_study: event.target.value } : row))} />
+              {memberEducationEnabled ? <Select label="آخرین مدرک تحصیلی" value={member.education_level ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, education_level: event.target.value as TeamMember['education_level'] } : row))}><option value="">انتخاب کنید</option><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">دیپلم / متوسطه دوم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></Select> : null}
+              {memberFieldOfStudyEnabled ? <Input label="رشته تحصیلی" value={member.field_of_study ?? ''} onChange={(event) => setMemberEdits((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, field_of_study: event.target.value } : row))} /> : null}
               {memberPhotoEnabled ? <EditableMemberAsset label="تصویر پرسنلی" file={photoFiles[member.id]} stored={member.photo_url} busy={saving} onChange={(file) => setPhotoFiles((current) => ({ ...current, [member.id]: file }))} /> : null}
               {memberIdentityEnabled ? <EditableMemberAsset label="کارت ملی / مدرک هویت" file={idFiles[member.id]} stored={member.national_id_doc_path} privateFile busy={saving} onChange={(file) => setIdFiles((current) => ({ ...current, [member.id]: file }))} /> : null}
             </div>)}
@@ -258,7 +263,7 @@ export function TeamPanelPage() {
                     : m.full_name
                 const age = ageFromBirthDate(m.birth_date)
                 return (
-                  <article key={m.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-16 shrink-0 overflow-hidden rounded-xl bg-sky-50">{memberPhotoEnabled && m.photo_url ? <button type="button" onClick={() => setViewerUrl(m.photo_url!)}><img src={m.photo_url} alt={displayName} className="size-16 object-cover" /></button> : <span className="grid size-full place-items-center text-xl font-black text-sky-700">{displayName.slice(0, 1)}</span>}</div><div className="min-w-0"><h3 className="truncate font-black text-slate-900">{displayName}</h3><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{m.role === 'captain' ? 'سرپرست' : m.role === 'coach' ? 'مربی' : 'عضو تیم'}</span></div><span className={`ms-auto rounded-md px-2 py-1 text-[10px] font-bold ${m.review_status === 'approved' ? 'bg-emerald-50 text-emerald-700' : m.review_status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'ردشده' : 'در انتظار بررسی'}</span></div><dl className="grid grid-cols-2 gap-3 p-4 text-xs"><div><dt className="text-slate-400">سن</dt><dd className="mt-1 font-bold text-slate-700">{age != null ? `${age.toLocaleString('fa-IR')} سال` : '—'}</dd></div><div><dt className="text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-bold text-slate-700">{formatAppDate(m.birth_date, i18n.language)}</dd></div><div><dt className="text-slate-400">کد ملی</dt><dd className="mt-1 font-mono text-slate-700">{m.national_id ?? '—'}</dd></div><div><dt className="text-slate-400">تحصیلات</dt><dd className="mt-1 font-bold text-slate-700">{m.field_of_study || m.education || '—'}</dd></div></dl>{memberIdentityEnabled ? <div className="border-t border-slate-100 p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر کارت ملی / هویت</span><TeamAsset path={m.national_id_doc_path} alt={`مدرک ${displayName}`} onOpen={setViewerUrl} /></div> : null}</article>
+                  <article key={m.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-100 p-4"><div className="size-16 shrink-0 overflow-hidden rounded-xl bg-sky-50">{memberPhotoEnabled && m.photo_url ? <button type="button" onClick={() => setViewerUrl(m.photo_url!)}><img src={m.photo_url} alt={displayName} className="size-16 object-cover" /></button> : <span className="grid size-full place-items-center text-xl font-black text-sky-700">{displayName.slice(0, 1)}</span>}</div><div className="min-w-0"><h3 className="truncate font-black text-slate-900">{displayName}</h3><span className="mt-1 inline-flex rounded-md bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{m.role === 'captain' ? 'سرپرست' : m.role === 'coach' ? 'مربی' : 'عضو تیم'}</span></div><span className={`ms-auto rounded-md px-2 py-1 text-[10px] font-bold ${m.review_status === 'approved' ? 'bg-emerald-50 text-emerald-700' : m.review_status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{m.review_status === 'approved' ? 'تأییدشده' : m.review_status === 'rejected' ? 'ردشده' : 'در انتظار بررسی'}</span></div><dl className="grid grid-cols-2 gap-3 p-4 text-xs"><div><dt className="text-slate-400">سن</dt><dd className="mt-1 font-bold text-slate-700">{age != null ? `${age.toLocaleString('fa-IR')} سال` : '—'}</dd></div><div><dt className="text-slate-400">تاریخ تولد</dt><dd className="mt-1 font-bold text-slate-700">{formatAppDate(m.birth_date, i18n.language)}</dd></div><div><dt className="text-slate-400">کد ملی</dt><dd className="mt-1 font-mono text-slate-700">{m.national_id ?? '—'}</dd></div>{memberEducationEnabled || memberFieldOfStudyEnabled ? <div><dt className="text-slate-400">تحصیلات</dt><dd className="mt-1 font-bold text-slate-700">{(memberFieldOfStudyEnabled ? m.field_of_study : null) || (memberEducationEnabled ? m.education_level || m.education : null) || '—'}</dd></div> : null}</dl>{memberIdentityEnabled ? <div className="border-t border-slate-100 p-3"><span className="mb-2 block text-[10px] font-bold text-slate-400">تصویر کارت ملی / هویت</span><TeamAsset path={m.national_id_doc_path} alt={`مدرک ${displayName}`} onOpen={setViewerUrl} /></div> : null}</article>
                 )
               })}
             </div>

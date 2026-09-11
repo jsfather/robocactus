@@ -34,7 +34,7 @@ const TABLES = new Set([
   'invoices', 'league_admins', 'league_faqs', 'league_files', 'league_past_results',
   'league_people', 'league_sponsors', 'leagues', 'live_chat_messages', 'live_chat_sessions',
   'notification_log', 'profile_documents', 'profiles', 'public_companies', 'registration_doc_types',
-  'participant_field_rules', 'judge_scores', 'judge_submission_progress', 'registration_reminder_settings', 'role_section_permissions',
+  'participant_field_rules', 'iran_cities', 'judge_scores', 'judge_submission_progress', 'registration_reminder_settings', 'role_section_permissions',
   'public_team_people',
   'results', 'site_settings', 'sms_settings', 'auth_settings', 'public_auth_options', 'static_pages', 'system_notification_reads',
   'system_notifications', 'team_members', 'teams', 'ticket_departments', 'ticket_messages',

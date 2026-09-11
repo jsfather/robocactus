@@ -120,6 +120,7 @@ export function TeamRegistrationWizard({
   const [companyName, setCompanyName] = useState('')
   const [openMemberIndex, setOpenMemberIndex] = useState<number | null>(0)
   const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null)
+  const [iranCities, setIranCities] = useState<Array<{ province: string; name: string }>>([])
   const [settingsChanged, setSettingsChanged] = useState(false)
 
   useEffect(() => {
@@ -143,11 +144,16 @@ export function TeamRegistrationWizard({
   }, [])
 
   useEffect(() => {
-    void Promise.all([fetchTeamRegistrationDocTypes(), fetchMemberRegistrationDocTypes()])
-      .then(([teamRows, memberRows]) => {
+    void Promise.all([
+      fetchTeamRegistrationDocTypes(),
+      fetchMemberRegistrationDocTypes(),
+      backend.from('iran_cities').select('province,name').order('sort_order').order('name'),
+    ])
+      .then(([teamRows, memberRows, cityResult]) => {
         setTeamDocTypes(teamRows)
         setMemberDocTypes(memberRows)
         setTeamDocType((current) => current || teamRows[0]?.code || '')
+        if (!cityResult.error) setIranCities((cityResult.data ?? []) as Array<{ province: string; name: string }>)
       })
       .catch(() => { setTeamDocTypes([]); setMemberDocTypes([]) })
     void backend.from('companies').select('name').eq('id', companyId).maybeSingle().then(({ data }) => setCompanyName(data?.name ?? 'مجموعه شما'))
@@ -178,6 +184,12 @@ export function TeamRegistrationWizard({
     [leagues, draft.leagueId],
   )
   const teamMottoEnabled = siteSettings?.team_motto_enabled !== false
+  const memberEducationEnabled = siteSettings?.member_education_enabled !== false
+  const memberFieldOfStudyEnabled = siteSettings?.member_field_of_study_enabled !== false
+  const availableCities = useMemo(
+    () => iranCities.filter((city) => city.province === draft.province),
+    [draft.province, iranCities],
+  )
   const teamNameFaError = localizedTextError(draft.name, 'fa')
   const teamNameEnError = localizedTextError(draft.nameEn, 'en')
   const teamMottoFaError = teamMottoEnabled ? localizedTextError(draft.mottoFa, 'fa') : undefined
@@ -347,7 +359,7 @@ export function TeamRegistrationWizard({
       if (settingsChanged || !await verifyCurrentSettings()) throw new Error(i18n.language.startsWith('en') ? 'League registration settings changed. Refresh this page before continuing.' : 'تنظیمات ثبت‌نام این لیگ تغییر کرده است؛ پیش از ادامه صفحه را تازه‌سازی کنید.')
       let persistedTeamId = draft.teamId
       if (step === 0) {
-        if (!draft.name.trim() || !draft.nameEn.trim() || !draft.leagueId) {
+        if (!draft.name.trim() || !draft.nameEn.trim() || !draft.leagueId || !draft.province || !draft.city) {
           throw new Error(t('auth.required'))
         }
         const languageError = teamNameFaError || teamNameEnError || teamMottoFaError || teamMottoEnError
@@ -378,7 +390,7 @@ export function TeamRegistrationWizard({
         const incomplete = draft.members.some(
           (m) =>
             (m.first_name || m.last_name || m.full_name).trim() &&
-            (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.father_name_fa.trim() || !m.father_name_en.trim() || !m.birth_date || !(m.is_foreign ? m.passport_number.trim() : m.national_id.trim()) || !m.role || !m.residence.trim() || !m.country_code || !m.nationality.trim() || !m.education_level || (['captain', 'coach'].includes(m.role) && !m.phone.trim())),
+            (!m.first_name.trim() || !m.last_name.trim() || !m.first_name_en.trim() || !m.last_name_en.trim() || !m.father_name_fa.trim() || !m.father_name_en.trim() || !m.birth_date || !(m.is_foreign ? m.passport_number.trim() : m.national_id.trim()) || !m.role || !m.residence.trim() || !m.country_code || !m.nationality.trim() || (memberEducationEnabled && !m.education_level) || (['captain', 'coach'].includes(m.role) && !m.phone.trim())),
         )
         if (incomplete) throw new Error(t('auth.required'))
         const invalidIranianIdentity = draft.members.some((member) => !member.is_foreign && !/^\d{10}$/.test(member.national_id))
@@ -482,6 +494,21 @@ export function TeamRegistrationWizard({
   const teamOnlyDocs = docs.filter((doc) => !doc.team_member_id)
   const roleLabel = (role?: string | null) => role === 'captain' ? 'سرپرست' : role === 'coach' ? 'مربی' : 'عضو تیم'
   const requiredTeamDocsMissing = teamDocTypes.filter((type) => type.is_required && !teamOnlyDocs.some((doc) => doc.doc_type === type.code))
+  const minCaptains = selectedLeague?.min_captains ?? 1
+  const minCoaches = selectedLeague?.min_coaches ?? 0
+  const requiredRolesText = minCaptains > 0 && minCoaches > 0
+    ? `برای ثبت این تیم، افزودن حداقل ${minCaptains.toLocaleString('fa-IR')} سرپرست و ${minCoaches.toLocaleString('fa-IR')} مربی الزامی است.`
+    : minCaptains > 0
+      ? `افزودن حداقل ${minCaptains.toLocaleString('fa-IR')} سرپرست الزامی است؛ حضور مربی اختیاری است.`
+      : minCoaches > 0
+        ? `افزودن حداقل ${minCoaches.toLocaleString('fa-IR')} مربی الزامی است؛ حضور سرپرست اختیاری است.`
+        : 'حضور سرپرست و مربی برای این لیگ اختیاری است.'
+  const nextFlowStep = visibleFlowSteps[visibleFlowSteps.findIndex((item) => item.key === 'review') + 1]
+  const finishLabel = nextFlowStep
+    ? i18n.language.startsWith('en')
+      ? `Confirm and continue to ${nextFlowStep.labelEn}`
+      : `تأیید و ادامه به ${nextFlowStep.labelFa}`
+    : i18n.language.startsWith('en') ? 'Confirm details' : 'تأیید اطلاعات'
 
   const cancelRegistration = async () => {
     const hasPersistedRegistration = Boolean(draft.teamId)
@@ -593,21 +620,23 @@ export function TeamRegistrationWizard({
           </Select>
           <Select
             label={t('team.province')}
+            required
             value={draft.province}
-            onChange={(e) => patchDraft({ province: e.target.value })}
+            onChange={(e) => patchDraft({ province: e.target.value, city: '' })}
           ><option value="">انتخاب استان</option>{IRAN_PROVINCES.map((province)=><option key={province} value={province}>{province}</option>)}</Select>
-          <Input
+          <Select
             label={t('team.city')}
+            required
             value={draft.city}
-            onChange={(e) => patchDraft({ city: withoutDigits(e.target.value) })}
-          />
-          <p className="md:col-span-2 rounded-2xl bg-sky-50 p-4 text-sm leading-7 text-sky-800">اطلاعات سرپرست، مربی و اعضا در مرحله بعد به‌عنوان اشخاص وابسته به همین تیم ثبت می‌شود؛ برای آن‌ها حساب کاربری ساخته نمی‌شود.</p>
+            onChange={(e) => patchDraft({ city: e.target.value })}
+            disabled={!draft.province}
+          ><option value="">{draft.province ? 'انتخاب شهر' : 'ابتدا استان را انتخاب کنید'}</option>{draft.city && !availableCities.some((city) => city.name === draft.city) ? <option value={draft.city}>{draft.city}</option> : null}{availableCities.map((city)=><option key={`${city.province}-${city.name}`} value={city.name}>{city.name}</option>)}</Select>
         </div>
       ) : null}
 
       {step === 1 ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-7 text-sky-900"><strong className="block">ترکیب الزامی این لیگ</strong><span>حداقل {(selectedLeague?.min_captains ?? 1).toLocaleString('fa-IR')} سرپرست و {(selectedLeague?.min_coaches ?? 0).toLocaleString('fa-IR')} مربی.</span>{(selectedLeague?.min_captains ?? 1)===0?<span className="block">ثبت تیم بدون سرپرست مجاز است.</span>:null}{(selectedLeague?.min_coaches ?? 0)===0?<span className="block">ثبت تیم بدون مربی مجاز است.</span>:null}</div>
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-7 text-sky-900"><strong className="block">ترکیب موردنیاز این لیگ</strong><span>{requiredRolesText}</span></div>
           {draft.members.map((member, index) => {
             const age = ageFromBirthDate(member.birth_date)
             return (
@@ -648,7 +677,6 @@ export function TeamRegistrationWizard({
                   <Select label="کشور" required value={member.country_code} onChange={(e) => patchMember(index, { country_code: e.target.value, is_foreign: e.target.value !== 'IR', nationality: e.target.value === 'IR' ? 'ایرانی' : 'اتباع' })}><option value="IR">ایران</option><option value="AF">افغانستان</option><option value="IQ">عراق</option><option value="OTHER">سایر</option></Select>
                   {member.country_code === 'IR' ? <Select label="تابعیت" required value={member.nationality || 'ایرانی'} onChange={(e) => patchMember(index, { nationality: e.target.value })}><option value="ایرانی">ایرانی</option><option value="اتباع">اتباع</option></Select> : null}
                   {member.is_foreign ? <Input label="شماره گذرنامه" required value={member.passport_number} onChange={(e) => patchMember(index, { passport_number: e.target.value })} dir="ltr" /> : <Input label={t('team.memberNationalId')} required value={member.national_id} onChange={(e) => patchMember(index, { national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} dir="ltr" inputMode="numeric" maxLength={10} />}
-                  {member.country_code === 'IR' ? <Select label="استان" value={member.province} onChange={(e) => patchMember(index, { province: e.target.value })}><option value="">انتخاب استان</option>{IRAN_PROVINCES.map((province)=><option key={province} value={province}>{province}</option>)}</Select> : <Input label="استان / منطقه" value={member.province} onChange={(e) => patchMember(index, { province: withoutDigits(e.target.value) })} />}<Input label="شهر" value={member.city} onChange={(e) => patchMember(index, { city: withoutDigits(e.target.value) })} />
                   <Input label="محل سکونت" required value={member.residence} onChange={(e) => patchMember(index, { residence: e.target.value })} />
                   <BirthDateField label={t('team.memberBirthDate')} value={member.birth_date} onChange={(date) => patchMember(index, { birth_date: date ?? '' })} minAge={member.role === 'member' ? selectedLeague?.min_age ?? 3 : 0} maxAge={member.role === 'member' ? selectedLeague?.max_age ?? 100 : 130} />
                   <Input
@@ -662,8 +690,8 @@ export function TeamRegistrationWizard({
                       {t('team.allowedAge', { min: selectedLeague.min_age ?? '—', max: selectedLeague.max_age ?? '—' })}
                     </p>
                   ) : null}
-                  <Select label={age != null && age < 18 ? 'مقطع تحصیلی فعلی' : 'آخرین مدرک تحصیلی'} required value={member.education_level} onChange={(e) => patchMember(index, { education_level: e.target.value })}><option value="">انتخاب کنید</option>{age != null && age < 18 ? <><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">متوسطه دوم</option></> : <><option value="high_school">دیپلم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></>}</Select>
-                  <Input label="رشته تحصیلی" value={member.field_of_study} onChange={(e) => patchMember(index, { field_of_study: e.target.value })} />
+                  {memberEducationEnabled ? <Select label={age != null && age < 18 ? 'مقطع تحصیلی فعلی' : 'آخرین مدرک تحصیلی'} required value={member.education_level} onChange={(e) => patchMember(index, { education_level: e.target.value })}><option value="">انتخاب کنید</option>{age != null && age < 18 ? <><option value="primary">ابتدایی</option><option value="middle_school">متوسطه اول</option><option value="high_school">متوسطه دوم</option></> : <><option value="high_school">دیپلم</option><option value="associate">کاردانی</option><option value="bachelor">کارشناسی</option><option value="master">کارشناسی ارشد</option><option value="doctorate">دکتری</option></>}</Select> : null}
+                  {memberFieldOfStudyEnabled ? <Input label="رشته تحصیلی" value={member.field_of_study} onChange={(e) => patchMember(index, { field_of_study: e.target.value })} /> : null}
                   {memberPhotoType ? <MemberIdentityUpload label={i18n.language.startsWith('en') ? memberPhotoType.label_en : memberPhotoType.label_fa} required={memberPhotoType.is_required} file={photoFiles[index]} storedUrl={member.photo_url} busy={busy} onChange={(file) => setPhotoFiles((prev) => ({ ...prev, [index]: file }))} /> : null}
                   {memberIdentityType ? <MemberIdentityUpload label={i18n.language.startsWith('en') ? memberIdentityType.label_en : memberIdentityType.label_fa} required={memberIdentityType.is_required} file={idFiles[index]} storedUrl={member.national_id_doc_path} busy={busy} onChange={(file) => setIdFiles((prev) => ({ ...prev, [index]: file }))} /> : null}
                 </div> : null}
@@ -715,19 +743,19 @@ export function TeamRegistrationWizard({
 
       <div id="team-registration-error"><FieldError message={error ?? undefined} /></div>
 
-      <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-white/95 p-3 shadow-lg backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+      <div className="sticky bottom-2 z-10 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:grid-cols-[auto_minmax(0,1fr)] md:static md:border-t md:border-x-0 md:border-b-0 md:bg-transparent md:px-0 md:pt-5 md:shadow-none">
         {step > 0 ? (
-          <Button type="button" variant="ghost" onClick={goBack} disabled={busy}>
-            {t('team.back')}
+          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={goBack} disabled={busy}>
+            <span aria-hidden>→</span>{t('team.back')}
           </Button>
-        ) : null}
+        ) : <span className="hidden sm:block" />}
         {step < EDITABLE_STEPS - 1 ? (
-          <Button type="button" onClick={() => void goNext()} disabled={busy || settingsChanged || (step === 0 && nameAvailability !== 'available')}>
-            {busy ? t('app.loading') : t('team.next')}
+          <Button type="button" className="w-full sm:justify-self-end" onClick={() => void goNext()} disabled={busy || settingsChanged || (step === 0 && nameAvailability !== 'available')}>
+            {busy ? t('app.loading') : <>{t('team.next')}<span aria-hidden>←</span></>}
           </Button>
         ) : (
-          <Button type="button" onClick={() => void finish()} disabled={busy || settingsChanged}>
-            {busy ? t('app.loading') : 'تأیید اطلاعات و ادامه به مدارک فنی'}
+          <Button type="button" className="w-full sm:justify-self-end" onClick={() => void finish()} disabled={busy || settingsChanged}>
+            {busy ? t('app.loading') : <>{finishLabel}<span aria-hidden>←</span></>}
           </Button>
         )}
       </div></div>

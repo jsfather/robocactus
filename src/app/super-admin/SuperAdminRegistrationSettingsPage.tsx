@@ -48,6 +48,8 @@ export function SuperAdminRegistrationSettingsPage() {
   const [fieldRules, setFieldRules] = useState<ParticipantFieldRule[]>([])
   const [teamMottoEnabled, setTeamMottoEnabled] = useState(true)
   const [companyTaglineEnabled, setCompanyTaglineEnabled] = useState(true)
+  const [memberEducationEnabled, setMemberEducationEnabled] = useState(true)
+  const [memberFieldOfStudyEnabled, setMemberFieldOfStudyEnabled] = useState(true)
   const [docOperations, setDocOperations] = useState<Record<string, string>>({})
 
   const reload = async () => {
@@ -70,6 +72,8 @@ export function SuperAdminRegistrationSettingsPage() {
       setWaitSeconds(Number(s?.chat_wait_timeout_seconds ?? 180))
       setTeamMottoEnabled(s?.team_motto_enabled !== false)
       setCompanyTaglineEnabled(s?.company_tagline_enabled !== false)
+      setMemberEducationEnabled(s?.member_education_enabled !== false)
+      setMemberFieldOfStudyEnabled(s?.member_field_of_study_enabled !== false)
       setFieldRules((r.data ?? []) as ParticipantFieldRule[])
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
@@ -202,7 +206,12 @@ export function SuperAdminRegistrationSettingsPage() {
     e.preventDefault()
     setBusy(true)
     try {
-      await updateSiteSettings({ team_motto_enabled: teamMottoEnabled, company_tagline_enabled: companyTaglineEnabled })
+      await updateSiteSettings({
+        team_motto_enabled: teamMottoEnabled,
+        company_tagline_enabled: companyTaglineEnabled,
+        member_education_enabled: memberEducationEnabled,
+        member_field_of_study_enabled: memberFieldOfStudyEnabled,
+      })
       await refresh()
       toast.success(t('common.saved'))
     } catch (err) {
@@ -261,6 +270,14 @@ export function SuperAdminRegistrationSettingsPage() {
           <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-800">
             <span>نمایش شعار مجموعه / شرکت</span>
             <input type="checkbox" checked={companyTaglineEnabled} disabled={busy} onChange={(event) => setCompanyTaglineEnabled(event.target.checked)} />
+          </label>
+          <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-800">
+            <span>نمایش مقطع تحصیلی افراد تیم</span>
+            <input type="checkbox" checked={memberEducationEnabled} disabled={busy} onChange={(event) => setMemberEducationEnabled(event.target.checked)} />
+          </label>
+          <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-800">
+            <span>نمایش رشته تحصیلی افراد تیم</span>
+            <input type="checkbox" checked={memberFieldOfStudyEnabled} disabled={busy} onChange={(event) => setMemberFieldOfStudyEnabled(event.target.checked)} />
           </label>
           <Button type="submit" disabled={busy}>{t('common.save')}</Button>
         </form>

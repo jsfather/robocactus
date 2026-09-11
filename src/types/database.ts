@@ -595,6 +595,8 @@ export type SiteSettings = {
   chat_wait_message_en?: string | null
   team_motto_enabled?: boolean
   company_tagline_enabled?: boolean
+  member_education_enabled?: boolean
+  member_field_of_study_enabled?: boolean
   copyright_fa?: string | null
   copyright_en?: string | null
   developer_credit_fa?: string | null
