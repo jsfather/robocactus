@@ -18,28 +18,21 @@ type Ctx = {
 }
 
 const SiteSettingsContext = createContext<Ctx | null>(null)
-const SETTINGS_CACHE_KEY = 'tabarestan-site-settings-v1'
-
-function readCachedSettings(): SiteSettings | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_CACHE_KEY)
-    return raw ? normalizeSiteBrand(JSON.parse(raw) as SiteSettings) : null
-  } catch {
-    return null
-  }
-}
 
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<SiteSettings | null>(() => readCachedSettings())
-  const [loading, setLoading] = useState(() => !readCachedSettings())
+  // CMS values are the source of truth. Do not hydrate the UI from a previous
+  // localStorage snapshot: that made changed banners/copy flash briefly before
+  // the fresh response arrived. Render only the latest response from the CMS.
+  const [settings, setSettings] = useState<SiteSettings | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
+    setLoading(true)
+    setSettings(null)
     try {
       const s = normalizeSiteBrand(await fetchSiteSettings())
       setSettings(s)
       applySiteBrandColors(s)
-      try { window.localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(s)) } catch { /* storage may be unavailable */ }
     } catch {
       /* table may not exist yet before migrate */
     } finally {
@@ -48,10 +41,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (settings) applySiteBrandColors(settings)
     void refresh()
-    // Cached settings render header/footer immediately; refresh runs in background.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh])
 
   useEffect(() => {

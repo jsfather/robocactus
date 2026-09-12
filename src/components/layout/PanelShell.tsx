@@ -97,7 +97,6 @@ function SidebarNav({
   const { profile } = useAuth()
   const { count } = useUnreadTicketCount()
   const groups = useMemo(() => panelsForRole(role), [role])
-  const items = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const [enabledPermissions, setEnabledPermissions] = useState<Set<string> | null>(() => role === 'super_admin' || role === 'company_admin' || role === 'team_captain' ? null : new Set())
   useEffect(() => {
     if (role === 'super_admin' || role === 'company_admin' || role === 'team_captain') { setEnabledPermissions(null); return }
@@ -105,36 +104,29 @@ function SidebarNav({
     void backend.from('role_section_permissions').select('section_key').eq('role_key', roleKey).eq('is_enabled', true).then(({ data, error }) => { if (!error) setEnabledPermissions(new Set((data ?? []).map((row: { section_key: string }) => row.section_key))) })
   }, [profile?.staff_department, role])
 
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))),
+  })).filter((group) => group.items.length)
+
   return (
     <nav className="panel-nav-scroll flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-      <ul className="space-y-1">
-        {items.filter((item) => !item.permissionKey || enabledPermissions === null || item.permissionKey.split('|').some((key) => enabledPermissions.has(key))).map((item) => {
-          const disabled = accountLocked && !item.to.includes('/tickets')
-          return <li key={item.to}>
-            {disabled ? <span aria-disabled="true" className="panel-nav-link flex cursor-not-allowed items-center gap-3 border border-transparent px-3 py-2.5 text-[13px] font-semibold text-slate-400 grayscale opacity-60"><span className="grid size-7 shrink-0 place-items-center"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span> :
-            <NavLink
-              to={item.to}
-              end={item.end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                [
-                  'panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition',
-                  isActive
-                    ? 'is-active border-sky-200 bg-sky-50 text-sky-900 shadow-[0_8px_22px_rgb(8_126_184/0.10)]'
-                    : 'text-slate-700 hover:border-sky-100 hover:bg-white hover:text-sky-800',
-                ].join(' ')
-              }
-            >
-              <span className="flex min-w-0 items-center gap-3"><span className="grid size-7 shrink-0 place-items-center text-slate-500 transition group-hover:text-sky-700"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
-              {item.badge === 'tickets' && count > 0 ? (
-                <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
-                  {count > 99 ? '99+' : count}
-                </span>
-              ) : null}
-            </NavLink>
-            }
-          </li>
-        })}
+      <ul className="space-y-4">
+        {visibleGroups.map((group) => <li key={group.id}>
+          <p className="px-3 pb-1 text-[10px] font-black tracking-[0.14em] text-slate-400">{t(group.titleKey)}</p>
+          <ul className="space-y-1">
+            {group.items.map((item) => {
+              const disabled = accountLocked && !item.to.includes('/tickets')
+              return <li key={item.to}>
+                {disabled ? <span aria-disabled="true" className="panel-nav-link flex cursor-not-allowed items-center gap-3 border border-transparent px-3 py-2.5 text-[13px] font-semibold text-slate-400 grayscale opacity-60"><span className="grid size-7 shrink-0 place-items-center"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span> :
+                <NavLink to={item.to} end={item.end} onClick={onNavigate} className={({ isActive }) => ['panel-nav-link group flex items-center justify-between gap-2 border border-transparent px-3 py-2.5 text-[13px] font-semibold transition', isActive ? 'is-active border-sky-200 bg-sky-50 text-sky-900 shadow-[0_8px_22px_rgb(8_126_184/0.10)]' : 'text-slate-700 hover:border-sky-100 hover:bg-white hover:text-sky-800'].join(' ')}>
+                  <span className="flex min-w-0 items-center gap-3"><span className="grid size-7 shrink-0 place-items-center text-slate-500 transition group-hover:text-sky-700"><PanelNavIcon path={item.to} /></span><span className="truncate">{t(item.labelKey)}</span></span>
+                  {item.badge === 'tickets' && count > 0 ? <span className="inline-flex min-w-5 justify-center rounded-full bg-rc-accent px-1.5 py-0.5 font-mono text-[10px] text-white">{count > 99 ? '99+' : count}</span> : null}
+                </NavLink>}
+              </li>
+            })}
+          </ul>
+        </li>)}
       </ul>
     </nav>
   )

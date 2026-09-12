@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import type { TopCompany } from '@/features/home/api'
+import { HomeSectionHeading } from './HomeSection'
 
 export function TopCompanies({ companies }: { companies: TopCompany[] }) {
   const { t } = useTranslation()
@@ -11,15 +12,7 @@ export function TopCompanies({ companies }: { companies: TopCompany[] }) {
   return (
     <section className="bg-sky-50/70">
       <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.topCompaniesTitle')}</h2>
-            <p className="mt-1 text-rc-muted">{t('home.topCompaniesSubtitle')}</p>
-          </div>
-          <Link to="/companies" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-sm">
-            {t('home.viewAll')}
-          </Link>
-        </div>
+        <HomeSectionHeading icon="users" title={t('home.topCompaniesTitle')} subtitle={t('home.topCompaniesSubtitle')} action={<Link to="/companies" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-sm">{t('home.viewAll')}</Link>} />
 
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {companies.map((company, i) => (

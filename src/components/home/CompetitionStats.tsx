@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { HomeStatCard } from '@/features/home/homeSectionsApi'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useInViewOnce } from '@/hooks/useInViewOnce'
+import { HomeSectionHeading } from './HomeSection'
 
 const icons = [
   <><circle cx="12" cy="8" r="3" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
@@ -32,7 +33,7 @@ export function CompetitionStats({ cards }: { cards: HomeStatCard[] }) {
   if (!cards.length) return null
   const locale = i18n.language.startsWith('en') ? 'en-US' : 'fa-IR'
   return <section className="bg-slate-50 py-16 sm:py-20" aria-labelledby="stats-heading"><div className="mx-auto max-w-7xl px-4 sm:px-8">
-    <header className="mb-9 text-center"><h2 id="stats-heading" className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{t('home.competitionStatsTitle')}</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-500">{t('home.competitionStatsSubtitle')}</p><div className="mx-auto mt-4 flex w-fit gap-1" aria-hidden="true">{Array.from({ length: 3 }, (_, i) => <span key={i} className={`size-1.5 rounded-full ${i === 1 ? 'bg-rc-accent' : 'bg-rc-blue/25'}`} />)}</div></header>
+    <HomeSectionHeading id="stats-heading" icon="stats" title={t('home.competitionStatsTitle')} subtitle={t('home.competitionStatsSubtitle')} />
     <ul className={`grid gap-5 sm:grid-cols-2 ${cards.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>{cards.map((card, index) => <StatCard key={card.id} card={card} locale={locale} index={index} />)}</ul>
   </div></section>
 }

@@ -1,4 +1,5 @@
 import { getPublicEnv } from '@/lib/env'
+import { prepareImageForUpload } from '@/lib/image'
 
 export type BackendUser = {
   id: string
@@ -302,8 +303,9 @@ class StorageBucket {
 
   async upload(path: string, file: File, options?: { upsert?: boolean; contentType?: string; onProgress?: (percent: number) => void }) {
     try {
+      const preparedFile = await prepareImageForUpload(file)
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', preparedFile)
       form.append('path', path)
       form.append('upsert', String(options?.upsert ?? false))
       const data = options?.onProgress

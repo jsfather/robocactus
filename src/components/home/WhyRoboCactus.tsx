@@ -29,7 +29,7 @@ export function WhyRoboCactus({ cards }: { cards: HomeWhyCard[] }) {
 
   return (
     <HomeSection
-      index="03"
+      icon="why"
       title={t('home.whyTitle')}
       subtitle={t('home.whySubtitle')}
     >

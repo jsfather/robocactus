@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import type { HomeBanner } from '@/types/database'
+import { useTranslation } from 'react-i18next'
+import type { HomeBanner, HomepageContent } from '@/types/database'
 
-export function HeroBanner({ banners, loading = false }: { banners: HomeBanner[]; loading?: boolean }) {
+export function HeroBanner({ banners, loading = false, content }: { banners: HomeBanner[]; loading?: boolean; content?: HomepageContent['hero'] }) {
+  const { i18n } = useTranslation()
+  const isEn = i18n.language.startsWith('en')
   const reduceMotion = useReducedMotion()
   const cmsBanner = banners[0]
 
@@ -24,22 +27,18 @@ export function HeroBanner({ banners, loading = false }: { banners: HomeBanner[]
 
       <div className="relative mx-auto flex min-h-[min(94dvh,880px)] max-w-7xl items-center px-5 pb-20 pt-32 sm:px-8 lg:px-10">
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-rc-accent/30 bg-rc-accent/10 px-4 py-2 text-xs font-medium text-emerald-200 backdrop-blur-md">
+          {content?.eyebrow_fa || content?.eyebrow_en ? <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-rc-accent/30 bg-rc-accent/10 px-4 py-2 text-xs font-medium text-emerald-200 backdrop-blur-md">
             <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-rc-accent opacity-70" /><span className="relative inline-flex size-2 rounded-full bg-rc-accent" /></span>
-            از قلب مازندران، رو به آینده
-          </div>
-          <p className="mb-3 font-mono text-xs tracking-[0.28em] text-sky-300 uppercase sm:text-sm">TABARESTAN CUP · AMOL</p>
+            <span>{isEn ? content.eyebrow_en || content.eyebrow_fa : content.eyebrow_fa || content.eyebrow_en}</span>
+          </div> : null}
+          {content?.kicker_fa || content?.kicker_en ? <p className="mb-3 font-mono text-xs tracking-[0.28em] text-sky-300 uppercase sm:text-sm">{isEn ? content.kicker_en || content.kicker_fa : content.kicker_fa || content.kicker_en}</p> : null}
           <h1 className="text-5xl font-black leading-[1.12] text-white sm:text-6xl lg:text-8xl">{cmsBanner.title}</h1>
           {cmsBanner.subtitle ? <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{cmsBanner.subtitle}</p> : null}
           <div className="mt-9 flex flex-wrap gap-3">
-            {cmsBanner.link_url ? <Link to={cmsBanner.link_url} className="tabarestan-button-primary">ثبت‌نام در مسابقات <span aria-hidden="true">←</span></Link> : null}
-            <Link to="/leagues" className="tabarestan-button-secondary">مشاهده لیگ‌ها</Link>
+            {cmsBanner.link_url && (content?.primary_label_fa || content?.primary_label_en) ? <Link to={cmsBanner.link_url} className="tabarestan-button-primary">{isEn ? content.primary_label_en || content.primary_label_fa : content.primary_label_fa || content.primary_label_en}<span aria-hidden="true">←</span></Link> : null}
+            {content?.secondary_label_fa || content?.secondary_label_en ? <Link to="/leagues" className="tabarestan-button-secondary">{isEn ? content.secondary_label_en || content.secondary_label_fa : content.secondary_label_fa || content.secondary_label_en}</Link> : null}
           </div>
-          <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">
-            <span><strong className="me-2 text-white">آمل</strong> شهر علم و طبیعت</span>
-            <span><strong className="me-2 text-white">مازندران</strong> میزبان نوآوری</span>
-            <span><strong className="me-2 text-rc-accent">۱۴۰۵</strong> فصل تازه رقابت</span>
-          </div>
+          {(isEn ? content?.stats_en : content?.stats_fa)?.length ? <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">{(isEn ? content?.stats_en : content?.stats_fa)?.map((stat) => <span key={`${stat.value}-${stat.label}`}><strong className="me-2 text-white">{stat.value}</strong>{stat.label}</span>)}</div> : null}
         </motion.div>
       </div>
       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-rc-bg to-transparent" />

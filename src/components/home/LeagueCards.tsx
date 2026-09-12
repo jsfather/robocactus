@@ -7,6 +7,7 @@ import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period
 import { leagueCoverUrl } from '@/lib/dates'
 import type { League } from '@/types/database'
 import { contentLocale, localizeLeague } from '@/features/leagues/localize'
+import { HomeSectionHeading } from './HomeSection'
 
 function LeagueIcon({ category }: { category: string | null }) {
   const key = (category ?? '').toLowerCase()
@@ -52,15 +53,7 @@ export function LeagueCards({ leagues }: { leagues: League[] }) {
 
   return (
     <section className="bg-gradient-to-b from-emerald-50/60 via-white to-sky-50/50 py-24"><div className="mx-auto max-w-7xl px-4 sm:px-8">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="mb-3 inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">{i18n.language === 'en' ? 'Your competition field' : 'میدان انتخاب شما'}</span><h2 className="text-3xl font-black text-slate-800 md:text-5xl">{t('home.leaguesTitle')}</h2>
-          <p className="mt-1 text-rc-muted">{t('home.leaguesSubtitle')}</p>
-        </div>
-        <Link to="/leagues" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-md">
-          {t('home.viewAll')}
-        </Link>
-      </div>
+      <HomeSectionHeading icon="leagues" title={t('home.leaguesTitle')} subtitle={t('home.leaguesSubtitle')} action={<Link to="/leagues" className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-rc-blue shadow-md">{t('home.viewAll')}</Link>} />
 
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {leagues.map((rawLeague, i) => {

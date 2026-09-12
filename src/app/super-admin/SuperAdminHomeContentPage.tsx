@@ -45,6 +45,8 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import type { HomeBanner } from '@/types/database'
+import type { HomepageContent, SiteSettings } from '@/types/database'
+import { fetchSiteSettings, updateSiteSettings } from '@/features/settings/api'
 
 type Tab =
   | 'banners'
@@ -54,6 +56,7 @@ type Tab =
   | 'events'
   | 'partners'
   | 'faqs'
+  | 'landing'
 
 export function SuperAdminHomeContentPage() {
   const { t } = useTranslation()
@@ -72,12 +75,13 @@ export function SuperAdminHomeContentPage() {
   const [events, setEvents] = useState<HomeEvent[]>([])
   const [partners, setPartners] = useState<HomePartner[]>([])
   const [faqs, setFaqs] = useState<HomeFaq[]>([])
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null)
 
   const reload = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [b, sp, st, w, ev, pa, f] = await Promise.all([
+      const [b, sp, st, w, ev, pa, f, settings] = await Promise.all([
         fetchAllBanners(),
         fetchAllSponsors(),
         fetchAllStatCards(),
@@ -85,6 +89,7 @@ export function SuperAdminHomeContentPage() {
         fetchAllEvents(),
         fetchAllPartners(),
         fetchAllFaqs(),
+        fetchSiteSettings(),
       ])
       setBanners(b)
       setSponsors(sp)
@@ -93,6 +98,7 @@ export function SuperAdminHomeContentPage() {
       setEvents(ev)
       setPartners(pa)
       setFaqs(f)
+      setSiteSettings(settings)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
@@ -112,6 +118,7 @@ export function SuperAdminHomeContentPage() {
     { id: 'events', label: t('home.eventsTab') },
     { id: 'partners', label: t('home.partnersTab') },
     { id: 'faqs', label: t('home.faqsTab') },
+    { id: 'landing', label: t('home.landingTab') },
   ]
 
   return (
@@ -146,6 +153,8 @@ export function SuperAdminHomeContentPage() {
           onReload={reload}
         />
       ) : null}
+
+      {tab === 'landing' ? <HomepageContentForm settings={siteSettings} busy={busy} setBusy={setBusy} onReload={reload} setError={setError} /> : null}
 
       {tab === 'sponsors' ? (
         <SimpleCrud
@@ -320,6 +329,97 @@ export function SuperAdminHomeContentPage() {
       ) : null} */}
     </PanelPage>
   )
+}
+
+function HomepageContentForm({
+  settings,
+  busy,
+  setBusy,
+  onReload,
+  setError,
+}: {
+  settings: SiteSettings | null
+  busy: boolean
+  setBusy: (value: boolean) => void
+  onReload: () => Promise<void>
+  setError: (value: string | null) => void
+}) {
+  const toast = useToast()
+  const [draft, setDraft] = useState<HomepageContent>(() => settings?.homepage_content ?? {})
+  useEffect(() => setDraft(settings?.homepage_content ?? {}), [settings])
+  const patch = <S extends keyof HomepageContent>(section: S, key: keyof NonNullable<HomepageContent[S]>, value: string | Array<{ value: string; label: string }> | string[]) => {
+    setDraft((current) => ({ ...current, [section]: { ...(current[section] ?? {}), [key]: value } }))
+  }
+  const section = <S extends keyof HomepageContent>(key: S): NonNullable<HomepageContent[S]> => (draft[key] ?? {}) as NonNullable<HomepageContent[S]>
+  const statsText = (items?: Array<{ value: string; label: string }>) => (items ?? []).map((item) => `${item.value} | ${item.label}`).join('\n')
+  const parseStats = (value: string) => value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => { const [statValue, ...label] = line.split('|'); return { value: statValue.trim(), label: label.join('|').trim() } }).filter((item) => item.value && item.label)
+  const badgesText = (items?: string[]) => (items ?? []).join('\n')
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!settings) return
+    setBusy(true)
+    setError(null)
+    try {
+      await updateSiteSettings({ homepage_content: draft })
+      await onReload()
+      toast.success('محتوای صفحه اصلی ذخیره شد.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'ذخیره محتوای صفحه اصلی ناموفق بود.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (!settings) return <PanelCard title="محتوای صفحه اصلی"><p className="text-sm text-rc-muted">تنظیمات سایت در دسترس نیست.</p></PanelCard>
+  return <form className="space-y-5" onSubmit={(event) => void save(event)}>
+    <PanelCard title="متن‌های هیرو" description="متن‌های ثابت هیرو و سه شاخص پایین آن از این بخش خوانده می‌شوند.">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input label="برچسب بالای هیرو (FA)" value={section('hero').eyebrow_fa ?? ''} onChange={(event) => patch('hero', 'eyebrow_fa', event.target.value)} />
+        <Input label="Hero eyebrow (EN)" dir="ltr" value={section('hero').eyebrow_en ?? ''} onChange={(event) => patch('hero', 'eyebrow_en', event.target.value)} />
+        <Input label="کد/نام رویداد (FA)" value={section('hero').kicker_fa ?? ''} onChange={(event) => patch('hero', 'kicker_fa', event.target.value)} />
+        <Input label="Event kicker (EN)" dir="ltr" value={section('hero').kicker_en ?? ''} onChange={(event) => patch('hero', 'kicker_en', event.target.value)} />
+        <Input label="متن دکمه ثبت‌نام (FA)" value={section('hero').primary_label_fa ?? ''} onChange={(event) => patch('hero', 'primary_label_fa', event.target.value)} />
+        <Input label="Primary CTA (EN)" dir="ltr" value={section('hero').primary_label_en ?? ''} onChange={(event) => patch('hero', 'primary_label_en', event.target.value)} />
+        <Input label="متن دکمه لیگ‌ها (FA)" value={section('hero').secondary_label_fa ?? ''} onChange={(event) => patch('hero', 'secondary_label_fa', event.target.value)} />
+        <Input label="Leagues CTA (EN)" dir="ltr" value={section('hero').secondary_label_en ?? ''} onChange={(event) => patch('hero', 'secondary_label_en', event.target.value)} />
+        <Textarea label="شاخص‌های هیرو (FA)" className="min-h-24" value={statsText(section('hero').stats_fa)} onChange={(event) => patch('hero', 'stats_fa', parseStats(event.target.value))} />
+        <Textarea label="Hero stats (EN)" dir="ltr" className="min-h-24" value={statsText(section('hero').stats_en)} onChange={(event) => patch('hero', 'stats_en', parseStats(event.target.value))} />
+      </div>
+    </PanelCard>
+    <PanelCard title="بخش معرفی رویداد" description="متن بخش «ریشه در تبرستان، نگاه به جهان» و کارت هویت رویداد قابل ویرایش است.">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input label="برچسب بخش (FA)" value={section('story').eyebrow_fa ?? ''} onChange={(event) => patch('story', 'eyebrow_fa', event.target.value)} />
+        <Input label="Section eyebrow (EN)" dir="ltr" value={section('story').eyebrow_en ?? ''} onChange={(event) => patch('story', 'eyebrow_en', event.target.value)} />
+        <Input label="عنوان بخش (FA)" value={section('story').title_fa ?? ''} onChange={(event) => patch('story', 'title_fa', event.target.value)} />
+        <Input label="Section title (EN)" dir="ltr" value={section('story').title_en ?? ''} onChange={(event) => patch('story', 'title_en', event.target.value)} />
+        <Textarea label="توضیحات بخش (FA)" className="min-h-28" value={section('story').body_fa ?? ''} onChange={(event) => patch('story', 'body_fa', event.target.value)} />
+        <Textarea label="Section body (EN)" dir="ltr" className="min-h-28" value={section('story').body_en ?? ''} onChange={(event) => patch('story', 'body_en', event.target.value)} />
+        <Textarea label="برچسب‌های بخش (FA)" className="min-h-24" value={badgesText(section('story').badges_fa)} onChange={(event) => patch('story', 'badges_fa', event.target.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))} />
+        <Textarea label="Story badges (EN)" dir="ltr" className="min-h-24" value={badgesText(section('story').badges_en)} onChange={(event) => patch('story', 'badges_en', event.target.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))} />
+        <Input label="عنوان کارت هویت (FA)" value={section('story').metric_label_fa ?? ''} onChange={(event) => patch('story', 'metric_label_fa', event.target.value)} />
+        <Input label="Metric label (EN)" dir="ltr" value={section('story').metric_label_en ?? ''} onChange={(event) => patch('story', 'metric_label_en', event.target.value)} />
+        <Input label="مقدار شاخص" dir="ltr" value={section('story').metric_value ?? ''} onChange={(event) => patch('story', 'metric_value', event.target.value)} />
+        <Input label="عنوان کارت (FA)" value={section('story').metric_title_fa ?? ''} onChange={(event) => patch('story', 'metric_title_fa', event.target.value)} />
+        <Input label="Metric title (EN)" dir="ltr" value={section('story').metric_title_en ?? ''} onChange={(event) => patch('story', 'metric_title_en', event.target.value)} />
+        <Textarea label="توضیح کارت (FA)" className="min-h-24" value={section('story').metric_body_fa ?? ''} onChange={(event) => patch('story', 'metric_body_fa', event.target.value)} />
+        <Textarea label="Metric body (EN)" dir="ltr" className="min-h-24" value={section('story').metric_body_en ?? ''} onChange={(event) => patch('story', 'metric_body_en', event.target.value)} />
+      </div>
+    </PanelCard>
+    <PanelCard title="فراخوان پایانی صفحه اصلی">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input label="عنوان پایانی (FA)" value={section('cta').title_fa ?? ''} onChange={(event) => patch('cta', 'title_fa', event.target.value)} />
+        <Input label="Final CTA title (EN)" dir="ltr" value={section('cta').title_en ?? ''} onChange={(event) => patch('cta', 'title_en', event.target.value)} />
+        <Textarea label="توضیح پایانی (FA)" value={section('cta').body_fa ?? ''} onChange={(event) => patch('cta', 'body_fa', event.target.value)} />
+        <Textarea label="Final CTA body (EN)" dir="ltr" value={section('cta').body_en ?? ''} onChange={(event) => patch('cta', 'body_en', event.target.value)} />
+        <Input label="دکمه اصلی (FA)" value={section('cta').primary_label_fa ?? ''} onChange={(event) => patch('cta', 'primary_label_fa', event.target.value)} />
+        <Input label="Primary button (EN)" dir="ltr" value={section('cta').primary_label_en ?? ''} onChange={(event) => patch('cta', 'primary_label_en', event.target.value)} />
+        <Input label="دکمه دوم (FA)" value={section('cta').secondary_label_fa ?? ''} onChange={(event) => patch('cta', 'secondary_label_fa', event.target.value)} />
+        <Input label="Secondary button (EN)" dir="ltr" value={section('cta').secondary_label_en ?? ''} onChange={(event) => patch('cta', 'secondary_label_en', event.target.value)} />
+      </div>
+    </PanelCard>
+    <Button type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره محتوای صفحه اصلی'}</Button>
+  </form>
 }
 
 function SimpleCrud({

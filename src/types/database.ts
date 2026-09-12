@@ -647,6 +647,49 @@ export type SiteSettings = {
   league_rules_notice_enabled?: boolean
   league_rules_notice_fa?: string | null
   league_rules_notice_en?: string | null
+  homepage_content?: HomepageContent | null
+}
+
+export type HomepageContent = {
+  hero?: {
+    eyebrow_fa?: string
+    eyebrow_en?: string
+    kicker_fa?: string
+    kicker_en?: string
+    primary_label_fa?: string
+    primary_label_en?: string
+    secondary_label_fa?: string
+    secondary_label_en?: string
+    stats_fa?: Array<{ value: string; label: string }>
+    stats_en?: Array<{ value: string; label: string }>
+  }
+  story?: {
+    eyebrow_fa?: string
+    eyebrow_en?: string
+    title_fa?: string
+    title_en?: string
+    body_fa?: string
+    body_en?: string
+    badges_fa?: string[]
+    badges_en?: string[]
+    metric_label_fa?: string
+    metric_label_en?: string
+    metric_value?: string
+    metric_title_fa?: string
+    metric_title_en?: string
+    metric_body_fa?: string
+    metric_body_en?: string
+  }
+  cta?: {
+    title_fa?: string
+    title_en?: string
+    body_fa?: string
+    body_en?: string
+    primary_label_fa?: string
+    primary_label_en?: string
+    secondary_label_fa?: string
+    secondary_label_en?: string
+  }
 }
 
 export type TicketMessage = {

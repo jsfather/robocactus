@@ -11,15 +11,15 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
   const groupTitle = isEn ? events[0]?.group_title_en : events[0]?.group_title_fa
 
   return (
-    <HomeSection index="04" title={groupTitle || t('home.calendarTitle')} subtitle={t('home.calendarSubtitle')}>
+    <HomeSection icon="calendar" title={groupTitle || t('home.calendarTitle')} subtitle={t('home.calendarSubtitle')}>
       <div className="overflow-hidden rounded-[2.25rem] border border-sky-100 bg-gradient-to-br from-white via-sky-50/55 to-emerald-50/50 shadow-[0_28px_80px_rgb(18_76_98/0.10)]">
         <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="relative overflow-hidden bg-gradient-to-br from-[#063d59] via-[#0873a0] to-[#087b61] p-7 text-white sm:p-9">
             <span className="absolute -end-16 -top-16 size-48 rounded-full border-[32px] border-white/10" aria-hidden="true" />
             <span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 shadow-lg backdrop-blur"><svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg></span>
-            <p className="relative mt-6 text-xs font-black tracking-[0.18em] text-emerald-200 uppercase">{isEn ? 'Event roadmap' : 'نقشه زمانی رویدادها'}</p>
-            <p className="relative mt-3 text-sm leading-7 text-sky-50/85">{isEn ? 'Important competition dates, workshops and milestones in one clear timeline.' : 'تاریخ مسابقات، کارگاه‌ها و نقاط مهم را در یک مسیر زمانی روشن دنبال کنید.'}</p>
-            <div className="relative mt-7 inline-flex items-center gap-2 rounded-full border border-white bg-white px-4 py-2 text-xs font-black text-slate-800 shadow-lg"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgb(16_185_129/0.12)]" />{events.length.toLocaleString(isEn ? 'en-US' : 'fa-IR')} {isEn ? 'scheduled events' : 'رویداد برنامه‌ریزی‌شده'}</div>
+            <p className="relative mt-6 text-xs font-black tracking-[0.18em] text-emerald-200 uppercase">{t('home.calendarAsideTitle')}</p>
+            <p className="relative mt-3 text-sm leading-7 text-sky-50/85">{t('home.calendarAsideBody')}</p>
+            <div className="relative mt-7 inline-flex items-center gap-2 rounded-full border border-white bg-white px-4 py-2 text-xs font-black text-slate-800 shadow-lg"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgb(16_185_129/0.12)]" />{events.length.toLocaleString(isEn ? 'en-US' : 'fa-IR')} {t('home.calendarScheduledEvents')}</div>
           </aside>
           <ol className="relative p-5 sm:p-8">
             {events.map((event, index) => {
@@ -45,5 +45,12 @@ export function EventCalendar({ events }: { events: HomeEvent[] }) {
 }
 
 function eventIcon(icon?: HomeEvent['icon_key']) {
-  return ({ registration: '✎', payment: '◈', team_review: '✓', trophy: '♛', calendar: '●' })[icon ?? 'calendar']
+  const paths = {
+    registration: <><path d="M6 3h9l3 3v15H6z" /><path d="M9 11h6M9 15h5M15 3v4h4" /></>,
+    payment: <><rect x="4" y="6" width="16" height="12" rx="2" /><path d="M4 10h16M8 14h3" /></>,
+    team_review: <><circle cx="12" cy="12" r="8" /><path d="m8.5 12 2.3 2.3 4.7-5" /></>,
+    trophy: <><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" /><path d="M12 12v5M8 20h8M9 17h6" /></>,
+    calendar: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></>,
+  }
+  return <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[icon ?? 'calendar']}</svg>
 }

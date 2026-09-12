@@ -11,7 +11,7 @@ export function HomeFaqSection({ faqs }: { faqs: HomeFaq[] }) {
   if (!faqs.length) return null
 
   return (
-    <HomeSection index="06" title={t('home.faqTitle')} subtitle={t('home.faqHomeSubtitle')}>
+    <HomeSection icon="faq" title={t('home.faqTitle')} subtitle={t('home.faqHomeSubtitle')}>
       <ul className="mx-auto max-w-4xl space-y-4">
         {faqs.map((faq) => {
           const open = openId === faq.id
