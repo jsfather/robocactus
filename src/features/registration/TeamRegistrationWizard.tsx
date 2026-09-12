@@ -42,6 +42,7 @@ import { fetchAttendance, type AttendanceSettings } from '@/features/attendance/
 import type { DocumentRow, League, Team } from '@/types/database'
 import { IRAN_PROVINCES, withoutDigits } from '@/lib/iran'
 import { localizedTextError, numericInput } from '@/lib/validation'
+import { CitySelect } from '@/components/ui/CitySelect'
 
 function MemberIdentityUpload({ label, required, file, storedUrl, busy, onChange }: { label: string; required: boolean; file?: File | null; storedUrl?: string | null; busy: boolean; onChange: (file: File | null) => void }) {
   const [preview, setPreview] = useState(storedUrl ?? '')
@@ -624,13 +625,7 @@ export function TeamRegistrationWizard({
             value={draft.province}
             onChange={(e) => patchDraft({ province: e.target.value, city: '' })}
           ><option value="">انتخاب استان</option>{IRAN_PROVINCES.map((province)=><option key={province} value={province}>{province}</option>)}</Select>
-          <Select
-            label={t('team.city')}
-            required
-            value={draft.city}
-            onChange={(e) => patchDraft({ city: e.target.value })}
-            disabled={!draft.province}
-          ><option value="">{draft.province ? 'انتخاب شهر' : 'ابتدا استان را انتخاب کنید'}</option>{draft.city && !availableCities.some((city) => city.name === draft.city) ? <option value={draft.city}>{draft.city}</option> : null}{availableCities.map((city)=><option key={`${city.province}-${city.name}`} value={city.name}>{city.name}</option>)}</Select>
+          <CitySelect label={t('team.city')} value={draft.city} options={availableCities.map((city) => ({ value: city.name, label: city.name }))} placeholder={draft.province ? 'انتخاب شهر' : 'ابتدا استان را انتخاب کنید'} required disabled={!draft.province} onChange={(city) => patchDraft({ city })} />
         </div>
       ) : null}
 
