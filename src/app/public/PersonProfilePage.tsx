@@ -13,6 +13,18 @@ function Lines({ value }: { value?: string | null }) {
   return <ul className="grid gap-2">{lines.map((line, index) => <li key={`${line}-${index}`} className="flex gap-3 text-sm leading-7 text-slate-700"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-500" /><span>{line}</span></li>)}</ul>
 }
 
+function RoleIcon({ role }: { role: string }) {
+  return <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">{role === 'judge' ? <><path d="M7 4h10l-1 5a4 4 0 0 1-8 0L7 4Z" /><path d="M12 13v6M8 20h8" /></> : <><path d="M12 3 4 7v5c0 4.5 3.4 7.5 8 9 4.6-1.5 8-4.5 8-9V7l-8-4Z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>}</svg>
+}
+
+function ClockIcon() {
+  return <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>
+}
+
+function SpecialtyIcon() {
+  return <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3 4 7l8 4 8-4-8-4Z" /><path d="m7 10 1 7c2.5 1.5 5.5 1.5 8 0l1-7" /></svg>
+}
+
 export function PersonProfilePage() {
   const { slug = '' } = useParams()
   const { i18n } = useTranslation()
@@ -23,6 +35,7 @@ export function PersonProfilePage() {
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     void fetchPersonProfile(slug)
       .then(setData)
       .catch((err: Error) => setError(err.message))
@@ -44,6 +57,7 @@ export function PersonProfilePage() {
 
   const profile = data!.person
   const profileLeagues = data!.leagues
+  const founderBadgeUrl = safeExternalUrl(person.founder_badge_url)
   const localizedValue = (fa?: string | null, en?: string | null) => locale === 'en' ? en || fa : fa || en
   const sections = [
     { key: 'education', title: labels.education, value: localizedValue(profile.education_fa, profile.education_en) },
@@ -57,10 +71,20 @@ export function PersonProfilePage() {
     <div className="mx-auto max-w-6xl px-4 sm:px-8">
       <Link to={`/leagues/${league.slug}`} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-rc-blue hover:underline">← {labels.back}</Link>
       <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#087eb8] via-[#087ca0] to-[#0b9c70] p-6 text-white shadow-[0_30px_90px_rgb(8_90_110/0.22)] sm:p-10">
-        <div className="absolute -end-20 -top-20 size-72 rounded-full border-[48px] border-white/10" />
+        <div className="absolute -end-20 -top-20 size-72 rounded-full border-[48px] border-white/10" aria-hidden="true" />
         <div className="relative flex flex-col gap-7 sm:flex-row sm:items-center">
-          <div className="size-36 shrink-0 overflow-hidden rounded-[2rem] border-4 border-white/25 bg-white/10 shadow-2xl sm:size-44">{person.photo_url ? <img src={person.photo_url} alt={person.full_name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-4xl font-black">ID</div>}</div>
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-slate-950/35 px-3 py-1.5 text-xs font-black text-white shadow-sm backdrop-blur"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">{person.role_kind === 'judge' ? <><path d="M7 4h10l-1 5a4 4 0 0 1-8 0L7 4Z" /><path d="M12 13v6M8 20h8" /></> : <><path d="M12 3 4 7v5c0 4.5 3.4 7.5 8 9 4.6-1.5 8-4.5 8-9V7l-8-4Z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>}</svg>{person.role_kind === 'judge' ? labels.judge : labels.committee}</span>{person.is_founder ? <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/60 bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-950 shadow-sm backdrop-blur">{safeExternalUrl(person.founder_badge_url) ? <img src={safeExternalUrl(person.founder_badge_url)!} alt="" className="size-5 rounded object-contain" /> : <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden="true"><path d="m12 3 2.2 5.1 5.5.5-4.2 3.6 1.3 5.3-4.8-2.8 1.3-5.3-4.2-3.6 5.5-.5L12 3Z" /></svg>}{labels.founder}</span> : null}</div><h1 className="mt-4 text-3xl font-black sm:text-5xl">{person.full_name}</h1>{person.specialty ? <p className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/25 bg-slate-950/30 px-3 py-2 text-base font-bold text-white shadow-sm backdrop-blur sm:text-lg"><svg viewBox="0 0 24 24" className="size-4 shrink-0 text-emerald-200" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3 4 7l8 4 8-4-8-4Z" /><path d="m7 10 1 7c2.5 1.5 5.5 1.5 8 0l1-7" /></svg>{person.specialty}</p> : null}{person.experience_years != null ? <p className="mt-3 flex items-center gap-2 text-sm font-bold text-white/90"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>{person.experience_years.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')} {labels.experience}</p> : null}</div>
+          <div className="size-36 shrink-0 overflow-hidden rounded-[2rem] border-4 border-white/30 bg-slate-950/20 shadow-2xl sm:size-44">{person.photo_url ? <img src={person.photo_url} alt={person.full_name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-4xl font-black">ID</div>}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/20 bg-[#062f46] px-3.5 py-2 text-xs font-black text-white shadow-lg shadow-slate-950/20"> <RoleIcon role={person.role_kind} />{person.role_kind === 'judge' ? labels.judge : labels.committee}</span>
+              {person.is_founder ? <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-100/70 bg-amber-300 px-3.5 py-2 text-xs font-black text-amber-950 shadow-lg shadow-amber-950/15">{founderBadgeUrl ? <span className="grid h-7 w-24 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-950/15 p-1"><img src={founderBadgeUrl} alt="" className="size-full object-contain" /></span> : <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden="true"><path d="m12 3 2.2 5.1 5.5.5-4.2 3.6 1.3 5.3-4.8-2.8-4.8 2.8 1.3-5.3-4.2-3.6 5.5-.5L12 3Z" /></svg>}{labels.founder}</span> : null}
+            </div>
+            <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">{person.full_name}</h1>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {person.specialty ? <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-cyan-100/80 bg-cyan-100 px-3.5 py-2 text-sm font-black text-cyan-950 shadow-lg shadow-slate-950/10"><SpecialtyIcon />{person.specialty}</span> : null}
+              {person.experience_years != null ? <span className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-100/80 bg-emerald-300 px-3.5 py-2 text-sm font-black text-emerald-950 shadow-lg shadow-emerald-950/15"><ClockIcon />{person.experience_years.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')} {labels.experience}</span> : null}
+            </div>
+          </div>
         </div>
       </section>
 
