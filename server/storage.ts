@@ -6,8 +6,13 @@ import multer from 'multer'
 import { sql } from 'drizzle-orm'
 import { config } from './config.js'
 import { db, type AuthUser, userFromRequest, withRequestRole } from './db.js'
+import { rateLimited } from './rate-limit.js'
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 90 * 1024 * 1024 } })
+// All application buckets are capped at 10MB or less.  Keeping this limit at
+// the multipart parser prevents an attacker from allocating 90MB per request
+// before the bucket-specific validation runs.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, parts: 12 } })
+const uploadSingle = upload.single('file')
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const USER_STORAGE_QUOTA = 250 * 1024 * 1024
 
@@ -77,9 +82,9 @@ function sendStorageError(response: Response, error: unknown): void {
     current = typeof current === 'object' && current !== null && 'cause' in current ? (current as { cause?: unknown }).cause : null
   }
   const combined = messages.join(' ')
-  const code = combined.match(/\b(authentication_required|forbidden|invalid_path|bucket_not_found|file_too_large|invalid_file_type|invalid_file_content|storage_quota_exceeded|object_not_found)\b/)?.[1]
+  const code = combined.match(/\b(authentication_required|forbidden|invalid_path|bucket_not_found|file_too_large|invalid_file_type|invalid_file_content|storage_quota_exceeded|object_not_found|too_many_attempts)\b/)?.[1]
   if (!code) console.error('[storage] unexpected failure', error)
-  response.status(code === 'authentication_required' ? 401 : code === 'forbidden' ? 403 : code ? 400 : 500).json({ error: code ?? (config.isProduction ? 'internal_server_error' : combined) })
+  response.status(code === 'authentication_required' ? 401 : code === 'forbidden' ? 403 : code === 'too_many_attempts' ? 429 : code ? 400 : 500).json({ error: code ?? (config.isProduction ? 'internal_server_error' : combined) })
 }
 
 function teamIdFromMemberPhotoPath(objectPath: string): string {
@@ -186,10 +191,27 @@ async function removeStorageObject(
 }
 
 export function registerStorageRoutes(router: Router): void {
-  router.post('/storage/:bucket', upload.single('file'), async (request, response) => {
+  router.post('/storage/:bucket', (request, response, next) => {
+    uploadSingle(request, response, (error) => {
+      if (!error) return next()
+      if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+        response.status(413).json({ error: 'file_too_large' })
+        return
+      }
+      if (error instanceof multer.MulterError) {
+        response.status(400).json({ error: 'invalid_upload' })
+        return
+      }
+      next(error)
+    })
+  }, async (request, response) => {
     const user = await userFromRequest(request)
     if (!user || !request.file) {
       response.status(401).json({ error: 'authentication_required' })
+      return
+    }
+    if (await rateLimited(`storage-upload:${user.id}:${request.ip ?? 'unknown'}`, 120, 15 * 60 * 1000)) {
+      response.status(429).json({ error: 'too_many_attempts' })
       return
     }
     const bucket = String(request.params.bucket)

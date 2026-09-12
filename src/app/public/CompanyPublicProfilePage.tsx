@@ -9,6 +9,7 @@ import {
 } from '@/features/rankings/api'
 import { formatSeasonYear } from '@/lib/dates'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
+import { safeExternalUrl } from '@/lib/safe-url'
 
 function medalLabel(rank: number | null, t: (k: string) => string) {
   if (rank === 1) return t('companies.gold')
@@ -108,8 +109,8 @@ export function CompanyPublicProfilePage() {
                       : formatSeasonYear(company.founded_year, i18n.language)}
                   </span>
                 ) : null}
-                {company.website ? (
-                  <a href={company.website} className="text-rc-blue hover:underline" dir="ltr" target="_blank" rel="noreferrer">
+                {safeExternalUrl(company.website) ? (
+                  <a href={safeExternalUrl(company.website)!} className="text-rc-blue hover:underline" dir="ltr" target="_blank" rel="noreferrer">
                     {company.website}
                   </a>
                 ) : null}

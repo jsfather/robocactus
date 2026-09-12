@@ -22,18 +22,11 @@ async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<Payabl
 const gatewayBase = (sandbox: boolean) => sandbox ? 'https://sandbox.zarinpal.com/pg/v4/payment' : 'https://api.zarinpal.com/pg/v4/payment'
 const startPayBase = (sandbox: boolean) => sandbox ? 'https://sandbox.zarinpal.com/pg/StartPay/' : 'https://www.zarinpal.com/pg/StartPay/'
 
-function requestPublicOrigin(request: Request): string {
-  const forwardedProtocol = request.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
-  const forwardedHost = request.get('x-forwarded-host')?.split(',', 1)[0]?.trim()
-  const origin = request.get('origin')
-  for (const candidate of [origin, `${forwardedProtocol ?? request.protocol}://${forwardedHost ?? request.get('host')}`]) {
-    if (!candidate) continue
-    try {
-      const url = new URL(candidate)
-      if (url.protocol === 'http:' || url.protocol === 'https:') return url.origin
-    } catch { /* fall through to configured origin */ }
-  }
-  return config.appUrl
+function requestPublicOrigin(_request: Request): string {
+  // Never derive a payment callback from browser-controlled headers.  A
+  // reverse proxy may expose several hostnames, but the gateway must always
+  // return to the configured canonical public origin.
+  return config.paymentCallbackOrigin
 }
 
 function providerError(body: ZarinPalBody, fallback: string) {

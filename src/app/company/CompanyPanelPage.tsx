@@ -19,6 +19,7 @@ import { backend } from '@/lib/backend'
 import type { RankingsRow } from '@/features/rankings/api'
 import { formatSeasonYear } from '@/lib/dates'
 import { fetchPublishedAnnouncements } from '@/features/content/api'
+import { safeExternalUrl } from '@/lib/safe-url'
 
 const entityLabels: Record<string, string> = { individual: 'شخص حقیقی', company: 'شرکت', institute: 'مؤسسه', school: 'مدرسه', university: 'دانشگاه', academy: 'آموزشگاه', club: 'باشگاه', other: 'سایر' }
 
@@ -244,8 +245,8 @@ export function CompanyPanelPage({
                   <p>
                     <span className="font-bold text-slate-700">نوع مجموعه: {entityLabels[activeCompany.entity_type ?? 'company']}</span>
                   </p>
-                  {activeCompany.website ? (
-                    <a href={activeCompany.website} className="text-rc-blue hover:underline" dir="ltr">
+                  {safeExternalUrl(activeCompany.website) ? (
+                    <a href={safeExternalUrl(activeCompany.website)!} className="text-rc-blue hover:underline" dir="ltr">
                       {activeCompany.website}
                     </a>
                   ) : null}

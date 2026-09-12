@@ -2,8 +2,11 @@ import type { Response, Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { db, userFromRequest, withRequestRole, type AuthUser } from './db.js'
 
-type Client = { response: Response; tables: Set<string>; user: AuthUser | null; guestChatToken: string | null }
+type Client = { response: Response; tables: Set<string>; user: AuthUser | null; guestChatToken: string | null; ip: string; disconnected: boolean }
 const clients = new Set<Client>()
+const clientsByIp = new Map<string, number>()
+const MAX_CLIENTS = 500
+const MAX_CLIENTS_PER_IP = 6
 let lastEventId = 0
 let poller: NodeJS.Timeout | null = null
 
@@ -89,14 +92,25 @@ async function poll(): Promise<void> {
       if (!client.tables.has(String(event.table_name))) continue
       const record = await visibleRecord(client, event)
       if (record === null) continue
-      client.response.write(`data: ${JSON.stringify({
+      if (client.disconnected || client.response.destroyed) continue
+      const writable = client.response.write(`data: ${JSON.stringify({
         table: event.table_name,
         event: event.event,
         record,
         old_record: event.event === 'DELETE' ? {} : event.old_record,
       })}\n\n`)
+      if (!writable) disconnect(client)
     }
   }
+}
+
+function disconnect(client: Client): void {
+  if (client.disconnected) return
+  client.disconnected = true
+  clients.delete(client)
+  const count = (clientsByIp.get(client.ip) ?? 1) - 1
+  if (count > 0) clientsByIp.set(client.ip, count)
+  else clientsByIp.delete(client.ip)
 }
 
 export async function initializeRealtime(): Promise<void> {
@@ -115,6 +129,11 @@ export function registerRealtimeRoutes(router: Router): void {
       response.status(400).json({ error: 'no_valid_tables' })
       return
     }
+    const ip = request.ip ?? request.socket.remoteAddress ?? 'unknown'
+    if (clients.size >= MAX_CLIENTS || (clientsByIp.get(ip) ?? 0) >= MAX_CLIENTS_PER_IP) {
+      response.status(429).json({ error: 'realtime_connection_limit' })
+      return
+    }
     response.set({
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -125,13 +144,17 @@ export function registerRealtimeRoutes(router: Router): void {
     const guestChatToken = typeof request.query.chat_token === 'string' && /^[0-9a-f-]{36}$/i.test(request.query.chat_token)
       ? request.query.chat_token
       : null
-    const client: Client = { response, tables: new Set(requested), user: await userFromRequest(request), guestChatToken }
+    const client: Client = { response, tables: new Set(requested), user: await userFromRequest(request), guestChatToken, ip, disconnected: false }
     clients.add(client)
+    clientsByIp.set(ip, (clientsByIp.get(ip) ?? 0) + 1)
     response.write(': connected\n\n')
-    const keepalive = setInterval(() => response.write(': keepalive\n\n'), 20_000)
+    const keepalive = setInterval(() => {
+      if (!response.write(': keepalive\n\n')) disconnect(client)
+    }, 20_000)
     request.on('close', () => {
       clearInterval(keepalive)
-      clients.delete(client)
+      disconnect(client)
     })
+    response.on('error', () => { clearInterval(keepalive); disconnect(client) })
   })
 }

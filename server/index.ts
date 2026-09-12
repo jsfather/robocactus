@@ -36,7 +36,8 @@ app.use((request, response, next) => {
   const trustedProviderWebhook = request.path.startsWith('/api/kavenegar/webhook/')
   if (!trustedProviderWebhook && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
     const originCheck = checkRequestOrigin(request, [config.appUrl, ...config.allowedOrigins])
-    if (config.isProduction && !originCheck.allowed) {
+    const crossSiteWithoutOrigin = !originCheck.receivedOrigin && request.get('sec-fetch-site') === 'cross-site' && Boolean(request.cookies?.rc_session)
+    if (config.isProduction && (!originCheck.allowed || crossSiteWithoutOrigin)) {
       console.warn('[security] rejected request origin', {
         method: request.method,
         path: request.path,

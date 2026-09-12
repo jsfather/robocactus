@@ -211,6 +211,20 @@ function mutationParameter(value: unknown): unknown {
   return value
 }
 
+const EXTERNAL_URL_COLUMNS = new Set([
+  'website', 'website_url', 'linkedin_url', 'link_url', 'logo_url', 'cover_image_url',
+  'image_url', 'file_url', 'download_url', 'developer_url', 'trust_seal_href', 'rules_pdf_url',
+])
+
+function assertSafeExternalUrl(value: unknown): void {
+  if (value == null || value === '') return
+  const raw = String(value).trim()
+  if (raw.startsWith('/') && !raw.startsWith('//')) return
+  let parsed: URL
+  try { parsed = new URL(raw) } catch { throw new Error('external_url_invalid') }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('external_url_invalid')
+}
+
 async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   if (!TABLES.has(spec.table)) throw new Error('table_not_allowed')
   if (READ_ONLY_TABLES.has(spec.table) && spec.action !== 'select') throw new Error('table_write_not_allowed')
@@ -253,6 +267,7 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
   }
 
   const inputRows = (Array.isArray(spec.values) ? spec.values : [spec.values ?? {}]).map((row) => {
+    for (const [key, value] of Object.entries(row)) if (EXTERNAL_URL_COLUMNS.has(key)) assertSafeExternalUrl(value)
     if (spec.table !== 'auth_settings') return row
     return Object.fromEntries(Object.entries(row)
       .filter(([key, value]) => !SECRET_COLUMNS.has(key) || (value !== CONFIGURED_SECRET && !(key === 'kavenegar_webhook_secret' && value == null)))
@@ -300,6 +315,7 @@ async function executeQuery(transaction: Transaction, spec: QuerySpec) {
 
 async function executeRpc(transaction: Transaction, name: string, args: Record<string, unknown>) {
   if (!RPCS.has(name)) throw new Error('rpc_not_allowed')
+  for (const [key, value] of Object.entries(args)) if (['p_website', 'p_website_url', 'p_link_url', 'p_logo_url', 'p_cover_image_url'].includes(key)) assertSafeExternalUrl(value)
   if (name === 'issue_mock_payment_authority' || name === 'apply_payment_result') {
     const provider = (await getAuthSettings()).payment_provider ?? 'mock'
     if (config.isProduction || provider !== 'mock') throw new Error('mock_payment_disabled')
@@ -391,7 +407,7 @@ function sendError(response: Response, error: unknown): void {
     return
   }
 
-  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|rpc_not_found|duplicate_[a-z_]+|phone_in_use|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|incomplete_team_person(?::[0-9a-f-]+)?|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
+  const known = message.match(/\b(authentication_required|not_authenticated|forbidden|rpc_not_found|duplicate_[a-z_]+|phone_in_use|external_url_invalid|invalid_[a-z_]+|member_age_(?:below_min|above_max):\d+|[a-z_]+_required|[a-z_]+_disabled|[a-z_]+_not_found|[a-z_]+_not_allowed|[a-z_]+_passed|registration_archived|podium_[a-z_]+|technical_submission_locked|technical_submission_not_pending|team_members_not_approved|incomplete_team_person(?::[0-9a-f-]+)?|team_dossier_incomplete(?::[a-z_,]+)?|too_many_attempts|cooldown|expired|already_used|single_row_expected(?::\d+)?)\b/i)?.[1]
   if (config.isProduction && !known && !denied) {
     console.error('[query] unexpected failure', error)
     response.status(500).json({ error: { message: 'internal_server_error' } })

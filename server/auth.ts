@@ -37,6 +37,7 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function verifyPassword(password: string, stored: string | null): Promise<boolean> {
+  if (password.length > 256) return false
   if (!stored) return false
   const [algorithm, salt, expectedHex] = stored.split(':')
   if (algorithm !== 'scrypt' || !salt || !expectedHex) return false
@@ -46,7 +47,7 @@ async function verifyPassword(password: string, stored: string | null): Promise<
 }
 
 function strongPassword(password: string): boolean {
-  return password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)
+  return password.length >= 8 && password.length <= 256 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)
 }
 
 function validUuid(value: string): boolean {
@@ -245,10 +246,13 @@ async function emailDeliveryIsMock(): Promise<boolean> {
 
 export function registerAuthRoutes(router: Router): void {
   router.get('/auth/options', async (_request, response) => {
+    response.setHeader('Cache-Control', 'private, no-store')
     response.json({ options: await getAuthSettings(false) })
   })
 
   router.get('/auth/session', async (request, response) => {
+    response.setHeader('Cache-Control', 'private, no-store')
+    response.setHeader('Vary', 'Cookie')
     const user = await userFromRequest(request)
     response.json({ session: user ? { access_token: 'http-only-cookie', user } : null, user })
   })
@@ -519,6 +523,18 @@ export function registerAuthRoutes(router: Router): void {
                  and cm.user_id = ${targetId}::uuid
                  and cm.is_owner = true
              )
+        `)
+        // A company owner owns the complete company dossier, including teams
+        // whose captain was later changed.  Remove those teams as well before
+        // deleting the company, otherwise the FK correctly blocks deletion.
+        await transaction.execute(sql`
+          delete from public.teams t
+          where exists (
+            select 1 from public.company_members cm
+            where cm.company_id = t.company_id
+              and cm.user_id = ${targetId}::uuid
+              and cm.is_owner = true
+          )
         `)
         await transaction.execute(sql`
           delete from public.companies c

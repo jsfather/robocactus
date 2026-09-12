@@ -21,12 +21,19 @@ for (const filename of ['.env', '.env.local']) {
 }
 
 const configuredSessionDays = Number(process.env.SESSION_DAYS ?? 30)
+const rawPaymentCallbackOrigin = (process.env.PAYMENT_CALLBACK_ORIGIN ?? 'https://tabaresancup.com').replace(/\/$/, '')
+let configuredPaymentCallbackOrigin = 'https://tabaresancup.com'
+try {
+  const parsed = new URL(rawPaymentCallbackOrigin)
+  if (parsed.protocol === 'http:' || parsed.protocol === 'https:') configuredPaymentCallbackOrigin = parsed.origin
+} catch { /* keep the canonical production origin */ }
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   databaseSsl: process.env.DATABASE_SSL === 'true',
   appUrl: (process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`).replace(/\/$/, ''),
+  paymentCallbackOrigin: configuredPaymentCallbackOrigin,
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((origin) => origin.trim())

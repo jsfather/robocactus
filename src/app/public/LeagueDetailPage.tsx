@@ -13,6 +13,7 @@ import { formatAppDateTime, formatSeasonYear, leagueCoverUrl } from '@/lib/dates
 import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
 import type { LeaguePerson, LeagueSponsor } from '@/types/database'
 import { sanitizeHtml } from '@/lib/sanitize'
+import { safeExternalUrl } from '@/lib/safe-url'
 
 function safeMapEmbedUrl(value?: string | null): string | null {
   if (!value) return null
@@ -173,8 +174,8 @@ function PersonCards({ people, kind, locale }: { people: LeaguePerson[]; kind: '
           <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
             <Link to={`/people/${person.slug}`} className="text-xs font-black text-rc-blue">{t('leaguePage.viewProfile')} ←</Link>
             <div className="relative z-20 flex gap-2">
-              {person.website_url ? <a href={person.website_url} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-sky-100 hover:text-sky-700" aria-label={t('leaguePage.website')}><span aria-hidden>↗</span></a> : null}
-              {person.linkedin_url ? <a href={person.linkedin_url} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-sky-50 text-xs font-black text-sky-700 transition hover:bg-sky-600 hover:text-white" aria-label="LinkedIn">in</a> : null}
+              {safeExternalUrl(person.website_url) ? <a href={safeExternalUrl(person.website_url)!} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-sky-100 hover:text-sky-700" aria-label={t('leaguePage.website')}><span aria-hidden>↗</span></a> : null}
+              {safeExternalUrl(person.linkedin_url) ? <a href={safeExternalUrl(person.linkedin_url)!} target="_blank" rel="noreferrer" className="grid size-8 place-items-center rounded-full bg-sky-50 text-xs font-black text-sky-700 transition hover:bg-sky-600 hover:text-white" aria-label="LinkedIn">in</a> : null}
             </div>
           </div>
         </div>
@@ -379,7 +380,7 @@ export function LeagueDetailPage() {
               </Link>
               {league.regulation_pdf_url ? (
                 <a
-                  href={league.regulation_pdf_url}
+                  href={safeExternalUrl(league.regulation_pdf_url) ?? '#'}
                   target="_blank"
                   rel="noreferrer"
                   className="group inline-flex items-center gap-2 rounded-2xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-sky-900 shadow-[0_12px_30px_rgb(0_0_0/0.18)] transition hover:-translate-y-0.5 hover:bg-sky-50"
@@ -434,7 +435,7 @@ export function LeagueDetailPage() {
               {league.rules_summary ? rich(league.rules_summary) : null}
               {league.rules_pdf_url ? (
                 <a
-                  href={league.rules_pdf_url}
+                  href={safeExternalUrl(league.rules_pdf_url) ?? '#'}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-8 inline-flex items-center gap-2 rounded-xl bg-rc-blue px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700"
@@ -562,7 +563,7 @@ export function LeagueDetailPage() {
               {files.map((f) => (
                 <li key={f.id}>
                   <a
-                    href={f.file_url}
+                    href={safeExternalUrl(f.file_url) ?? '#'}
                     target="_blank"
                     rel="noreferrer"
                     className="group flex items-center justify-between gap-3 border border-rc-line bg-rc-surface px-4 py-3 transition hover:border-rc-blue/50 hover:bg-rc-hover"
@@ -712,8 +713,8 @@ export function LeagueDetailPage() {
                 const inner = <div className="flex h-36 flex-col rounded-2xl border border-sky-100 bg-white p-3 text-center shadow-[0_10px_28px_rgb(16_84_105/0.06)] transition hover:-translate-y-1 hover:border-sky-300"><div className="grid aspect-[3/2] min-h-0 flex-1 place-items-center overflow-hidden rounded-xl bg-slate-50 p-2"><LeagueSponsorLogo sponsor={s} /></div><p className="mt-2 truncate text-xs font-black text-slate-700">{s.name}</p></div>
                 return (
                   <li key={s.id}>
-                    {s.website_url ? (
-                      <a href={s.website_url} target="_blank" rel="noreferrer" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+                    {safeExternalUrl(s.website_url) ? (
+                      <a href={safeExternalUrl(s.website_url)!} target="_blank" rel="noreferrer" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
                         {inner}
                       </a>
                     ) : (
@@ -853,7 +854,7 @@ export function LeagueDetailPage() {
                   <p className="text-xs font-bold text-white/60">پیام‌رسان</p>
                   <a
                     className="mt-2 inline-block font-bold text-white hover:underline"
-                    href={league.secretary_telegram}
+                    href={safeExternalUrl(league.secretary_telegram) ?? '#'}
                     target="_blank"
                     rel="noreferrer"
                   >

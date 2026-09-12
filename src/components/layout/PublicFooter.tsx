@@ -4,6 +4,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { sortedNavItems } from '@/features/settings/api'
 import { sanitizeTrustSealHtml } from '@/lib/sanitize'
 import type { ReactNode } from 'react'
+import { safeExternalUrl } from '@/lib/safe-url'
 
 const fallbackLinks = [
   ['/leagues', 'nav.leagues'], ['/rankings', 'nav.rankings'], ['/companies', 'nav.companies'],
@@ -28,6 +29,8 @@ export function PublicFooter() {
   const developerCredit = isEn ? settings?.developer_credit_en || 'Designed and developed by' : settings?.developer_credit_fa || 'طراحی و توسعه'
   const developerName = settings?.developer_name?.trim() || (isEn ? 'Farino' : 'فارینو')
   const developerUrl = settings?.developer_url?.trim() || 'https://farino.ir'
+  const safeDeveloperUrl = safeExternalUrl(developerUrl)
+  const safeTrustSealHref = safeExternalUrl(settings?.trust_seal_href)
   const phone = settings?.support_phone?.trim()
   const email = settings?.contact_email?.trim()
   const socials = [['Instagram', settings?.instagram_url], ['Telegram', settings?.telegram_url], ['LinkedIn', settings?.linkedin_url], ['WhatsApp', settings?.whatsapp_url]].filter((item): item is [string, string] => Boolean(item[1]?.trim() && /^https:\/\//i.test(item[1])))
@@ -47,7 +50,7 @@ export function PublicFooter() {
 
               <section className="border-t border-dashed border-slate-200 pt-8 md:border-s md:border-t-0 md:px-7 md:pt-0"><FooterHeading>{t('footer.contact')}</FooterHeading><p className="mt-2 text-xs text-slate-500">{isEn ? 'We are available through these channels' : 'از راه‌های زیر با ما در ارتباط باشید'}</p><div className="mt-5 space-y-4 text-sm text-slate-700">{address ? <div><p className="text-xs font-bold text-slate-400">{isEn ? 'Address' : 'آدرس'}</p><p className="mt-1 leading-6 font-semibold">{address}</p></div> : null}{email ? <div><p className="text-xs font-bold text-slate-400">{isEn ? 'Email' : 'ایمیل'}</p><a href={`mailto:${email}`} dir="ltr" className="mt-1 block font-black text-slate-800 hover:text-sky-600 [overflow-wrap:anywhere]">{email}</a></div> : null}{phone ? <div><p className="text-xs font-bold text-slate-400">{isEn ? 'Phone' : 'شماره تماس'}</p><a href={`tel:${phone.replace(/[^\d+]/g, '')}`} dir="ltr" className="mt-1 block font-black text-slate-800 hover:text-sky-600">{phone}</a></div> : null}{contactBlurb ? <p className="border-t border-slate-100 pt-3 text-xs leading-6 text-slate-500">{contactBlurb}</p> : null}</div>{socials.length ? <div className="mt-5 flex flex-wrap gap-3">{socials.map(([name, href]) => <a key={name} href={href} target="_blank" rel="noreferrer noopener" className="text-xs font-black text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-sky-600">{name}</a>)}</div> : null}</section>
 
-              <section className="border-t border-dashed border-slate-200 pt-8 md:border-s md:border-t-0 md:ps-7 md:pt-0"><FooterHeading>{isEn ? 'Secretariat' : 'دبیرخانه'}</FooterHeading><p className="mt-2 text-xs text-slate-500">{isEn ? 'Registration and competition support' : 'پاسخ‌گویی ثبت‌نام و امور مسابقات'}</p><p className="mt-5 text-sm leading-7 text-slate-600">{about}</p><Link to="/contact" className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-sky-500 px-5 text-sm font-black text-white transition hover:bg-sky-600">{t('nav.contact')}<span className="ms-2" aria-hidden="true">←</span></Link>{hasTrust ? settings?.trust_seal_html?.trim() ? <div className="mt-5 grid min-h-24 place-items-center overflow-hidden rounded-xl bg-slate-50 p-2 [&_img]:max-h-20 [&_img]:max-w-full [&_img]:object-contain" dangerouslySetInnerHTML={{ __html: sanitizeTrustSealHtml(settings.trust_seal_html) }} /> : <a href={settings?.trust_seal_href || '#'} target="_blank" rel="noreferrer noopener" className="mt-5 grid min-h-24 place-items-center rounded-xl bg-slate-50 p-2"><img src={settings?.trust_seal_url || ''} alt={t('footer.trust')} className="max-h-20 max-w-full object-contain" /></a> : null}</section>
+              <section className="border-t border-dashed border-slate-200 pt-8 md:border-s md:border-t-0 md:ps-7 md:pt-0"><FooterHeading>{isEn ? 'Secretariat' : 'دبیرخانه'}</FooterHeading><p className="mt-2 text-xs text-slate-500">{isEn ? 'Registration and competition support' : 'پاسخ‌گویی ثبت‌نام و امور مسابقات'}</p><p className="mt-5 text-sm leading-7 text-slate-600">{about}</p><Link to="/contact" className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-sky-500 px-5 text-sm font-black text-white transition hover:bg-sky-600">{t('nav.contact')}<span className="ms-2" aria-hidden="true">←</span></Link>{hasTrust ? settings?.trust_seal_html?.trim() ? <div className="mt-5 grid min-h-24 place-items-center overflow-hidden rounded-xl bg-slate-50 p-2 [&_img]:max-h-20 [&_img]:max-w-full [&_img]:object-contain" dangerouslySetInnerHTML={{ __html: sanitizeTrustSealHtml(settings.trust_seal_html) }} /> : safeTrustSealHref ? <a href={safeTrustSealHref} target="_blank" rel="noreferrer noopener" className="mt-5 grid min-h-24 place-items-center rounded-xl bg-slate-50 p-2"><img src={settings?.trust_seal_url || ''} alt={t('footer.trust')} className="max-h-20 max-w-full object-contain" /></a> : null : null}</section>
             </div>
           </div>
 
@@ -56,6 +59,6 @@ export function PublicFooter() {
       </div>
     </div>
 
-    <div className="mt-6 border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 text-center text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:pb-5 sm:text-start"><p>{copyright}</p><p>{developerCredit}: <a href={developerUrl} target="_blank" rel="noreferrer noopener" className="font-black text-sky-700 hover:underline">{developerName}</a></p></div></div>
+    <div className="mt-6 border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 text-center text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:pb-5 sm:text-start"><p>{copyright}</p><p>{developerCredit}: {safeDeveloperUrl ? <a href={safeDeveloperUrl} target="_blank" rel="noreferrer noopener" className="font-black text-sky-700 hover:underline">{developerName}</a> : <span className="font-black text-sky-700">{developerName}</span>}</p></div></div>
   </footer>
 }
