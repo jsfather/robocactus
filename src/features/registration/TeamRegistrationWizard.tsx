@@ -22,6 +22,7 @@ import {
   emptyMemberDraft,
   emptyTeamDraft,
   fetchTeamDocuments,
+  fetchIranCities,
   fetchTeamMembers,
   loadTeamDraft,
   loadRegistrationDraft,
@@ -148,13 +149,13 @@ export function TeamRegistrationWizard({
     void Promise.all([
       fetchTeamRegistrationDocTypes(),
       fetchMemberRegistrationDocTypes(),
-      backend.from('iran_cities').select('province,name').order('sort_order').order('name'),
+      fetchIranCities(),
     ])
       .then(([teamRows, memberRows, cityResult]) => {
         setTeamDocTypes(teamRows)
         setMemberDocTypes(memberRows)
         setTeamDocType((current) => current || teamRows[0]?.code || '')
-        if (!cityResult.error) setIranCities((cityResult.data ?? []) as Array<{ province: string; name: string }>)
+        setIranCities(cityResult)
       })
       .catch(() => { setTeamDocTypes([]); setMemberDocTypes([]) })
     void backend.from('companies').select('name').eq('id', companyId).maybeSingle().then(({ data }) => setCompanyName(data?.name ?? 'مجموعه شما'))

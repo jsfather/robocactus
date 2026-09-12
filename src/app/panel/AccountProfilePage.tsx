@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { backend } from '@/lib/backend'
 import { fetchRegistrationDocTypes, type RegistrationDocType } from '@/features/notifications/api'
+import { fetchIranCities } from '@/features/registration/api'
 import { uploadProfileDocument } from '@/features/content/api'
 import { normalizeIranMobile, participantErrors, profileCompletionPercent } from '@/features/participants/identity'
 import type { AccountType, ParticipantFieldRule, Profile } from '@/types/database'
@@ -51,12 +52,12 @@ export function AccountProfilePage() {
       fetchRegistrationDocTypes(profile?.account_type),
       backend.from('profile_documents').select('doc_type_id,file_url').eq('user_id', user.id),
       backend.from('participant_field_rules').select('*').order('field_key'),
-      backend.from('iran_cities').select('province,name').order('sort_order').order('name'),
+      fetchIranCities(),
     ]).then(([types, response, ruleResponse, cityResponse]) => {
       setDocs(types)
       setUploaded(Object.fromEntries((response.data ?? []).map((row: { doc_type_id: string; file_url: string }) => [row.doc_type_id, row.file_url])))
       if (ruleResponse.data?.length) setRules(ruleResponse.data as ParticipantFieldRule[])
-      if (!cityResponse.error) setIranCities((cityResponse.data ?? []) as Array<{ province: string; name: string }>)
+      setIranCities(cityResponse as Array<{ province: string; name: string }>)
     })
   }, [profile?.account_type, user])
 

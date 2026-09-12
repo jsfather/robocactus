@@ -52,6 +52,30 @@ export type TeamWizardDraft = {
 
 const DRAFT_KEY = (companyId: string) => `robocactus-team-draft:${companyId}`
 
+export type IranCity = {
+  province: string
+  name: string
+}
+
+/** Fetch the complete catalogue without hitting the generic query endpoint's 500-row safety cap. */
+export async function fetchIranCities(): Promise<IranCity[]> {
+  const pageSize = 500
+  const rows: IranCity[] = []
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await backend
+      .from('iran_cities')
+      .select('province,name')
+      .order('province')
+      .order('sort_order')
+      .order('name')
+      .range(offset, offset + pageSize - 1)
+    if (error) throw new Error(error.message)
+    const page = (data ?? []) as IranCity[]
+    rows.push(...page)
+    if (page.length < pageSize) return rows
+  }
+}
+
 export function loadTeamDraft(companyId: string): TeamWizardDraft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY(companyId))
