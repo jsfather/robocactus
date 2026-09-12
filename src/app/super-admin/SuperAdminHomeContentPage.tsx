@@ -359,7 +359,7 @@ function HomepageContentForm({
     setStatsFaText(formatHeroStats(settings.homepage_content?.hero?.stats_fa))
     setStatsEnText(formatHeroStats(settings.homepage_content?.hero?.stats_en))
   }, [settingsContentKey])
-  const patch = <S extends keyof HomepageContent>(section: S, key: keyof NonNullable<HomepageContent[S]>, value: string | Array<{ value: string; label: string }> | string[]) => {
+  const patch = <S extends keyof HomepageContent>(section: S, key: keyof NonNullable<HomepageContent[S]>, value: string | boolean | null | Array<{ value: string; label: string }> | string[]) => {
     setDraft((current) => ({ ...current, [section]: { ...(current[section] ?? {}), [key]: value } }))
   }
   const section = <S extends keyof HomepageContent>(key: S): NonNullable<HomepageContent[S]> => (draft[key] ?? {}) as NonNullable<HomepageContent[S]>
@@ -397,6 +397,10 @@ function HomepageContentForm({
         <Input label="Leagues CTA (EN)" dir="ltr" value={section('hero').secondary_label_en ?? ''} onChange={(event) => patch('hero', 'secondary_label_en', event.target.value)} />
         <Textarea label="شاخص‌های هیرو (FA)" className="min-h-24" value={statsFaText} onChange={(event) => setStatsFaText(event.target.value)} placeholder="آمل | شهر علم و طبیعت\nمازندران | میزبان نوآوری" />
         <Textarea label="Hero stats (EN)" dir="ltr" className="min-h-24" value={statsEnText} onChange={(event) => setStatsEnText(event.target.value)} placeholder="Amol | City of science and nature\nMazandaran | Home of innovation" />
+        <label className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold"><input type="checkbox" checked={section('hero').countdown_enabled === true} onChange={(event) => patch('hero', 'countdown_enabled', event.target.checked)} /> نمایش شمارنده در هیرو</label>
+        <DateTimeField label="زمان هدف شمارنده" value={section('hero').countdown_target ?? null} onChange={(iso) => patch('hero', 'countdown_target', iso)} />
+        <Input label="عنوان شمارنده (FA)" value={section('hero').countdown_label_fa ?? ''} onChange={(event) => patch('hero', 'countdown_label_fa', event.target.value)} placeholder="تا شروع مسابقات" />
+        <Input label="Countdown label (EN)" dir="ltr" value={section('hero').countdown_label_en ?? ''} onChange={(event) => patch('hero', 'countdown_label_en', event.target.value)} placeholder="Until the competition" />
       </div>
     </PanelCard>
     <PanelCard title="بخش معرفی رویداد" description="متن بخش «ریشه در تبرستان، نگاه به جهان» و کارت هویت رویداد قابل ویرایش است.">

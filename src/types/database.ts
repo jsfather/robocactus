@@ -662,6 +662,10 @@ export type HomepageContent = {
     secondary_label_en?: string
     stats_fa?: Array<{ value: string; label: string }>
     stats_en?: Array<{ value: string; label: string }>
+    countdown_enabled?: boolean
+    countdown_target?: string | null
+    countdown_label_fa?: string
+    countdown_label_en?: string
   }
   story?: {
     eyebrow_fa?: string
