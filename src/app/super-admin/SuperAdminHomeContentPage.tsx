@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Button,
@@ -57,6 +57,10 @@ type Tab =
   | 'partners'
   | 'faqs'
   | 'landing'
+
+function formatHeroStats(items?: Array<{ value: string; label: string }>) {
+  return (items ?? []).map((item) => `${item.value} | ${item.label}`).join('\n')
+}
 
 export function SuperAdminHomeContentPage() {
   const { t } = useTranslation()
@@ -346,12 +350,19 @@ function HomepageContentForm({
 }) {
   const toast = useToast()
   const [draft, setDraft] = useState<HomepageContent>(() => settings?.homepage_content ?? {})
-  useEffect(() => setDraft(settings?.homepage_content ?? {}), [settings])
+  const settingsContentKey = useMemo(() => JSON.stringify(settings?.homepage_content ?? {}), [settings?.homepage_content])
+  const [statsFaText, setStatsFaText] = useState(() => formatHeroStats(settings?.homepage_content?.hero?.stats_fa))
+  const [statsEnText, setStatsEnText] = useState(() => formatHeroStats(settings?.homepage_content?.hero?.stats_en))
+  useEffect(() => {
+    if (!settings) return
+    setDraft(settings?.homepage_content ?? {})
+    setStatsFaText(formatHeroStats(settings.homepage_content?.hero?.stats_fa))
+    setStatsEnText(formatHeroStats(settings.homepage_content?.hero?.stats_en))
+  }, [settingsContentKey])
   const patch = <S extends keyof HomepageContent>(section: S, key: keyof NonNullable<HomepageContent[S]>, value: string | Array<{ value: string; label: string }> | string[]) => {
     setDraft((current) => ({ ...current, [section]: { ...(current[section] ?? {}), [key]: value } }))
   }
   const section = <S extends keyof HomepageContent>(key: S): NonNullable<HomepageContent[S]> => (draft[key] ?? {}) as NonNullable<HomepageContent[S]>
-  const statsText = (items?: Array<{ value: string; label: string }>) => (items ?? []).map((item) => `${item.value} | ${item.label}`).join('\n')
   const parseStats = (value: string) => value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => { const [statValue, ...label] = line.split('|'); return { value: statValue.trim(), label: label.join('|').trim() } }).filter((item) => item.value && item.label)
   const badgesText = (items?: string[]) => (items ?? []).join('\n')
   const save = async (event: FormEvent) => {
@@ -360,7 +371,8 @@ function HomepageContentForm({
     setBusy(true)
     setError(null)
     try {
-      await updateSiteSettings({ homepage_content: draft })
+      const homepageContent: HomepageContent = { ...draft, hero: { ...(draft.hero ?? {}), stats_fa: parseStats(statsFaText), stats_en: parseStats(statsEnText) } }
+      await updateSiteSettings({ homepage_content: homepageContent })
       await onReload()
       toast.success('محتوای صفحه اصلی ذخیره شد.')
     } catch (err) {
@@ -383,8 +395,8 @@ function HomepageContentForm({
         <Input label="Primary CTA (EN)" dir="ltr" value={section('hero').primary_label_en ?? ''} onChange={(event) => patch('hero', 'primary_label_en', event.target.value)} />
         <Input label="متن دکمه لیگ‌ها (FA)" value={section('hero').secondary_label_fa ?? ''} onChange={(event) => patch('hero', 'secondary_label_fa', event.target.value)} />
         <Input label="Leagues CTA (EN)" dir="ltr" value={section('hero').secondary_label_en ?? ''} onChange={(event) => patch('hero', 'secondary_label_en', event.target.value)} />
-        <Textarea label="شاخص‌های هیرو (FA)" className="min-h-24" value={statsText(section('hero').stats_fa)} onChange={(event) => patch('hero', 'stats_fa', parseStats(event.target.value))} />
-        <Textarea label="Hero stats (EN)" dir="ltr" className="min-h-24" value={statsText(section('hero').stats_en)} onChange={(event) => patch('hero', 'stats_en', parseStats(event.target.value))} />
+        <Textarea label="شاخص‌های هیرو (FA)" className="min-h-24" value={statsFaText} onChange={(event) => setStatsFaText(event.target.value)} placeholder="آمل | شهر علم و طبیعت\nمازندران | میزبان نوآوری" />
+        <Textarea label="Hero stats (EN)" dir="ltr" className="min-h-24" value={statsEnText} onChange={(event) => setStatsEnText(event.target.value)} placeholder="Amol | City of science and nature\nMazandaran | Home of innovation" />
       </div>
     </PanelCard>
     <PanelCard title="بخش معرفی رویداد" description="متن بخش «ریشه در تبرستان، نگاه به جهان» و کارت هویت رویداد قابل ویرایش است.">

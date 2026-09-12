@@ -38,7 +38,7 @@ export function HeroBanner({ banners, loading = false, content }: { banners: Hom
             {cmsBanner.link_url && (content?.primary_label_fa || content?.primary_label_en) ? <Link to={cmsBanner.link_url} className="tabarestan-button-primary">{isEn ? content.primary_label_en || content.primary_label_fa : content.primary_label_fa || content.primary_label_en}<span aria-hidden="true">←</span></Link> : null}
             {content?.secondary_label_fa || content?.secondary_label_en ? <Link to="/leagues" className="tabarestan-button-secondary">{isEn ? content.secondary_label_en || content.secondary_label_fa : content.secondary_label_fa || content.secondary_label_en}</Link> : null}
           </div>
-          {(isEn ? content?.stats_en : content?.stats_fa)?.length ? <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">{(isEn ? content?.stats_en : content?.stats_fa)?.map((stat) => <span key={`${stat.value}-${stat.label}`}><strong className="me-2 text-white">{stat.value}</strong>{stat.label}</span>)}</div> : null}
+          {(isEn ? content?.stats_en : content?.stats_fa)?.length ? <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">{(isEn ? content?.stats_en : content?.stats_fa)?.map((stat) => <span key={`${stat.value}-${stat.label}`} className="inline-flex items-baseline gap-2 whitespace-nowrap"><strong className="text-white">{stat.value}</strong><span>{stat.label}</span></span>)}</div> : null}
         </motion.div>
       </div>
       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-rc-bg to-transparent" />
