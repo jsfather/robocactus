@@ -8,6 +8,7 @@ import { backend } from '@/lib/backend'
 import { upsertCompetitionPerson } from '@/features/competitions/settingsApi'
 import type { CompetitionPerson } from '@/types/database'
 import { numericInput } from '@/lib/validation'
+import { RichTextEditor } from '@/components/ui/RichTextEditor'
 
 export function SuperAdminPersonEditPage() {
   const { personId = '' } = useParams()
@@ -52,8 +53,10 @@ export function SuperAdminPersonEditPage() {
           <Input label="تخصص فارسی" value={form.specialty ?? ''} onChange={(event) => patch({ specialty: event.target.value })} />
           <Input label="Specialty in English" value={form.specialty_en ?? ''} onChange={(event) => patch({ specialty_en: event.target.value })} dir="ltr" />
           <div className="md:col-span-2"><ImageUploadField label="تصویر پروفایل" value={form.photo_url} onChange={(url) => patch({ photo_url: url })} /></div>
-          <Textarea label="معرفی کوتاه فارسی" value={form.bio ?? ''} onChange={(event) => patch({ bio: event.target.value })} />
-          <Textarea label="Short biography in English" value={form.bio_en ?? ''} onChange={(event) => patch({ bio_en: event.target.value })} dir="ltr" />
+          <Textarea label="توضیح کوتاه فارسی" className="min-h-20" value={form.short_bio ?? ''} onChange={(event) => patch({ short_bio: event.target.value })} />
+          <Textarea label="Short description" value={form.short_bio_en ?? ''} onChange={(event) => patch({ short_bio_en: event.target.value })} dir="ltr" />
+          <Input label="سال‌های سابقه" type="number" min={0} max={100} value={form.experience_years ?? ''} onChange={(event) => patch({ experience_years: event.target.value === '' ? null : Number(event.target.value) })} dir="ltr" />
+          <div className="space-y-2"><label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm font-bold"><input type="checkbox" checked={form.is_founder === true} onChange={(event) => patch({ is_founder: event.target.checked })} /> بنیان‌گذار پلتفرم</label><ImageUploadField label="نشان بنیان‌گذار" value={form.founder_badge_url ?? null} onChange={(url) => patch({ founder_badge_url: url })} /></div>
           <Select label="وضعیت انتشار رزومه" value={form.is_profile_published === false ? '0' : '1'} onChange={(event) => patch({ is_profile_published: event.target.value === '1' })}><option value="1">منتشر شود</option><option value="0">پنهان باشد</option></Select>
           <Input label="ترتیب نمایش" type="number" value={form.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} dir="ltr" />
         </div>
@@ -69,6 +72,8 @@ export function SuperAdminPersonEditPage() {
 
       <PanelCard title="سوابق و رزومه دوزبانه" description="هر مورد را در یک خط جداگانه وارد کنید.">
         <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2"><RichTextEditor label="رزومه و معرفی فارسی" value={form.bio ?? ''} onChange={(value) => patch({ bio: value })} resetKey={`${form.id}-bio-fa`} hint="تیتر، فهرست، لینک و تأکید را از نوار ابزار انتخاب کنید." /></div>
+          <div className="md:col-span-2"><RichTextEditor label="Biography in English" value={form.bio_en ?? ''} onChange={(value) => patch({ bio_en: value })} resetKey={`${form.id}-bio-en`} /></div>
           <Textarea label="تحصیلات فارسی" className="min-h-32" value={form.education_fa ?? ''} onChange={(event) => patch({ education_fa: event.target.value })} /><Textarea label="Education" className="min-h-32" value={form.education_en ?? ''} onChange={(event) => patch({ education_en: event.target.value })} dir="ltr" />
           <Textarea label="افتخارات فارسی" className="min-h-32" value={form.honors_fa ?? ''} onChange={(event) => patch({ honors_fa: event.target.value })} /><Textarea label="Honors" className="min-h-32" value={form.honors_en ?? ''} onChange={(event) => patch({ honors_en: event.target.value })} dir="ltr" />
           <Textarea label="جوایز فارسی" className="min-h-32" value={form.awards_fa ?? ''} onChange={(event) => patch({ awards_fa: event.target.value })} /><Textarea label="Awards" className="min-h-32" value={form.awards_en ?? ''} onChange={(event) => patch({ awards_en: event.target.value })} dir="ltr" />

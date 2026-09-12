@@ -164,13 +164,13 @@ function PersonCards({ people, kind, locale }: { people: LeaguePerson[]; kind: '
               {person.photo_url ? <img src={person.photo_url} alt={person.full_name} className="aspect-square size-20 rounded-2xl border border-white object-cover shadow-md" loading="lazy" /> : <span className={`grid size-20 place-items-center rounded-2xl text-2xl font-black ${accent === 'sky' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{person.full_name.trim().slice(0, 1)}</span>}
             </Link>
             <div className="min-w-0 flex-1">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${accent === 'sky' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'}`}>{t(`leaguePage.${kind === 'judge' ? 'judgeRole' : 'committeeRole'}`)}</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black ${accent === 'sky' ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}><svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">{kind === 'judge' ? <><path d="M7 4h10l-1 5a4 4 0 0 1-8 0L7 4Z" /><path d="M12 13v6M8 20h8" /></> : <><path d="M12 3 4 7v5c0 4.5 3.4 7.5 8 9 4.6-1.5 8-4.5 8-9V7l-8-4Z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>}</svg>{t(`leaguePage.${kind === 'judge' ? 'judgeRole' : 'committeeRole'}`)}</span>
               <Link to={`/people/${person.slug}`} className="mt-2 block truncate text-lg font-black text-slate-800 transition hover:text-rc-blue">{person.full_name}</Link>
               {person.specialty ? <p className="mt-1 truncate text-xs font-bold text-slate-500">{person.specialty}</p> : null}
             </div>
           </div>
           {organization ? <p className="mt-4 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-600"><svg viewBox="0 0 24 24" className="mt-0.5 size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01" /></svg><span className="line-clamp-2">{organization}</span></p> : null}
-          {person.bio ? <p className="mt-4 line-clamp-3 text-sm leading-7 text-rc-muted">{person.bio}</p> : null}
+          {person.short_bio ? <p className="mt-4 line-clamp-2 text-sm leading-7 text-rc-muted">{person.short_bio}</p> : null}
           <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
             <Link to={`/people/${person.slug}`} className="text-xs font-black text-rc-blue">{t('leaguePage.viewProfile')} ←</Link>
             <div className="relative z-20 flex gap-2">

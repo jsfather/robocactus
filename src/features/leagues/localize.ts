@@ -45,6 +45,7 @@ export function localizePerson(person: LeaguePerson, locale: ContentLocale): Lea
     full_name: prefer(person.full_name, person.full_name_en, locale),
     specialty: prefer(person.specialty, person.specialty_en, locale),
     bio: prefer(person.bio, person.bio_en, locale),
+    short_bio: prefer(person.short_bio, person.short_bio_en, locale),
   }
 }
 
@@ -64,4 +65,3 @@ export function localizeFile(file: LeagueFile, locale: ContentLocale): LeagueFil
 export function localizeSponsor(sponsor: LeagueSponsor, locale: ContentLocale): LeagueSponsor {
   return locale === 'en' ? { ...sponsor, name: prefer(sponsor.name, sponsor.name_en, locale) } : sponsor
 }
-

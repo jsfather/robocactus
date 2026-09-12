@@ -652,6 +652,8 @@ export async function upsertStaticPage(input: {
   meta_description?: string | null
   og_image?: string | null
   cover_image?: string | null
+  hero_image?: string | null
+  scope_image?: string | null
 }): Promise<StaticPage> {
   const { data, error } = await backend
     .from('static_pages')
@@ -667,6 +669,8 @@ export async function upsertStaticPage(input: {
       meta_description: input.meta_description?.trim() || null,
       og_image: input.og_image ?? null,
       cover_image: input.cover_image ?? null,
+      hero_image: input.hero_image ?? null,
+      scope_image: input.scope_image ?? null,
       updated_at: new Date().toISOString(),
     })
     .select('*')

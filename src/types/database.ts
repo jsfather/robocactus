@@ -182,6 +182,11 @@ export type LeaguePerson = {
   specialty_en?: string | null
   bio: string | null
   bio_en?: string | null
+  short_bio?: string | null
+  short_bio_en?: string | null
+  experience_years?: number | null
+  is_founder?: boolean
+  founder_badge_url?: string | null
   identity_summary_fa?: string | null
   identity_summary_en?: string | null
   education_fa?: string | null
@@ -445,6 +450,8 @@ export type StaticPage = {
   meta_description?: string | null
   og_image?: string | null
   cover_image?: string | null
+  hero_image?: string | null
+  scope_image?: string | null
 }
 
 export type HomeBanner = {

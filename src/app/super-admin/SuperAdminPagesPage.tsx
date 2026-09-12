@@ -25,6 +25,8 @@ export function SuperAdminPagesPage() {
   const [seoTitle, setSeoTitle] = useState('')
   const [meta, setMeta] = useState('')
   const [cover, setCover] = useState<string | null>(null)
+  const [heroImage, setHeroImage] = useState<string | null>(null)
+  const [scopeImage, setScopeImage] = useState<string | null>(null)
   const [editorKey, setEditorKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -41,6 +43,8 @@ export function SuperAdminPagesPage() {
     setSeoTitle(current?.seo_title ?? '')
     setMeta(current?.meta_description ?? '')
     setCover(current?.cover_image ?? current?.og_image ?? null)
+    setHeroImage(current?.hero_image ?? null)
+    setScopeImage(current?.scope_image ?? null)
     setEditorKey((k) => k + 1)
   }
 
@@ -86,6 +90,8 @@ export function SuperAdminPagesPage() {
         meta_description: meta,
         cover_image: cover,
         og_image: cover,
+        hero_image: heroImage,
+        scope_image: scopeImage,
       })
       setPages((prev) => {
         const rest = prev.filter((p) => p.slug !== saved.slug)
@@ -122,6 +128,7 @@ export function SuperAdminPagesPage() {
           </Select>
           <Input label={t('admin.pages.pageTitle')} required value={title} onChange={(e) => setTitle(e.target.value)} />
           <ImageUploadField label={t('content.cover')} value={cover} onChange={setCover} />
+          {slug === 'about' ? <div className="grid gap-3 rounded-2xl border border-sky-100 bg-sky-50/50 p-4 md:grid-cols-2"><ImageUploadField label="تصویر هیرو درباره ما" value={heroImage} onChange={setHeroImage} /><ImageUploadField label="تصویر بخش گستره ملی و بین‌المللی" value={scopeImage} onChange={setScopeImage} /></div> : null}
           <Textarea
             label={t('content.excerpt')}
             className="min-h-20"
