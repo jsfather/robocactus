@@ -90,16 +90,23 @@ async function poll(): Promise<void> {
     lastEventId = Math.max(lastEventId, Number(event.id))
     for (const client of clients) {
       if (!client.tables.has(String(event.table_name))) continue
-      const record = await visibleRecord(client, event)
-      if (record === null) continue
-      if (client.disconnected || client.response.destroyed) continue
-      const writable = client.response.write(`data: ${JSON.stringify({
-        table: event.table_name,
-        event: event.event,
-        record,
-        old_record: event.event === 'DELETE' ? {} : event.old_record,
-      })}\n\n`)
-      if (!writable) disconnect(client)
+      try {
+        const record = await visibleRecord(client, event)
+        if (record === null) continue
+        if (client.disconnected || client.response.destroyed) continue
+        const writable = client.response.write(`data: ${JSON.stringify({
+          table: event.table_name,
+          event: event.event,
+          record,
+          old_record: event.event === 'DELETE' ? {} : event.old_record,
+        })}\n\n`)
+        if (!writable) disconnect(client)
+      } catch {
+        // A browser, reverse proxy, or deploy can close an SSE socket between
+        // the visibility query and the write. Remove only that stale client;
+        // one broken connection must not abort delivery for every subscriber.
+        disconnect(client)
+      }
     }
   }
 }
@@ -147,9 +154,16 @@ export function registerRealtimeRoutes(router: Router): void {
     const client: Client = { response, tables: new Set(requested), user: await userFromRequest(request), guestChatToken, ip, disconnected: false }
     clients.add(client)
     clientsByIp.set(ip, (clientsByIp.get(ip) ?? 0) + 1)
-    response.write(': connected\n\n')
+    // Keep browser reconnects bounded when a reverse proxy or deploy closes
+    // an idle SSE socket. EventSource otherwise retries every few seconds,
+    // which can create a burst of duplicate connections during an outage.
+    response.write(': connected\nretry: 5000\n\n')
     const keepalive = setInterval(() => {
-      if (!response.write(': keepalive\n\n')) disconnect(client)
+      try {
+        if (!response.write(': keepalive\n\n')) disconnect(client)
+      } catch {
+        disconnect(client)
+      }
     }, 20_000)
     request.on('close', () => {
       clearInterval(keepalive)

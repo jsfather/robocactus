@@ -7,8 +7,47 @@ import persian_fa from 'react-date-object/locales/persian_fa'
 import gregorian from 'react-date-object/calendars/gregorian'
 import gregorian_en from 'react-date-object/locales/gregorian_en'
 
-type DateObjectInstance = { toDate: () => Date }
+type DateObjectParts = {
+  year: number
+  month: number | { number: number }
+  day: number
+  hour: number
+  minute: number
+  second: number
+  millisecond: number
+}
+type DateObjectInstance = {
+  toDate: () => Date
+  convert: (calendar: unknown, locale?: unknown) => DateObjectInstance
+  toObject: () => DateObjectParts
+}
 type DateObjectCtor = new (args: Record<string, unknown>) => DateObjectInstance
+
+const TEHRAN_TIME_ZONE = 'Asia/Tehran'
+const TEHRAN_OFFSET_MINUTES = 210
+
+function tehranParts(value: string): { year: number; month: number; day: number; hour: number; minute: number; second: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (match) {
+    return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: 0, minute: 0, second: 0 }
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TEHRAN_TIME_ZONE,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]))
+  return values.year && values.month && values.day
+    ? { year: values.year, month: values.month, day: values.day, hour: values.hour || 0, minute: values.minute || 0, second: values.second || 0 }
+    : null
+}
 
 function isReactComponent(v: unknown): boolean {
   return typeof v === 'function' || !!(v as { $$typeof?: unknown })?.$$typeof
@@ -89,9 +128,10 @@ export function DateTimeField({ label, value, onChange, withTime = true, error, 
   const pickerValue = useMemo(() => {
     if (!value) return undefined
     try {
-      const d = new Date(value)
-      if (Number.isNaN(d.getTime())) return undefined
-      return new DateObject({ date: d, calendar, locale })
+      const parts = tehranParts(value)
+      if (!parts) return undefined
+      const tehranDate = new DateObject({ ...parts, calendar: gregorian, locale: gregorian_en })
+      return tehranDate.convert(calendar, locale)
     } catch {
       return undefined
     }
@@ -113,12 +153,15 @@ export function DateTimeField({ label, value, onChange, withTime = true, error, 
               onChange(null)
               return
             }
-            const js = obj.toDate()
-            if (!(js instanceof Date) || Number.isNaN(js.getTime())) {
+            const gregorianDate = obj.convert(gregorian, gregorian_en)
+            const parts = gregorianDate.toObject()
+            const month = typeof parts.month === 'number' ? parts.month : parts.month.number
+            if (!Number.isFinite(parts.year) || !Number.isFinite(month) || !Number.isFinite(parts.day)) {
               onChange(null)
               return
             }
-            onChange(js.toISOString())
+            const utcMillis = Date.UTC(parts.year, month - 1, parts.day, parts.hour || 0, parts.minute || 0, parts.second || 0, parts.millisecond || 0) - TEHRAN_OFFSET_MINUTES * 60_000
+            onChange(new Date(utcMillis).toISOString())
           } catch {
             onChange(null)
           }

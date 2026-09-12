@@ -393,6 +393,10 @@ class RealtimeChannel {
   }
 
   subscribe(callback?: (status: string) => void) {
+    // A channel can be subscribed again after a fast effect remount. Always
+    // close the previous EventSource first so one channel cannot leak duplicate
+    // SSE connections and amplify reconnect traffic.
+    this.source?.close()
     const tables = [...new Set(this.handlers.map((handler) => handler.filter.table))].join(',')
     this.source = new EventSource(`${apiBase}/api/realtime?tables=${encodeURIComponent(tables)}`, { withCredentials: true })
     this.source.onopen = () => callback?.('SUBSCRIBED')
