@@ -17,6 +17,13 @@ test('league hero presents one registration status and no registered team count'
   assert.doesNotMatch(page, /statusLabel/)
 })
 
+test('league detail hero uses a full-width contour instead of rounded viewport corners', () => {
+  const page = read('src/app/public/LeagueDetailPage.tsx')
+  assert.doesNotMatch(page, /rounded-b-\[3rem\]/)
+  assert.match(page, /preserveAspectRatio="none"/)
+  assert.match(page, /M0 44C360 57 1080 57 1440 44V64H0Z/)
+})
+
 test('countdown includes seconds and explicit locale-aware ordering', () => {
   const page = read('src/app/public/LeagueDetailPage.tsx')
   assert.match(page, /label: 'ثانیه'[\s\S]*label: 'دقیقه'[\s\S]*label: 'ساعت'[\s\S]*label: 'روز'/)
@@ -27,6 +34,6 @@ test('countdown includes seconds and explicit locale-aware ordering', () => {
 test('league stages and people cards keep explicit readable contrast', () => {
   const page = read('src/app/public/LeagueDetailPage.tsx')
   assert.match(page, /text-slate-900">\{step\.title\}/)
-  assert.match(page, /function PersonCards[\s\S]*person\.specialty[\s\S]*organization[\s\S]*person\.bio[\s\S]*linkedin_url/)
+  assert.match(page, /function PersonCards[\s\S]*person\.specialty[\s\S]*organization[\s\S]*person\.short_bio[\s\S]*linkedin_url/)
   assert.match(page, /entryFeeLabel[\s\S]*text-white/)
 })

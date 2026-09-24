@@ -61,7 +61,7 @@ export function PublicHeader() {
   const closeMega = () => { megaTimer.current = window.setTimeout(() => setMegaOpen(false), 240) }
   const controlClass = 'grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-rc-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rc-blue'
 
-  return <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] bg-transparent">
+  return <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[100] bg-transparent lg:top-4">
     {mobileOpen ? <button className="pointer-events-auto fixed inset-0 bg-slate-950/35 backdrop-blur-[2px] xl:hidden" aria-label={locale === 'en' ? 'Close menu' : 'بستن منو'} onClick={() => { setMobileLeaguesOpen(false); setMobileOpen(false) }} /> : null}
     <header ref={headerRef} className="pointer-events-auto relative mx-auto max-w-7xl bg-transparent px-2 sm:px-4 lg:px-5">
       <div className="hidden h-11 items-center justify-between rounded-t-[1.4rem] bg-gradient-to-l from-[#087eb8] via-[#078a9b] to-[#0b9b65] px-5 text-white lg:flex">
@@ -75,7 +75,7 @@ export function PublicHeader() {
           <span className="grid size-9 place-items-center rounded-full bg-rc-accent/10 text-rc-accent"><LineIcon className="size-4"><path d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5C3 13.6 10.4 21 19.5 21a1.5 1.5 0 0 0 1.5-1.5V17l-4-1-1.2 2a13.8 13.8 0 0 1-9.8-9.8L8 7 7 3Z" /></LineIcon></span>
         </div>
       </div>
-      <div className="relative flex h-[4.25rem] items-center overflow-hidden rounded-b-2xl border border-t-0 border-slate-100 bg-white px-1 shadow-[0_10px_35px_rgb(15_65_80/0.12)] lg:rounded-b-[1.4rem]"><span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-rc-blue to-rc-accent lg:hidden" aria-hidden />
+      <div className="relative flex h-[4.25rem] items-center overflow-hidden rounded-2xl border border-slate-100 bg-white px-1 shadow-[0_14px_40px_rgb(15_65_80/0.16)] lg:rounded-b-[1.4rem] lg:rounded-t-none lg:border-t-0"><span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-rc-blue to-rc-accent lg:hidden" aria-hidden />
         <Link to="/" className="flex min-w-0 items-center gap-3 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rc-blue sm:px-5">
           <span className="grid h-11 w-14 shrink-0 place-items-center sm:h-12 sm:w-16">{settings?.logo_url ? <img src={settings.logo_url} alt={brand} className="max-h-full max-w-full object-contain drop-shadow-sm" /> : <span className="text-sm font-black text-rc-blue">TC</span>}</span>
           <span className="min-w-0"><strong className="block truncate text-sm font-black text-slate-950 sm:text-base">{brand}</strong><small className="hidden text-[10px] font-bold tracking-wide text-slate-500 sm:block">{locale === 'en' ? 'National Robotics Competition' : 'مسابقات ملی رباتیک'}</small></span>

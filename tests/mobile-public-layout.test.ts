@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const navigation = read('../src/components/layout/MobileBottomNavigation.tsx')
 const layout = read('../src/components/layout/PublicLayout.tsx')
+const header = read('../src/components/layout/PublicHeader.tsx')
 const footer = read('../src/components/layout/PublicFooter.tsx')
 const sponsors = read('../src/components/home/SponsorsSlider.tsx')
 const chat = read('../src/components/live-chat/LiveChatWidget.tsx')
@@ -22,6 +23,19 @@ test('mobile clearance matches the fixed navigation and safe area', () => {
   assert.match(navigation, /h-\[5\.25rem\]/)
   assert.match(navigation, /safe-area-inset-bottom/)
   assert.match(layout, /pb-\[calc\(5\.25rem\+env\(safe-area-inset-bottom\)\)\]/)
+})
+
+test('public header floats above the homepage hero with safe top spacing', () => {
+  assert.match(header, /top-\[calc\(env\(safe-area-inset-top\)\+0\.75rem\)\]/)
+  assert.match(header, /z-\[100\]/)
+  assert.match(layout, /hasTopHero \? ''/)
+})
+
+test('full-bleed public heroes render beneath the floating header', () => {
+  for (const route of ['about', 'blog', 'companies', 'participants', 'leagues', 'registration-guide']) {
+    assert.match(layout, new RegExp(`'/${route}'`))
+  }
+  assert.match(layout, /blog\|news\|people\|companies\|participants\|leagues/)
 })
 
 test('sponsor autoplay scrolls only its own horizontal viewport', () => {

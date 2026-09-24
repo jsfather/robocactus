@@ -236,7 +236,7 @@ export function LeagueDetailPage() {
 
   if (!bundle || !league) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
+      <div className="mx-auto max-w-3xl px-4 pb-16 pt-32 lg:pt-40">
         <p className="font-mono text-red-400">{error ?? t('leaguePage.notFound')}</p>
         <Link to="/leagues" className="mt-4 inline-block font-mono text-sm text-rc-blue hover:underline">
           {t('leaguePage.back')}
@@ -315,7 +315,7 @@ export function LeagueDetailPage() {
       </div>
 
       {/* HERO — full-bleed composition */}
-      <section className="relative min-h-[86vh] overflow-hidden rounded-b-[3rem]">
+      <section className="relative min-h-[86vh] overflow-hidden">
         {league.hero_video_url ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -333,7 +333,7 @@ export function LeagueDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-l from-[#06253b]/95 via-[#073248]/75 to-[#06253b]/25" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#06253b]/90 via-transparent to-[#06253b]/25" />
 
-        <div className="relative mx-auto flex min-h-[86vh] max-w-7xl flex-col justify-center px-4 pb-16 pt-32 sm:px-8 md:pt-36">
+        <div className="relative mx-auto flex min-h-[86vh] max-w-7xl flex-col justify-center px-4 pb-16 pt-28 sm:px-8 md:pt-36 lg:pt-40">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -393,9 +393,19 @@ export function LeagueDetailPage() {
 
           </motion.div>
         </div>
+
+        {/* A shallow full-width contour creates depth without treating the viewport as a rounded card. */}
+        <svg
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 w-full text-[#f7fbfa] sm:h-16"
+          viewBox="0 0 1440 64"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path d="M0 44C360 57 1080 57 1440 44V64H0Z" fill="currentColor" />
+        </svg>
       </section>
 
-      <div className="relative mx-auto max-w-7xl space-y-24 px-4 py-20 sm:px-8 md:py-28">
+      <div className="relative mx-auto max-w-7xl space-y-24 px-4 pb-20 pt-10 sm:px-8 sm:pt-12 md:pb-28 md:pt-16">
         {(league.full_description || league.description) && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.about')}>
             <div className="relative border border-rc-line bg-rc-surface/80 p-6 backdrop-blur-sm md:p-8">

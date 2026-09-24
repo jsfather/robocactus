@@ -41,7 +41,14 @@ export function HeroBanner({ banners, loading = false, content }: { banners: Hom
           {(isEn ? content?.stats_en : content?.stats_fa)?.length ? <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/15 pt-6 text-sm text-slate-300">{(isEn ? content?.stats_en : content?.stats_fa)?.map((stat) => <span key={`${stat.value}-${stat.label}`} className="inline-flex items-baseline gap-2 whitespace-nowrap"><strong className="text-white">{stat.value}</strong><span>{stat.label}</span></span>)}</div> : null}
         </motion.div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-rc-bg to-transparent" />
+      <svg
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-20 w-full text-rc-bg"
+        viewBox="0 0 1440 80"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0 64C320 34 1120 34 1440 64V80H0Z" fill="currentColor" />
+      </svg>
     </section>
   )
 }

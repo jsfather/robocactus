@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# This repository uses npm and the tracked package-lock.json.
+# Keep local pnpm metadata from introducing a second package-manager source of truth.
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
 # Build output
 dist/
 dist-server/

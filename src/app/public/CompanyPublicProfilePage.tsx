@@ -54,12 +54,12 @@ export function CompanyPublicProfilePage() {
   )
 
   if (loading) {
-    return <div className="px-4 py-12 text-center text-rc-muted">{t('app.loading')}</div>
+    return <div className="px-4 pb-12 pt-32 text-center text-rc-muted lg:pt-40">{t('app.loading')}</div>
   }
 
   if (!bundle) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-12">
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-32 lg:pt-40">
         <p className="text-red-400">{error ?? t('companies.notFound')}</p>
         <Link to="/companies" className="mt-4 inline-block text-rc-blue hover:underline">
           {t('companies.back')}
@@ -80,7 +80,7 @@ export function CompanyPublicProfilePage() {
           <div className="absolute inset-0 bg-gradient-to-br from-rc-navy via-rc-bg to-rc-blue/20" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#052f46] via-[#052f46]/75 to-[#052f46]/25" />
-        <div className="relative mx-auto flex max-w-5xl flex-col justify-end gap-4 px-4 pb-10 pt-24">
+        <div className="relative mx-auto flex max-w-5xl flex-col justify-end gap-4 px-4 pb-10 pt-28 lg:pt-40">
           <div className="flex flex-wrap items-end gap-4">
             {company.logo_url ? (
               <img

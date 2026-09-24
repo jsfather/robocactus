@@ -8947,6 +8947,30 @@ create policy profile_docs_approval_gate on public.profile_documents as restrict
   using (user_id<>auth.uid() or exists(select 1 from public.profiles p where p.id=auth.uid() and (not p.requires_account_approval or p.signup_completed_at is null or p.account_status='rejected')))
   with check (user_id<>auth.uid() or exists(select 1 from public.profiles p where p.id=auth.uid() and (not p.requires_account_approval or p.signup_completed_at is null or p.account_status='rejected')));
 
+-- ===== 0075a_realtime_event_function.sql =====
+-- Realtime triggers introduced in 0076 need this function on fresh databases.
+-- Keep the definition idempotent because 9999_application_runtime also refreshes it.
+create or replace function app_private.capture_realtime_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = app_private, public
+as $$
+begin
+  insert into app_private.realtime_events(table_name, event, record, old_record)
+  values (
+    tg_table_name,
+    tg_op,
+    case when tg_op = 'DELETE' then null else to_jsonb(new) end,
+    case when tg_op = 'INSERT' then null else to_jsonb(old) end
+  );
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
 -- ===== 0076_realtime_profiles.sql =====
 -- Realtime account approval events. The API still applies row visibility before delivery.
 drop trigger if exists app_realtime_capture on public.profiles;

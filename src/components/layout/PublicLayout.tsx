@@ -7,8 +7,16 @@ import { MobileBottomNavigation } from './MobileBottomNavigation'
 
 export function PublicLayout() {
   const { pathname } = useLocation()
-  // Homepage hero is full-bleed under the floating header; other pages need top offset.
-  const isHome = pathname === '/'
+  const normalizedPath = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  const hasTopHero = new Set([
+    '/',
+    '/about',
+    '/blog',
+    '/companies',
+    '/participants',
+    '/leagues',
+    '/registration-guide',
+  ]).has(normalizedPath) || /^\/(?:blog|news|people|companies|participants|leagues)\/[^/]+$/.test(normalizedPath)
 
   return (
     <div className="public-layout min-h-dvh w-full overflow-x-clip bg-rc-bg text-rc-text">
@@ -20,12 +28,12 @@ export function PublicLayout() {
       />
       <div className="relative pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
         <PublicHeader />
-        <div className="pointer-events-none fixed inset-x-0 top-[4.25rem] z-50 px-3 sm:px-5 lg:top-[7rem]">
+        <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+5.5rem)] z-50 px-3 sm:px-5 lg:top-[8.5rem]">
           <div className="pointer-events-auto mx-auto max-w-6xl overflow-hidden rounded-xl">
             <BackendStatusBanner />
           </div>
         </div>
-        <main className={isHome ? 'pt-[4.25rem] lg:pt-[7rem]' : 'pt-[4.25rem] lg:pt-[7rem]'}>
+        <main className={hasTopHero ? '' : 'pt-[calc(env(safe-area-inset-top)+5rem)] lg:pt-[8rem]'}>
           <Outlet />
         </main>
         <PublicFooter />

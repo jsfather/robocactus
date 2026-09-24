@@ -68,8 +68,8 @@ function TabarestanStory({ content }: { content?: HomepageContent['story'] }) {
     metricBody: content.metric_body_fa || content.metric_body_en,
   }
   return (
-    <section className="relative -mt-10 z-10 mx-auto max-w-7xl px-4 sm:px-8">
-      <div className="grid overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-[0_28px_80px_rgb(15_92_120/0.12)] lg:grid-cols-[1.1fr_.9fr]">
+    <section className="relative z-10 -mt-16 mx-auto max-w-7xl px-4 sm:px-8">
+      <div className="grid overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_24px_70px_rgb(6_34_50/0.16)] ring-1 ring-sky-100/70 lg:grid-cols-[1.1fr_.9fr]">
         <div className="p-7 sm:p-10 lg:p-14">
           {text.eyebrow ? <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><HomeSectionIcon icon="why" /></svg>{text.eyebrow}</span> : null}
           {text.title ? <h2 className="mt-5 text-3xl font-black leading-tight text-slate-800 sm:text-4xl">{text.title}</h2> : null}

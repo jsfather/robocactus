@@ -67,7 +67,7 @@ export function PersonProfilePage() {
     { key: 'company', title: labels.company, value: localizedValue(profile.company_info_fa, profile.company_info_en) },
   ].filter((section) => section.value)
 
-  return <div className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-24 pt-32">
+  return <div className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-24 pt-28 lg:pt-40">
     <div className="mx-auto max-w-6xl px-4 sm:px-8">
       <Link to={`/leagues/${league.slug}`} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-rc-blue hover:underline">← {labels.back}</Link>
       <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#087eb8] via-[#087ca0] to-[#0b9c70] p-6 text-white shadow-[0_30px_90px_rgb(8_90_110/0.22)] sm:p-10">
