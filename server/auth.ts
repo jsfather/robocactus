@@ -10,6 +10,7 @@ import { verifyCaptcha } from './captcha.js'
 import { rateLimited } from './rate-limit.js'
 import { revealSecret, SECRET_SETTING_FIELDS } from './secrets.js'
 import { normalizePhoneIdentifier } from './phone.js'
+import { revokeRealtimeSessions } from './realtime.js'
 
 const scrypt = promisify(scryptCallback)
 const cookieOptions: CookieOptions = {
@@ -436,6 +437,50 @@ export function registerAuthRoutes(router: Router): void {
       return
     }
     response.json({ ok: true })
+  })
+
+  router.post('/auth/onboarding/claim', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const result = await db.execute(sql`
+      select p.identity_completed_at, p.role,
+        s.onboarding_guidance,
+        exists(select 1 from public.company_members cm join public.companies c on c.id=cm.company_id
+          where cm.user_id=p.id and nullif(trim(c.name),'') is not null) as has_organization
+      from public.profiles p cross join public.site_settings s where p.id=${actor.id}::uuid and s.id=1
+    `)
+    const row = result.rows[0]
+    if (!row?.identity_completed_at || !['team_captain','company_admin'].includes(String(row.role))) {
+      return void response.json({ notice: null })
+    }
+    const guidance = row.onboarding_guidance as Record<string, { enabled?: boolean }> | null
+    for (const notice of ['profile', 'organization']) {
+      if (guidance?.[notice]?.enabled !== true || (notice === 'organization' && !row.has_organization)) continue
+      const claimed = await db.execute(sql`
+        insert into app_private.onboarding_notice_receipts(user_id,notice) values(${actor.id}::uuid,${notice})
+        on conflict do nothing returning notice
+      `)
+      if (claimed.rows.length) return void response.json({ notice })
+    }
+    response.json({ notice: null })
+  })
+
+  router.post('/auth/sessions/revoke-others', async (request, response) => {
+    const actor = await userFromRequest(request)
+    if (!actor) return void response.status(401).json({ error: 'authentication_required' })
+    const roleResult = await db.execute(sql`select role from public.profiles where id = ${actor.id}::uuid limit 1`)
+    if (!['super_admin', 'league_admin'].includes(String(roleResult.rows[0]?.role))) {
+      return void response.status(403).json({ error: 'forbidden' })
+    }
+    const currentHash = hashToken(String(request.cookies?.rc_session ?? ''))
+    // Both predicates matter: never revoke another user's sessions or the
+    // authenticated cookie that authorized this request.
+    const revoked = await db.delete(sessions).where(and(
+      eq(sessions.userId, actor.id),
+      ne(sessions.tokenHash, currentHash),
+    )).returning({ tokenHash: sessions.tokenHash })
+    revokeRealtimeSessions(revoked.map((row) => row.tokenHash))
+    response.json({ ok: true, revoked_count: revoked.length })
   })
 
   router.post('/auth/password/change', async (request, response) => {

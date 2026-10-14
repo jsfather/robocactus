@@ -220,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return
         sessionGeneration.current += 1
         if (event === 'SIGNED_OUT') {
+          clearSensitiveBrowserState()
           profileRequestUser.current = null
           setSession(null)
           setProfile(null)

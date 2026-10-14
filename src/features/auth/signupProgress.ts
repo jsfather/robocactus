@@ -14,12 +14,13 @@ export function isSignupIncomplete(profile: Pick<Profile, 'signup_completed_at' 
   return false
 }
 
-function hasIdentityBasics(profile: Profile): boolean {
+export function hasIdentityBasics(profile: Profile): boolean {
   return Boolean(
     profile.first_name_fa?.trim()
       && profile.last_name_fa?.trim()
       && profile.first_name_en?.trim()
       && profile.last_name_en?.trim()
+      && profile.email?.trim()
       && profile.birth_date
       && profile.postal_code?.trim()
       && profile.address?.trim()
@@ -30,10 +31,18 @@ function hasIdentityBasics(profile: Profile): boolean {
 }
 
 export function inferSignupStep(profile: Profile, docCount = 0): SignupStep {
-  if (profile.signup_step && profile.signup_step !== 'type') {
+  if (!profile.account_type) return 'type'
+  if (!['type', 'channel'].includes(profile.signup_step ?? '') && !hasIdentityBasics(profile)) return 'identity'
+  if (profile.signup_step === 'channel' && profile.phone_verified_at && profile.phone) return 'identity'
+  // Older drafts can still point at verification after SMS login succeeded.
+  // Resolve that persisted step from the account's verification state.
+  if (profile.signup_step === 'verify' && profile.auth_channel === 'phone' && profile.phone_verified_at) {
+    if (!hasIdentityBasics(profile)) return 'identity'
+    return docCount === 0 ? 'docs' : 'review'
+  }
+  if (profile.signup_step && ['channel', 'identity', 'verify', 'docs', 'review'].includes(profile.signup_step)) {
     return profile.signup_step as SignupStep
   }
-  if (!profile.account_type) return 'type'
   if (!hasIdentityBasics(profile)) return 'identity'
   if (profile.auth_channel === 'phone' && !profile.phone_verified_at && !profile.signup_completed_at) {
     return 'verify'
@@ -68,6 +77,7 @@ export function hydrateSignupFormFromProfile(profile: Profile) {
 
 export function mapSignupError(error: string | null | undefined, t: (key: string) => string): string | null {
   if (!error) return null
+  if (error.includes('signup_identity_required')) return 'اطلاعات هویتی ذخیره‌شده کامل نیست؛ ابتدا مرحله اطلاعات هویتی را تکمیل کنید.'
   const normalized = error.toLowerCase()
   if (error === 'user_already_exists' || normalized.includes('profiles_email_uidx') || (normalized.includes('duplicate') && normalized.includes('email'))) {
     return t('auth.duplicateEmail')

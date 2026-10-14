@@ -6,6 +6,7 @@ import { PanelPage } from '@/components/layout/PanelShell'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchActiveLeagues, fetchCompanyTeams, fetchMyCompanies } from '@/features/companies/api'
 import { TeamRegistrationWizard } from '@/features/registration/TeamRegistrationWizard'
+import { RegistrationGuidance } from '@/components/panel/RegistrationGuidance'
 import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period'
 import type { Company, League, Team } from '@/types/database'
 import { backend } from '@/lib/backend'
@@ -85,6 +86,7 @@ export function CompanyCompetitionsPage() {
   if (!companies.length) {
     return (
       <PanelPage title={t('competitions.title')} description={t('competitions.needCompany')} index="CMP">
+        <RegistrationGuidance kind="leagues" />
         <Link to="/company" className="text-sm text-rc-blue hover:underline">
           {t('company.panelTitle')} →
         </Link>
@@ -113,6 +115,7 @@ export function CompanyCompetitionsPage() {
         ) : undefined
       }
     >
+      {!registerLeagueId ? <RegistrationGuidance kind="leagues" /> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
       {registerLeagueId && activeCompanyId ? (

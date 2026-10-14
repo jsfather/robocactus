@@ -648,6 +648,15 @@ export type SiteSettings = {
   league_rules_notice_fa?: string | null
   league_rules_notice_en?: string | null
   homepage_content?: HomepageContent | null
+  onboarding_guidance?: OnboardingGuidance | null
+}
+
+export type GuidanceCopy = { enabled: boolean; title_fa: string; title_en: string; body_fa: string; body_en: string }
+export type OnboardingGuidance = {
+  profile: GuidanceCopy
+  organization: GuidanceCopy
+  company_form: GuidanceCopy
+  leagues: GuidanceCopy
 }
 
 export type HomepageContent = {

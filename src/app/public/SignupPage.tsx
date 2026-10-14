@@ -27,6 +27,7 @@ import {
   duplicateFieldMessage,
   hydrateSignupFormFromProfile,
   inferSignupStep,
+  hasIdentityBasics,
   isSignupIncomplete,
   mapSignupError,
   type SignupStep,
@@ -64,7 +65,10 @@ export function SignupPage() {
   const [companyNationalId, setCompanyNationalId] = useState('')
   const [economicCode, setEconomicCode] = useState('')
   const [address, setAddress] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phoneDraft, setPhone] = useState('')
+  const verifiedPhone = user && profile?.id === user.id && profile.phone_verified_at
+    ? numericInput(profile.phone ?? '', 11) : ''
+  const phone = verifiedPhone || phoneDraft
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -77,6 +81,8 @@ export function SignupPage() {
   const [uploadPreviews, setUploadPreviews] = useState<Record<string, string>>({})
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [error, setError] = useState<string | null>(null)
+  const identityFormRef = useRef<HTMLFormElement>(null)
+  const [identityErrors, setIdentityErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [authOptions, setAuthOptions] = useState<BackendAuthOptions | null>(null)
@@ -109,13 +115,6 @@ export function SignupPage() {
     const timer = window.setTimeout(() => { setOtpRemainingSeconds((v) => Math.max(0, v - 1)); setResendSeconds((v) => Math.max(0, v - 1)) }, 1000)
     return () => window.clearTimeout(timer)
   }, [otpRemainingSeconds, resendSeconds])
-
-  useEffect(() => {
-    if (params.get('resume') === 'docs' && user) {
-      setUserId(user.id)
-      setStep(documentsEnabled ? 'docs' : 'review')
-    }
-  }, [params, user, documentsEnabled])
 
   useEffect(() => {
     if (phoneOnboardingRequested && user?.phone) {
@@ -155,7 +154,7 @@ export function SignupPage() {
   }
 
   useEffect(() => {
-    if (!user || !profile || params.get('resume') === 'docs') {
+    if (!user || !profile) {
       setResumeReady(true)
       return
     }
@@ -165,7 +164,7 @@ export function SignupPage() {
     }
 
     const uid = user.id
-    const hydrationKey = `${uid}:${profile.id}:${profile.signup_step ?? ''}:${documentsEnabled === false ? 'nodocs' : 'docs'}`
+    const hydrationKey = `${uid}:${profile.id}:${profile.signup_step ?? ''}:${profile.phone_verified_at ?? ''}:${documentsEnabled === false ? 'nodocs' : 'docs'}`
     if (resumeHydrationKey.current === hydrationKey) return
     resumeHydrationKey.current = hydrationKey
     setUserId(uid)
@@ -193,9 +192,9 @@ export function SignupPage() {
         toast.info(t('auth.resumeSignup'))
       }
     })
-  }, [documentsEnabled, params.get('resume'), profile?.account_type, profile?.auth_channel, profile?.email_verified_at, profile?.id, profile?.identity_completed_at, profile?.signup_completed_at, profile?.signup_step, user?.id])
+  }, [documentsEnabled, params.get('resume'), profile?.account_type, profile?.auth_channel, profile?.email_verified_at, profile?.phone_verified_at, profile?.id, profile?.identity_completed_at, profile?.signup_completed_at, profile?.signup_step, user?.id])
 
-  const isPhoneOnboarding = phoneOnboardingRequested && Boolean(user)
+  const isPhoneOnboarding = Boolean(user && verifiedPhone)
   const shouldResumeSignup = Boolean(user && profile && isSignupIncomplete(profile))
 
   if (user && step === 'type' && !isPhoneOnboarding && !shouldResumeSignup && resumeReady) {
@@ -219,8 +218,37 @@ export function SignupPage() {
   }
 
   const validateIdentity = () => {
+    const invalid = (field: string, message: string) => {
+      setIdentityErrors({ [field]: message })
+      setError(message)
+      setStep('identity')
+      requestAnimationFrame(() => identityFormRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+      return false
+    }
+    const missing: Record<string, string> = {}
+    for (const [key, label, value] of [
+      ['first_name_fa', 'نام فارسی', firstNameFa], ['last_name_fa', 'نام خانوادگی فارسی', lastNameFa],
+      ['first_name_en', 'نام انگلیسی', firstNameEn], ['last_name_en', 'نام خانوادگی انگلیسی', lastNameEn],
+      ['birth_date', 'تاریخ تولد', birthDate], ['postal_code', 'کد پستی', postalCode], ['address', 'نشانی', address],
+      ['email', 'ایمیل', email],
+      ...(authChannel === 'phone' ? [['phone', 'شماره موبایل', phone]] : []),
+      ...(accountType === 'legal' ? [['company_name', 'نام مجموعه', companyName], ['company_national_id', 'شناسه ملی مجموعه', companyNationalId], ['legal_representative_national_id', 'کد ملی نماینده قانونی', representativeNationalId]] : [['national_id', 'کد ملی', nationalId]]),
+    ]) {
+      if (!value?.trim()) missing[key] = `${label} الزامی است.`
+    }
+    setIdentityErrors(missing)
+    if (Object.keys(missing).length) {
+      setError(Object.values(missing).join(' '))
+      setStep('identity')
+      requestAnimationFrame(() => {
+        const field = identityFormRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
+        field?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        field?.focus()
+      })
+      return false
+    }
     try {
-      if (authChannel === 'email') {
+      if (authChannel === 'email' && !user) {
         if (password !== confirmPassword) {
           setError(t('auth.passwordMismatch'))
           return false
@@ -230,52 +258,36 @@ export function SignupPage() {
           email: z.string().email(),
           password: z.string().refine(isStrongPassword),
         }).parse({ fullName, username, email, password })
-        if (accountType === 'individual') {
-          z.object({ nationalId: z.string().regex(/^\d{10}$/) }).parse({ nationalId })
-        } else {
-          z.object({
-            companyName: z.string().min(2),
-            companyNationalId: z.string().min(5),
-          }).parse({ companyName, companyNationalId })
-        }
-      } else if (accountType === 'individual') {
+      }
+      if (accountType === 'individual') {
         z.object({
           fullName: z.string().min(2), email: z.string().email(),
           nationalId: z.string().regex(/^\d{10}$/),
-          phone: z.string().regex(/^09\d{9}$/),
-        }).parse({ fullName, nationalId, phone, email })
+        }).parse({ fullName, nationalId, email })
       } else {
         z.object({
           fullName: z.string().min(2), email: z.string().email(),
           companyName: z.string().min(2),
           companyNationalId: z.string().min(5),
-          phone: z.string().regex(/^09\d{9}$/),
-        }).parse({ fullName, companyName, companyNationalId, phone, email })
+        }).parse({ fullName, companyName, companyNationalId, email })
       }
-      if (!firstNameFa.trim() || !lastNameFa.trim() || !firstNameEn.trim() || !lastNameEn.trim() || !birthDate || !postalCode.trim() || !address.trim()) {
-        setError(t('auth.required'))
-        return false
+      for (const [key, value, language] of [['first_name_fa', firstNameFa, 'fa'], ['last_name_fa', lastNameFa, 'fa'], ['first_name_en', firstNameEn, 'en'], ['last_name_en', lastNameEn, 'en']] as const) {
+        const languageError = localizedTextError(value, language)
+        if (languageError) return invalid(key, languageError)
       }
-      const languageError = localizedTextError(firstNameFa, 'fa')
-        || localizedTextError(lastNameFa, 'fa')
-        || localizedTextError(firstNameEn, 'en')
-        || localizedTextError(lastNameEn, 'en')
-      if (languageError) { setError(languageError); return false }
-      if (phone && !/^09\d{9}$/.test(phone)) { setError('شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.'); return false }
-      if (!/^\d{10}$/.test(postalCode)) { setError('کد پستی باید دقیقاً ۱۰ رقم باشد.'); return false }
-      if (accountType === 'legal' && !/^\d{10}$/.test(representativeNationalId)) { setError('کد ملی نماینده باید دقیقاً ۱۰ رقم باشد.'); return false }
-      if (accountType === 'legal' && !representativeNationalId.trim()) {
-        setError(t('auth.required'))
-        return false
-      }
+      if (phone && !/^09\d{9}$/.test(phone)) return invalid('phone', 'شماره موبایل باید ۱۱ رقم و با 09 آغاز شود.')
+      if (!/^\d{10}$/.test(postalCode)) return invalid('postal_code', 'کد پستی باید دقیقاً ۱۰ رقم باشد.')
+      if (accountType === 'legal' && !/^\d{10}$/.test(representativeNationalId)) return invalid('legal_representative_national_id', 'کد ملی نماینده باید دقیقاً ۱۰ رقم باشد.')
       return true
-    } catch {
-      setError(t('auth.required'))
-      return false
+    } catch (err) {
+      const labels: Record<string, string> = { fullName: 'نام و نام خانوادگی', username: 'نام کاربری', email: 'ایمیل', password: 'رمز عبور', nationalId: 'کد ملی', phone: 'شماره موبایل', companyName: 'نام مجموعه', companyNationalId: 'شناسه ملی مجموعه' }
+      const key = err instanceof z.ZodError ? String(err.issues[0]?.path[0] ?? '') : ''
+      const fields: Record<string, string> = { fullName: 'first_name_fa', nationalId: 'national_id', companyName: 'company_name', companyNationalId: 'company_national_id' }
+      return invalid(fields[key] ?? key, key ? `${labels[key] ?? key} را به‌درستی تکمیل کنید.` : t('auth.required'))
     }
   }
 
-  const persistProfileFields = async (uid: string) => {
+  const persistProfileFields = async (uid: string, nextStep: Step = nextAfterIdentity) => {
     const duplicate = await checkProfileDuplicates(uid, {
       email: email.trim().toLowerCase(),
       nationalId: accountType === 'individual' ? nationalId.trim() : undefined,
@@ -307,7 +319,7 @@ export function SignupPage() {
         birth_date: birthDate ? latinDigits(birthDate).slice(0, 10) : null,
         postal_code: postalCode.trim(),
         legal_representative_national_id: accountType === 'legal' ? representativeNationalId.trim() : null,
-        signup_step: step,
+        signup_step: nextStep,
         // Signup only creates the participant shell. The profile becomes
         // complete after the dedicated identity flow collects every required field.
         identity_completed_at: null,
@@ -327,10 +339,12 @@ export function SignupPage() {
   })
 
   const saveSignupStep = async (nextStep: Step) => {
-    setStep(nextStep)
     const uid = userId ?? user?.id
-    if (!uid) return
-    await backend.from('profiles').update({ signup_step: nextStep }).eq('id', uid)
+    if (uid) {
+      const { error } = await backend.from('profiles').update({ signup_step: nextStep }).eq('id', uid)
+      if (error) { setError(mapSignupError(error.message, t)); return }
+    }
+    setStep(nextStep)
   }
 
   const onRequestOtp = async (event: FormEvent) => {
@@ -534,6 +548,7 @@ export function SignupPage() {
   }
 
   const openFinalReview = async () => {
+    if (!validateIdentity()) return
     const missing = docTypes.some((doc) => doc.is_required && !uploads[doc.id])
     if (missing) { setError(t('auth.docsRequired')); return }
     const uid = userId ?? user?.id
@@ -541,7 +556,7 @@ export function SignupPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await persistProfileFields(uid)
+      await persistProfileFields(uid, 'review')
       await saveSignupStep('review')
     } catch (err) {
       const mapped = mapSignupError(err instanceof Error ? err.message : t('common.error'), t)
@@ -561,6 +576,10 @@ export function SignupPage() {
   }
 
   const finish = async () => {
+    if (!validateIdentity()) return
+    const { data: savedProfile, error: loadError } = await backend.from('profiles').select('*').eq('id', userId ?? user?.id).single()
+    if (loadError) { setError(mapSignupError(loadError.message, t)); return }
+    if (!hasIdentityBasics(savedProfile)) { setError('اطلاعات هویتی ذخیره‌شده کامل نیست؛ لطفاً این مرحله را تکمیل و ذخیره کنید.'); setStep('identity'); return }
     const missing = documentsEnabled && docTypes.filter((d) => d.is_required).some((d) => !uploads[d.id])
     if (missing) {
       setError(t('auth.docsRequired'))
@@ -580,6 +599,7 @@ export function SignupPage() {
     setSubmitting(false)
     if (finishError) {
       setError(mapSignupError(finishError.message, t))
+      if (finishError.message.includes('signup_identity_required')) setStep('identity')
       return
     }
     await refreshProfile()
@@ -687,6 +707,8 @@ export function SignupPage() {
 
       {step === 'identity' ? (
         <form
+          ref={identityFormRef}
+          noValidate
           className="mt-6 space-y-3"
           onSubmit={(e) => {
             e.preventDefault()
@@ -704,16 +726,18 @@ export function SignupPage() {
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="نام فارسی" required value={firstNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setFirstNameFa(value); setFullName(`${value} ${lastNameFa}`.trim()) }} error={localizedTextError(firstNameFa, 'fa')} />
-            <Input label="نام خانوادگی فارسی" required value={lastNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setLastNameFa(value); setFullName(`${firstNameFa} ${value}`.trim()) }} error={localizedTextError(lastNameFa, 'fa')} />
-            <Input label="نام انگلیسی" required value={firstNameEn} onChange={(e) => setFirstNameEn(withoutDigits(e.target.value))} dir="ltr" error={localizedTextError(firstNameEn, 'en')} />
-            <Input label="نام خانوادگی انگلیسی" required value={lastNameEn} onChange={(e) => setLastNameEn(withoutDigits(e.target.value))} dir="ltr" error={localizedTextError(lastNameEn, 'en')} />
+            <Input label="نام فارسی" name="first_name_fa" required value={firstNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setFirstNameFa(value); setFullName(`${value} ${lastNameFa}`.trim()) }} error={identityErrors.first_name_fa || localizedTextError(firstNameFa, 'fa')} />
+            <Input label="نام خانوادگی فارسی" name="last_name_fa" required value={lastNameFa} onChange={(e) => { const value=withoutDigits(e.target.value); setLastNameFa(value); setFullName(`${firstNameFa} ${value}`.trim()) }} error={identityErrors.last_name_fa || localizedTextError(lastNameFa, 'fa')} />
+            <Input label="نام انگلیسی" name="first_name_en" required value={firstNameEn} onChange={(e) => setFirstNameEn(withoutDigits(e.target.value))} dir="ltr" error={identityErrors.first_name_en || localizedTextError(firstNameEn, 'en')} />
+            <Input label="نام خانوادگی انگلیسی" name="last_name_en" required value={lastNameEn} onChange={(e) => setLastNameEn(withoutDigits(e.target.value))} dir="ltr" error={identityErrors.last_name_en || localizedTextError(lastNameEn, 'en')} />
           </div>
-          <BirthDateField label="تاریخ تولد" value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
-          <Input label="کد پستی" required value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" maxLength={10} />
+          <BirthDateField label="تاریخ تولد" required error={identityErrors.birth_date} value={birthDate} onChange={(date) => setBirthDate(date ?? '')} />
+          <Input label="کد پستی" name="postal_code" required error={identityErrors.postal_code} value={postalCode} onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" maxLength={10} />
           {accountType === 'individual' ? (
             <Input
               label={t('auth.nationalId')}
+              name="national_id"
+              error={identityErrors.national_id}
               required
               value={nationalId}
               onChange={(e) => setNationalId(e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -723,9 +747,11 @@ export function SignupPage() {
             />
           ) : (
             <>
-              <Input label={t('company.name')} required value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              <Input label={t('company.name')} name="company_name" error={identityErrors.company_name} required value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
               <Input
                 label={t('auth.companyNationalId')}
+                name="company_national_id"
+                error={identityErrors.company_national_id}
                 required
                 value={companyNationalId}
                 onChange={(e) => setCompanyNationalId(e.target.value.replace(/\D/g, '').slice(0, 11))}
@@ -733,7 +759,7 @@ export function SignupPage() {
                 inputMode="numeric"
                 maxLength={11}
               />
-              <Input label="کد ملی نماینده قانونی" required value={representativeNationalId} onChange={(e) => setRepresentativeNationalId(e.target.value.replace(/\D/g, '').slice(0, 10))} dir="ltr" inputMode="numeric" maxLength={10} />
+              <Input label="کد ملی نماینده قانونی" name="legal_representative_national_id" error={identityErrors.legal_representative_national_id} required value={representativeNationalId} onChange={(e) => setRepresentativeNationalId(e.target.value.replace(/\D/g, '').slice(0, 10))} dir="ltr" inputMode="numeric" maxLength={10} />
               <Input
                 label={t('auth.economicCode')}
                 value={economicCode}
@@ -743,24 +769,27 @@ export function SignupPage() {
               />
             </>
           )}
-          <Textarea label={t('auth.address')} className="min-h-20" value={address} onChange={(e) => setAddress(e.target.value)} />
+          <Textarea label={t('auth.address')} name="address" required error={identityErrors.address} className="min-h-20" value={address} onChange={(e) => setAddress(e.target.value)} />
 
           {authChannel === 'email' ? (
             <>
               <Input label="نام کاربری" required value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" autoComplete="username" />
               <Input
                 label={t('auth.email')}
+                name="email"
+                error={identityErrors.email}
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 dir="ltr"
               />
-              <PasswordField label={t('auth.password')} value={password} onChange={setPassword} />
-              <PasswordField label={t('auth.confirmPassword')} value={confirmPassword} onChange={setConfirmPassword} confirmValue={password} />
+              {!user ? <><PasswordField label={`${t('auth.password')} *`} value={password} onChange={setPassword} />
+              <PasswordField label={`${t('auth.confirmPassword')} *`} value={confirmPassword} onChange={setConfirmPassword} confirmValue={password} /></> : null}
               <Input
                 label={t('auth.phoneOptional')}
                 value={phone}
+                readOnly={Boolean(verifiedPhone)}
                 onChange={(e) => setPhone(numericInput(e.target.value, 11))}
                 dir="ltr"
                 inputMode="numeric"
@@ -769,12 +798,13 @@ export function SignupPage() {
             </>
           ) : (
             <>
-              <Input label={t('auth.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
-              <Input label={t('auth.phone')} required value={phone} onChange={(e) => setPhone(numericInput(e.target.value, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
+              <Input label={t('auth.email')} name="email" error={identityErrors.email} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
+              <Input label={t('auth.phone')} name="phone" error={identityErrors.phone} required value={phone} readOnly={Boolean(verifiedPhone)} onChange={(e) => setPhone(numericInput(e.target.value, 11))} dir="ltr" inputMode="numeric" maxLength={11} placeholder="09xxxxxxxxx" />
             </>
           )}
 
-          {authChannel === 'email' ? <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
+          {verifiedPhone ? <p className="text-xs font-bold leading-6 text-emerald-700">{t('auth.phoneVerified')} — شماره موبایل این ثبت‌نام قابل تغییر نیست.</p> : null}
+          {authChannel === 'email' && !isPhoneOnboarding ? <ArcaptchaField context="signup" onToken={setCaptchaToken} resetKey={captchaReset} /> : null}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={() => void saveSignupStep(isPhoneOnboarding ? 'type' : 'channel')}>
               {t('common.cancel')}
@@ -790,7 +820,7 @@ export function SignupPage() {
         </form>
       ) : null}
 
-      {step === 'verify' && authChannel === 'phone' ? (
+      {step === 'verify' && authChannel === 'phone' && !verifiedPhone ? (
         <div className="mt-6 space-y-4">
           {!otpSent ? (
             <form onSubmit={(e) => void onRequestOtp(e)} className="space-y-3">

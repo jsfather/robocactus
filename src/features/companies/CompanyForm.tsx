@@ -6,6 +6,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { createCompany, updateCompany, uploadCompanyLogo } from '@/features/companies/api'
 import { slugify } from '@/lib/validation'
 import type { Company } from '@/types/database'
+import { RegistrationGuidance } from '@/components/panel/RegistrationGuidance'
 
 interface CompanyFormProps {
   company?: Company | null
@@ -21,7 +22,7 @@ function displayFoundedYear(value: number | null | undefined, isFa: boolean): st
 
 export function CompanyForm({ company, onSaved }: CompanyFormProps) {
   const { t, i18n } = useTranslation()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const { settings } = useSiteSettings()
   const companyTaglineEnabled = settings?.company_tagline_enabled !== false
   const isEdit = Boolean(company)
@@ -112,6 +113,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
             })
 
       onSaved(saved)
+      await refreshProfile()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'error'
       if (message === 'invalid_type' || message === 'too_large') {
@@ -129,6 +131,7 @@ export function CompanyForm({ company, onSaved }: CompanyFormProps) {
       title={isEdit ? t('company.editTitle') : t('company.createTitle')}
       description={t('company.formHint')}
     >
+      {!isEdit ? <RegistrationGuidance kind="company_form" /> : null}
       <form className="grid gap-4 md:grid-cols-2" onSubmit={(e) => void onSubmit(e)}>
         <Input
           label={t('company.name')}

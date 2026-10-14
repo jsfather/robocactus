@@ -13,6 +13,7 @@ import {
 import { PanelErrorBoundary } from '@/components/layout/PanelErrorBoundary'
 import { NotificationBell } from '@/components/panel/NotificationBell'
 import { UserMenu } from '@/components/panel/UserMenu'
+import { ParticipantGuidance } from '@/components/panel/ParticipantGuidance'
 import { SmsBalancePill } from '@/components/panel/SmsBalancePill'
 import { ProfileAvatar } from '@/components/panel/ProfileAvatar'
 import { AccountPendingBanner } from '@/components/layout/AccountPendingBanner'
@@ -346,6 +347,7 @@ export function PanelShell() {
         </header>
 
         <main data-panel-section={active?.id ?? 'account'} className="relative min-w-0 max-w-full flex-1 overflow-x-clip px-4 py-6 sm:px-6 md:py-8 lg:px-8">
+          <ParticipantGuidance />
           <div className="relative">
             {accountAwaitingApproval && !location.pathname.includes('/tickets') ? <section className="mx-auto mt-8 w-full max-w-2xl rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-10" role="status" aria-live="polite"><span className="mx-auto block size-14 animate-spin rounded-full border-4 border-amber-100 border-t-amber-500 motion-reduce:animate-none"/><h1 className="mt-6 text-xl font-black text-slate-900">{i18n.language.startsWith('en') ? 'Your account is awaiting verification' : 'حساب شما در انتظار تأیید است'}</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">{i18n.language.startsWith('en') ? 'Our support team is reviewing your identity information and documents. You will receive a message after approval. Support tickets remain available.' : 'کارشناس پشتیبانی در حال بررسی اطلاعات هویتی و مدارک شماست. پس از تأیید، نتیجه از طریق پیامک اطلاع‌رسانی می‌شود. در این مدت می‌توانید از بخش پشتیبانی تیکت ارسال کنید.'}</p><Link to="/account/tickets" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-sky-700 px-5 text-sm font-bold text-white hover:bg-sky-800">{i18n.language.startsWith('en') ? 'Contact support' : 'ارسال تیکت پشتیبانی'}</Link></section> : <><AccountPendingBanner /><AccountIssuesPanel /><PanelErrorBoundary key={location.pathname}><Outlet /></PanelErrorBoundary></>}
           </div>

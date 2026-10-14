@@ -1,14 +1,51 @@
 import type { Response, Router } from 'express'
 import { sql } from 'drizzle-orm'
-import { db, userFromRequest, withRequestRole, type AuthUser } from './db.js'
+import { db, hashToken, userFromRequest, withRequestRole, type AuthUser } from './db.js'
 
-type Client = { response: Response; tables: Set<string>; user: AuthUser | null; guestChatToken: string | null; ip: string; disconnected: boolean }
+type Client = { response: Response; tables: Set<string>; user: AuthUser | null; sessionHash: string | null; guestChatToken: string | null; ip: string; disconnected: boolean }
 const clients = new Set<Client>()
 const clientsByIp = new Map<string, number>()
 const MAX_CLIENTS = 500
 const MAX_CLIENTS_PER_IP = 6
 let lastEventId = 0
 let poller: NodeJS.Timeout | null = null
+let polling = false
+let lastSessionCheck = 0
+
+export function revokeRealtimeSessions(hashes: string[]): void {
+  const revoked = new Set(hashes)
+  for (const client of clients) {
+    if (client.sessionHash && revoked.has(client.sessionHash)) {
+      if ([...client.tables].every((table) => PUBLIC_REALTIME_TABLES.has(table))) {
+        client.user = null
+        client.sessionHash = null
+        continue
+      }
+      try {
+        client.response.write('event: session_expired\ndata: {}\n\n')
+      } catch {
+        // The revoked browser may already have closed its connection.
+      } finally {
+        disconnect(client)
+      }
+    }
+  }
+}
+
+async function validateSessions(): Promise<void> {
+  const hashes = [...new Set([...clients].map((client) => client.sessionHash).filter((hash): hash is string => Boolean(hash)))]
+  if (!hashes.length) return
+  // Check across server instances as well as the process serving the logout
+  // request, including connections with no new database events to deliver.
+  const valid = await db.execute(sql`
+    select s.token_hash from app_private.sessions s
+    where s.token_hash in (${sql.join(hashes.map((hash) => sql`${hash}`), sql`, `)})
+      and s.expires_at > now()
+      and not exists (select 1 from public.profiles p where p.id = s.user_id and p.account_status = 'suspended')
+  `)
+  const active = new Set(valid.rows.map((row) => String(row.token_hash)))
+  revokeRealtimeSessions(hashes.filter((hash) => !active.has(hash)))
+}
 
 const REALTIME_TABLES = new Set([
   'teams', 'invoices', 'tickets', 'ticket_messages', 'ticket_reads', 'results', 'leagues',
@@ -81,6 +118,10 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
 
 async function poll(): Promise<void> {
   if (!clients.size) return
+  if (Date.now() - lastSessionCheck >= 15_000) {
+    await validateSessions()
+    lastSessionCheck = Date.now()
+  }
   const result = await db.execute(sql`
     select id, table_name, event, record, old_record
     from app_private.realtime_events where id > ${lastEventId}
@@ -118,13 +159,18 @@ function disconnect(client: Client): void {
   const count = (clientsByIp.get(client.ip) ?? 1) - 1
   if (count > 0) clientsByIp.set(client.ip, count)
   else clientsByIp.delete(client.ip)
+  if (!client.response.destroyed && !client.response.writableEnded) client.response.end()
 }
 
 export async function initializeRealtime(): Promise<void> {
   const current = await db.execute(sql`select coalesce(max(id), 0)::bigint as id from app_private.realtime_events`)
   lastEventId = Number(current.rows[0]?.id ?? 0)
   if (!poller) {
-    poller = setInterval(() => void poll().catch((error) => console.error('[realtime]', error)), 1000)
+    poller = setInterval(() => {
+      if (polling) return
+      polling = true
+      void poll().catch((error) => console.error('[realtime]', error)).finally(() => { polling = false })
+    }, 1000)
     poller.unref()
   }
 }
@@ -148,10 +194,15 @@ export function registerRealtimeRoutes(router: Router): void {
       'X-Accel-Buffering': 'no',
     })
     response.flushHeaders()
+    const user = await userFromRequest(request)
+    if (request.cookies?.rc_session && !user && requested.some((table) => !PUBLIC_REALTIME_TABLES.has(table))) {
+      response.end('event: session_expired\ndata: {}\n\n')
+      return
+    }
     const guestChatToken = typeof request.query.chat_token === 'string' && /^[0-9a-f-]{36}$/i.test(request.query.chat_token)
       ? request.query.chat_token
       : null
-    const client: Client = { response, tables: new Set(requested), user: await userFromRequest(request), guestChatToken, ip, disconnected: false }
+    const client: Client = { response, tables: new Set(requested), user, sessionHash: user ? hashToken(String(request.cookies.rc_session)) : null, guestChatToken, ip, disconnected: false }
     clients.add(client)
     clientsByIp.set(ip, (clientsByIp.get(ip) ?? 0) + 1)
     // Keep browser reconnects bounded when a reverse proxy or deploy closes
@@ -165,6 +216,7 @@ export function registerRealtimeRoutes(router: Router): void {
         disconnect(client)
       }
     }, 20_000)
+    response.on('close', () => { clearInterval(keepalive); disconnect(client) })
     request.on('close', () => {
       clearInterval(keepalive)
       disconnect(client)

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, FieldError, Input, Select, Textarea } from '@/components/ui/FormControls'
+import { Button, FieldError, Input, Select, Textarea, PanelCard } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
 import { HudFrame, SectionLabel } from '@/components/panel/HudKit'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
@@ -11,7 +11,7 @@ import {
 } from '@/features/settings/api'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useToast } from '@/components/ui/Toast'
-import type { CommunicationChannel, SiteNavItem, SiteSettings } from '@/types/database'
+import type { CommunicationChannel, SiteNavItem, SiteSettings, OnboardingGuidance, GuidanceCopy } from '@/types/database'
 import { numericInput } from '@/lib/validation'
 
 const emptyNav = (): SiteNavItem => ({
@@ -103,6 +103,10 @@ export function SuperAdminSettingsPage() {
 
   const nav = Array.isArray(form.nav_items) ? form.nav_items : []
   const channels = Array.isArray(form.communication_channels) ? form.communication_channels : []
+  const guidanceKeys = ['profile', 'organization', 'company_form', 'leagues'] as const
+  const guidanceLabels = { profile: 'پیام تکمیل پروفایل', organization: 'پیام ذخیره مجموعه', company_form: 'راهنمای فرم مجموعه', leagues: 'راهنمای صفحه مسابقات' }
+  const guidance = Object.fromEntries(guidanceKeys.map((key) => [key, form.onboarding_guidance?.[key] ?? { enabled: false, title_fa: '', title_en: '', body_fa: '', body_en: '' }])) as OnboardingGuidance
+  const patchGuidance = (key: keyof OnboardingGuidance, value: Partial<GuidanceCopy>) => patch({ onboarding_guidance: { ...guidance, [key]: { ...guidance[key], ...value } } })
 
   return (
     <PanelPage index="SYS.09" title={t('settings.title')} description={t('settings.subtitle')} actions={<Button type="submit" form="site-settings-form" disabled={busy || !dirty}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیره تغییرات' : 'تغییری ثبت نشده'}</Button>}>
@@ -110,6 +114,12 @@ export function SuperAdminSettingsPage() {
       <form id="site-settings-form" className="space-y-6" onSubmit={(e) => void onSave(e)}>
         <div className={`sticky top-20 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm backdrop-blur ${dirty?'border-amber-200 bg-amber-50/95':'border-emerald-200 bg-emerald-50/95'}`} role="status"><p className={`text-sm font-bold ${dirty?'text-amber-900':'text-emerald-800'}`}>{dirty?'تغییرات ذخیره‌نشده دارید.':'تنظیمات فعلی ذخیره شده است.'}</p><Button type="submit" disabled={busy || !dirty}>{busy?'در حال ذخیره…':'ذخیره تنظیمات سایت'}</Button></div>
         <HudFrame className="space-y-3 p-4">
+          <PanelCard title="راهنمای شروع شرکت‌کنندگان" description="پیام‌های تکمیل پروفایل و مجموعه فقط یک‌بار برای هر حساب نمایش داده می‌شوند. ویرایش متن یا فعال‌سازی مجدد، نمایش‌های قبلی را تکرار نمی‌کند.">
+            <div className="space-y-5">{guidanceKeys.map((key) => <section key={key} className="rounded-2xl border border-slate-200 p-4">
+              <label className="mb-4 flex min-h-11 items-center gap-3 text-sm font-bold"><input type="checkbox" checked={guidance[key].enabled} onChange={(event) => patchGuidance(key, { enabled: event.target.checked })} />{guidanceLabels[key]}</label>
+              <div className="grid gap-3 md:grid-cols-2"><Input label="عنوان فارسی" value={guidance[key].title_fa} onChange={(event) => patchGuidance(key, { title_fa: event.target.value })} /><Input label="English title" dir="ltr" value={guidance[key].title_en} onChange={(event) => patchGuidance(key, { title_en: event.target.value })} /><Textarea label="متن فارسی" value={guidance[key].body_fa} onChange={(event) => patchGuidance(key, { body_fa: event.target.value })} /><Textarea label="English text" dir="ltr" value={guidance[key].body_en} onChange={(event) => patchGuidance(key, { body_en: event.target.value })} /></div>
+            </section>)}</div>
+          </PanelCard>
           <SectionLabel index="BR.01" title={t('settings.brand')} />
           <div className="grid gap-3 md:grid-cols-2">
             <Input

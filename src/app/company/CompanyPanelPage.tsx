@@ -125,6 +125,10 @@ export function CompanyPanelPage({
     window.requestAnimationFrame(() => profileEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }, [editingProfile])
 
+  useEffect(() => {
+    if (searchParams.get('setup') === 'organization' && companies.length > 0) setEditingProfile(true)
+  }, [searchParams, companies.length])
+
   const leagueName = (leagueId: string) =>
     leagues.find((l) => l.id === leagueId)?.name ?? leagueId.slice(0, 8)
 

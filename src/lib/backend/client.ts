@@ -210,6 +210,14 @@ const auth = {
     const response = await authCall('password/change', { currentPassword, newPassword })
     return { data: response, error: response.error ?? null }
   },
+  async revokeOtherSessions() {
+    const response = await authCall('sessions/revoke-others', {})
+    return { data: response, error: response.error ?? null }
+  },
+  async claimOnboardingNotice() {
+    const response = await authCall('onboarding/claim', {})
+    return { data: response as { notice?: 'profile' | 'organization' | null }, error: response.error ?? null }
+  },
   async adminRequestPasswordReset(userId: string) {
     const response = await authCall(`admin/users/${encodeURIComponent(userId)}/password-reset`, {})
     return { data: response, error: response.error ?? null }
@@ -400,6 +408,10 @@ class RealtimeChannel {
     const tables = [...new Set(this.handlers.map((handler) => handler.filter.table))].join(',')
     this.source = new EventSource(`${apiBase}/api/realtime?tables=${encodeURIComponent(tables)}`, { withCredentials: true })
     this.source.onopen = () => callback?.('SUBSCRIBED')
+    this.source.addEventListener('session_expired', () => {
+      this.close()
+      for (const listener of authListeners) listener('SIGNED_OUT', null)
+    })
     this.source.onerror = () => callback?.('CHANNEL_ERROR')
     this.source.onmessage = (message) => {
       const event = JSON.parse(message.data) as { table: string; event: string; record?: Record<string, unknown>; old_record?: Record<string, unknown> }

@@ -4,11 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserRole } from '@/types/database'
 import { ProfileAvatar } from '@/components/panel/ProfileAvatar'
+import { backend } from '@/lib/backend'
+import { useToast } from '@/components/ui/Toast'
 
 export function UserMenu({ role }: { role: UserRole }) {
   const { t, i18n } = useTranslation()
   const { profile, user, signOut } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
+  const [revoking, setRevoking] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -21,11 +25,27 @@ export function UserMenu({ role }: { role: UserRole }) {
   }, [])
 
   const name = profile?.full_name ?? user?.email ?? '—'
+  const isEn = i18n.language.startsWith('en')
+  const revokeOthers = async () => {
+    if (revoking) return
+    setRevoking(true)
+    try {
+      const { error } = await backend.auth.revokeOtherSessions()
+      if (error) throw new Error(error.message)
+      toast.success(isEn ? 'Other sessions signed out. This session remains active.' : 'سایر نشست‌های حساب شما خارج شدند. نشست فعلی فعال است.')
+    } catch {
+      toast.error(isEn ? 'Could not sign out other sessions. Please try again.' : 'خروج سایر نشست‌ها انجام نشد. دوباره تلاش کنید.')
+    } finally {
+      setRevoking(false)
+    }
+  }
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
+        aria-expanded={open}
+        aria-label={isEn ? 'Account menu' : 'منوی حساب کاربری'}
         onClick={() => setOpen((v) => !v)}
         className="panel-header-action flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pe-3 ps-1.5 font-semibold text-slate-800 hover:bg-slate-50"
       >
@@ -35,7 +55,7 @@ export function UserMenu({ role }: { role: UserRole }) {
         <span className="hidden max-w-28 truncate text-xs sm:inline">{name}</span>
       </button>
       {open ? (
-        <div className="absolute end-0 top-full z-50 mt-2 w-64 border border-rc-line bg-rc-navy p-3 shadow-xl">
+        <div className="absolute end-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] border border-rc-line bg-rc-navy p-3 shadow-xl">
           <p className="truncate text-sm font-medium">{name}</p>
           <p className="mt-0.5 font-mono text-[10px] text-rc-blue">{t(`dashboard.roles.${role}`)}</p>
           <div className="mt-3 space-y-2 border-t border-rc-line pt-3">
@@ -68,6 +88,15 @@ export function UserMenu({ role }: { role: UserRole }) {
                 {t('settings.title')}
               </Link>
             ) : null}
+            {role === 'super_admin' || role === 'league_admin' ? <button
+              type="button"
+              disabled={revoking}
+              onClick={() => void revokeOthers()}
+              className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-start text-amber-950 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+            >
+              <svg viewBox="0 0 24 24" className="mt-0.5 size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="12" rx="2" /><path d="M8 21h8m-4-6v6m-4-9 8-6m-8 0 8 6" /></svg>
+              <span><span className="block text-sm font-bold">{revoking ? (isEn ? 'Signing out…' : 'در حال خروج…') : (isEn ? 'Sign out other sessions' : 'خروج سایر نشست‌ها')}</span><span className="mt-1 block text-xs leading-5">{isEn ? 'Keep this session active' : 'نشست فعلی فعال می‌ماند'}</span></span>
+            </button> : null}
             <button
               type="button"
               onClick={() => void (async () => {

@@ -7,6 +7,7 @@ import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period
 import { leagueCoverUrl } from '@/lib/dates'
 import type { League, LeaguePeriod } from '@/types/database'
 import { contentLocale, localizeLeague } from '@/features/leagues/localize'
+import { RegistrationGuidance } from '@/components/panel/RegistrationGuidance'
 
 export function LeaguesPage() {
   const { t, i18n } = useTranslation()
@@ -92,6 +93,7 @@ export function LeaguesPage() {
         </label>
       </div>
 
+      <RegistrationGuidance kind="leagues" />
       {loading ? <p className="text-rc-muted">{t('app.loading')}</p> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
