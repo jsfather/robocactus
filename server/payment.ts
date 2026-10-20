@@ -4,9 +4,10 @@ import { getAuthSettings } from './auth.js'
 import { config } from './config.js'
 import { db, userFromRequest, withRequestRole, type AuthUser } from './db.js'
 import { rateLimited } from './rate-limit.js'
+import { paymentAmount, paymentMerchantId, paymentRequestPayload } from './zarinpal.js'
 
 type PayableInvoice = { id: string; team_id: string; amount: string | number; status: string; gateway_ref: string | null; terms_accepted_at: string | null; invoice_number: string | null; payment_deadline: string | null; team_archived_at: string | null }
-type PaymentAttempt = { id: string; invoice_id: string; team_id: string; invoice_number: string | null; invoice_status: string; invoice_amount: string | number; authority: string; amount: string | number; status: string; ref_id: string | null }
+type PaymentAttempt = { id: string; invoice_id: string; team_id: string; invoice_number: string | null; invoice_status: string; invoice_amount: string | number; authority: string; amount: string | number; status: string; ref_id: string | null; sandbox: boolean | null }
 type ZarinPalBody = { data?: { authority?: string; code?: number; ref_id?: number; message?: string }; errors?: { code?: number; message?: string } | Array<{ code?: number; message?: string }> }
 
 async function visibleInvoice(user: AuthUser, invoiceId: string): Promise<PayableInvoice | null> {
@@ -45,7 +46,7 @@ async function providerPost(url: string, payload: Record<string, unknown>): Prom
 
 async function findAttempt(invoiceId: string, authority: string): Promise<PaymentAttempt | null> {
   const result = await db.execute(sql`
-    select pa.id,pa.invoice_id,pa.authority,pa.amount,pa.status,pa.ref_id,
+    select pa.id,pa.invoice_id,pa.authority,pa.amount,pa.status,pa.ref_id,pa.sandbox,
       i.team_id,i.invoice_number,i.status as invoice_status,i.amount as invoice_amount
     from public.payment_attempts pa join public.invoices i on i.id=pa.invoice_id
     where pa.invoice_id=${invoiceId} and pa.authority=${authority} limit 1
@@ -68,12 +69,12 @@ async function verifyAttempt(invoiceId: string, authority: string, gatewayReturn
 
   await db.execute(sql`update public.payment_attempts set status='verifying',returned_at=coalesce(returned_at,now()),updated_at=now() where id=${attempt.id} and status<>'paid'`)
   const settings = await getAuthSettings(true)
-  const merchantId = settings.zarinpal_merchant_id ?? process.env.ZARINPAL_MERCHANT_ID ?? ''
-  const sandbox = settings.zarinpal_sandbox ?? process.env.ZARINPAL_SANDBOX === 'true'
+  const merchantId = paymentMerchantId(settings.zarinpal_merchant_id, process.env.ZARINPAL_MERCHANT_ID)
+  const sandbox = attempt.sandbox ?? settings.zarinpal_sandbox ?? process.env.ZARINPAL_SANDBOX === 'true'
   if (!merchantId) return { http: 503, body: verificationPayload(attempt, 'error', { recoverable: true, error: 'zarinpal_not_configured' }) }
 
   let upstream: { ok: boolean; body: ZarinPalBody }
-  try { upstream = await providerPost(`${gatewayBase(sandbox)}/verify.json`, { merchant_id: merchantId, amount: Math.round(Number(attempt.amount)), authority }) }
+  try { upstream = await providerPost(`${gatewayBase(sandbox)}/verify.json`, { merchant_id: merchantId, amount: paymentAmount(attempt.amount), authority }) }
   catch (error) {
     const message = error instanceof Error && error.name === 'AbortError' ? 'zarinpal_timeout' : 'zarinpal_unreachable'
     await db.execute(sql`update public.payment_attempts set status='error',provider_message=${message},updated_at=now() where id=${attempt.id}`)
@@ -116,19 +117,22 @@ export function registerPaymentRoutes(router: Router): void {
     const settings = await getAuthSettings(true)
     const configuredProvider = settings.payment_provider ?? process.env.PAYMENT_PROVIDER ?? process.env.VITE_PAYMENT_PROVIDER ?? 'mock'
     if (configuredProvider !== 'zarinpal') return void response.status(409).json({ error: 'zarinpal_provider_not_enabled' })
-    const merchantId = settings.zarinpal_merchant_id ?? process.env.ZARINPAL_MERCHANT_ID ?? ''
+    const merchantId = paymentMerchantId(settings.zarinpal_merchant_id, process.env.ZARINPAL_MERCHANT_ID)
     const sandbox = settings.zarinpal_sandbox ?? process.env.ZARINPAL_SANDBOX === 'true'
     if (!merchantId) return void response.status(503).json({ error: 'zarinpal_not_configured' })
+    let amount: number
+    try { amount = paymentAmount(invoice.amount) }
+    catch { return void response.status(422).json({ error: 'invalid_payment_amount' }) }
     const held = await db.execute(sql`select 1 from public.payment_attempts where invoice_id=${invoice.id} and status='manual_review' limit 1`)
     if (held.rows.length) return void response.status(409).json({ error: 'payment_under_financial_review' })
-    const reusable = await db.execute(sql`select authority from public.payment_attempts where invoice_id=${invoice.id} and amount=${invoice.amount} and status in ('requested','verifying') and requested_at>now()-interval '15 minutes' order by requested_at desc limit 1`)
+    const reusable = await db.execute(sql`select authority from public.payment_attempts where invoice_id=${invoice.id} and amount=${invoice.amount} and sandbox=${sandbox} and status='requested' and requested_at>now()-interval '15 minutes' order by requested_at desc limit 1`)
     const reusableAuthority = String(reusable.rows[0]?.authority ?? '')
     if (reusableAuthority) return void response.json({ authority: reusableAuthority, redirectUrl: `${startPayBase(sandbox)}${reusableAuthority}`, reused: true })
 
     let upstream: { ok: boolean; body: ZarinPalBody }
     try {
       const callbackOrigin = requestPublicOrigin(request)
-      upstream = await providerPost(`${gatewayBase(sandbox)}/request.json`, { merchant_id: merchantId, amount: Math.round(Number(invoice.amount)), description: String(request.body?.description ?? 'Tabarestan Cup registration'), callback_url: `${callbackOrigin}/payments/callback?invoice=${encodeURIComponent(invoice.id)}`, metadata: { invoice_id: invoice.id, user_id: user.id } })
+      upstream = await providerPost(`${gatewayBase(sandbox)}/request.json`, paymentRequestPayload({ merchantId, amount, invoiceId: invoice.id, callbackOrigin, description: String(request.body?.description ?? 'Tabarestan Cup registration') }))
     } catch (error) {
       const message = error instanceof Error && error.name === 'AbortError' ? 'zarinpal_timeout' : 'zarinpal_unreachable'
       return void response.status(503).json({ error: message })
@@ -136,10 +140,11 @@ export function registerPaymentRoutes(router: Router): void {
     const authority = upstream.body.data?.authority
     if (!upstream.ok || upstream.body.data?.code !== 100 || !authority) {
       const detail = providerError(upstream.body, 'zarinpal_request_failed')
-      return void response.status(502).json({ error: detail.message, code: detail.code })
+      console.warn('[payment] gateway request rejected', { invoiceId: invoice.id, sandbox, providerCode: detail.code, upstreamStatusOk: upstream.ok })
+      return void response.status(502).json({ error: 'zarinpal_request_failed', code: detail.code })
     }
     await db.transaction(async (transaction) => {
-      await transaction.execute(sql`insert into public.payment_attempts(invoice_id,user_id,authority,amount,status,provider_code) values(${invoice.id},${user.id}::uuid,${authority},${invoice.amount},'requested',100) on conflict(authority) do nothing`)
+      await transaction.execute(sql`insert into public.payment_attempts(invoice_id,user_id,authority,amount,status,provider_code,sandbox) values(${invoice.id},${user.id}::uuid,${authority},${amount},'requested',100,${sandbox}) on conflict(authority) do nothing`)
       await transaction.execute(sql`update public.invoices set payment_method='online',gateway_ref=${authority},status='pending' where id=${invoice.id}`)
     })
     response.json({ authority, redirectUrl: `${startPayBase(sandbox)}${authority}` })

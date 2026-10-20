@@ -5,6 +5,7 @@ import type {
   PaymentVerifyRequest,
   PaymentVerifyResult,
 } from './types'
+import { paymentRequestError } from './errors'
 
 /** ZarinPal adapter. Merchant credentials and provider calls stay on the Node server. */
 export class ZarinPalGateway implements PaymentGateway {
@@ -21,9 +22,10 @@ export class ZarinPalGateway implements PaymentGateway {
       authority?: string
       redirectUrl?: string
       error?: string
+      code?: number | null
     }
     if (!response.ok || !body.authority || !body.redirectUrl) {
-      return { success: false, error: body.error ?? 'ZarinPal request failed' }
+      return { success: false, error: paymentRequestError(body.error, body.code) }
     }
     return { success: true, reference: body.authority, redirectUrl: body.redirectUrl }
   }

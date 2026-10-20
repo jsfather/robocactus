@@ -14,7 +14,7 @@ import type { AccountType, ParticipantFieldRule, Profile } from '@/types/databas
 import { useTranslation } from 'react-i18next'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 import { DocumentUploadField, validateIdentityImage } from '@/components/ui/DocumentUploadField'
-import { mapSignupError } from '@/features/auth/signupProgress'
+import { mapSignupError, signupConflictField } from '@/features/auth/signupProgress'
 import { IRAN_PROVINCES, withoutDigits } from '@/lib/iran'
 import { numericInput } from '@/lib/validation'
 import { CitySelect } from '@/components/ui/CitySelect'
@@ -104,7 +104,19 @@ export function AccountProfilePage() {
     const { id: _id, role: _role, created_at: _created, ...payload } = form
     const { error } = await backend.from('profiles').update({ ...payload, birth_date: form.birth_date ? latinDigits(form.birth_date).slice(0, 10) : null, phone: normalizeIranMobile(form.phone), full_name: `${form.first_name_fa} ${form.last_name_fa}`.trim(), identity_completed_at: new Date().toISOString() }).eq('id', user.id)
     setBusy(false)
-    if (error) return void toast.error(mapSignupError(error.message, t) ?? error.message)
+    if (error) {
+      const message = mapSignupError(error.message, t) ?? error.message
+      const conflictField = signupConflictField(error.message)
+      if (conflictField) {
+        setErrors((current) => ({ ...current, [conflictField]: message }))
+        requestAnimationFrame(() => {
+          const input = formRef.current?.querySelector<HTMLElement>(`[name="${conflictField}"]`)
+          input?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          input?.focus()
+        })
+      }
+      return void toast.error(message)
+    }
     setErrors({}); await refreshProfile(); toast.success('اطلاعات هویتی با موفقیت ذخیره شد.')
   }
 

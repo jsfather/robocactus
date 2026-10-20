@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { backend } from '@/lib/backend'
 import { clearSignupDraft, loadSignupDraft, useAuth } from '@/hooks/useAuth'
 import type { AccountType } from '@/types/database'
-import { checkProfileDuplicates, duplicateFieldMessage, mapSignupError } from '@/features/auth/signupProgress'
+import { mapSignupError } from '@/features/auth/signupProgress'
 
 type Draft = {
   accountType?: AccountType
@@ -91,13 +91,6 @@ export function AuthCallbackPage() {
           patch.signup_step = documentsEnabled ? 'docs' : 'review'
           if (draft.fullName?.trim()) patch.full_name = draft.fullName.trim()
 
-          const duplicate = await checkProfileDuplicates(user.id, {
-            email,
-            nationalId: draft.accountType === 'individual' ? draft.nationalId : undefined,
-            username: draft.username,
-            accountType: draft.accountType,
-          })
-          if (duplicate) throw new Error(duplicateFieldMessage(duplicate, t))
         } else if (email) {
           patch.auth_channel = 'email'
         }

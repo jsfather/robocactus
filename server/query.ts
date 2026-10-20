@@ -5,6 +5,7 @@ import { config } from './config.js'
 import { getAuthSettings } from './auth.js'
 import { protectSecret, SECRET_SETTING_FIELDS } from './secrets.js'
 import { rateLimited } from './rate-limit.js'
+import { databaseUniqueConflict } from './database-errors.js'
 
 type Filter = {
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is' | 'not' | 'contains'
@@ -377,6 +378,11 @@ async function enforceTeamReviewPermission(transaction: Transaction): Promise<vo
 }
 
 function sendError(response: Response, error: unknown): void {
+  const duplicate = databaseUniqueConflict(error)
+  if (duplicate) {
+    response.status(409).json({ error: { code: duplicate.message.toUpperCase(), ...duplicate } })
+    return
+  }
   const messages: string[] = []
   let current: unknown = error
   for (let depth=0; current && depth<4; depth+=1) {

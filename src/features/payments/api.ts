@@ -182,6 +182,13 @@ export async function startTeamPayment(input: {
   league: League
   invoice: Invoice
 }): Promise<{ redirectUrl: string; failUrl?: string }> {
+  // A tab can stay open while an administrator changes mock/live settings.
+  // Resolve the current provider before choosing an adapter, not from stale HTML.
+  const options = await backend.auth.getOptions()
+  if (options.error) throw new Error('دریافت تنظیمات پرداخت انجام نشد؛ دوباره تلاش کنید.')
+  if (options.data?.payment_provider) {
+    window.__APP_CONFIG__ = { ...(window.__APP_CONFIG__ ?? {}), VITE_PAYMENT_PROVIDER: options.data.payment_provider }
+  }
   const gateway = createPaymentGateway()
   const callbackUrl = paymentCallbackUrl(input.invoice.id)
   const kind = getConfiguredGatewayKind()

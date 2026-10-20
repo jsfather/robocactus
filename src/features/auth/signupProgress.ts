@@ -1,5 +1,4 @@
 import type { Profile } from '@/types/database'
-import { backend } from '@/lib/backend'
 
 export type SignupStep = 'type' | 'channel' | 'identity' | 'verify' | 'docs' | 'review'
 
@@ -75,22 +74,26 @@ export function hydrateSignupFormFromProfile(profile: Profile) {
   }
 }
 
+export function signupConflictField(error: string): 'email' | 'username' | 'national_id' | 'phone' | null {
+  const normalized = error.toLowerCase()
+  if (normalized === 'user_already_exists' || normalized.includes('profiles_email_uidx') || (normalized.includes('duplicate') && normalized.includes('email'))) return 'email'
+  if (normalized === 'username_already_exists' || (normalized.includes('duplicate') && normalized.includes('username'))) return 'username'
+  if (normalized === 'phone_in_use' || normalized.includes('duplicate_normalized_phone')) return 'phone'
+  if (normalized.includes('duplicate_national_id') || (normalized.includes('national_id') && normalized.includes('unique'))) return 'national_id'
+  return null
+}
+
 export function mapSignupError(error: string | null | undefined, t: (key: string) => string): string | null {
   if (!error) return null
   if (error.includes('signup_identity_required')) return 'اطلاعات هویتی ذخیره‌شده کامل نیست؛ ابتدا مرحله اطلاعات هویتی را تکمیل کنید.'
+  if (error === 'duplicate_record') return 'اطلاعات تکراری است؛ لطفاً مشخصات واردشده را بررسی کنید.'
+  if (error === 'duplicate_passport') return 'این شماره گذرنامه قبلاً ثبت شده است.'
+  const conflictField = signupConflictField(error)
+  if (conflictField) {
+    const keys = { email: 'auth.duplicateEmail', username: 'auth.duplicateUsername', phone: 'auth.duplicatePhone', national_id: 'auth.duplicateNationalId' }
+    return t(keys[conflictField])
+  }
   const normalized = error.toLowerCase()
-  if (error === 'user_already_exists' || normalized.includes('profiles_email_uidx') || (normalized.includes('duplicate') && normalized.includes('email'))) {
-    return t('auth.duplicateEmail')
-  }
-  if (error === 'username_already_exists' || (normalized.includes('duplicate') && normalized.includes('username'))) {
-    return t('auth.duplicateUsername')
-  }
-  if (error === 'phone_in_use' || normalized.includes('duplicate_normalized_phone')) {
-    return t('auth.duplicatePhone')
-  }
-  if (normalized.includes('duplicate_national_id') || (normalized.includes('national_id') && normalized.includes('unique'))) {
-    return t('auth.duplicateNationalId')
-  }
   if (normalized.includes('invalid_name_characters')) {
     return 'نام و نام خانوادگی نباید شامل عدد باشد.'
   }
@@ -110,35 +113,4 @@ export function mapSignupError(error: string | null | undefined, t: (key: string
     if (normalized.includes('phone')) return t('auth.duplicatePhone')
   }
   return error
-}
-
-export async function checkProfileDuplicates(
-  userId: string,
-  input: { email?: string; nationalId?: string; username?: string; accountType?: Profile['account_type'] },
-): Promise<'email' | 'national_id' | 'username' | null> {
-  const email = input.email?.trim().toLowerCase()
-  if (email) {
-    const { data } = await backend.from('profiles').select('id').eq('email', email).neq('id', userId).maybeSingle()
-    if (data) return 'email'
-  }
-
-  const username = input.username?.trim().toLowerCase()
-  if (username) {
-    const { data } = await backend.from('profiles').select('id').eq('username', username).neq('id', userId).maybeSingle()
-    if (data) return 'username'
-  }
-
-  const nationalId = input.nationalId?.trim()
-  if (input.accountType === 'individual' && nationalId) {
-    const { data } = await backend.from('profiles').select('id').eq('national_id', nationalId).neq('id', userId).maybeSingle()
-    if (data) return 'national_id'
-  }
-
-  return null
-}
-
-export function duplicateFieldMessage(field: 'email' | 'national_id' | 'username', t: (key: string) => string): string {
-  if (field === 'email') return t('auth.duplicateEmail')
-  if (field === 'national_id') return t('auth.duplicateNationalId')
-  return t('auth.duplicateUsername')
 }

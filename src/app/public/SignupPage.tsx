@@ -23,8 +23,7 @@ import { localizedTextError, numericInput } from '@/lib/validation'
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput'
 import { isStrongPassword, PasswordField } from '@/components/auth/PasswordField'
 import {
-  checkProfileDuplicates,
-  duplicateFieldMessage,
+  signupConflictField,
   hydrateSignupFormFromProfile,
   inferSignupStep,
   hasIdentityBasics,
@@ -288,14 +287,6 @@ export function SignupPage() {
   }
 
   const persistProfileFields = async (uid: string, nextStep: Step = nextAfterIdentity) => {
-    const duplicate = await checkProfileDuplicates(uid, {
-      email: email.trim().toLowerCase(),
-      nationalId: accountType === 'individual' ? nationalId.trim() : undefined,
-      username: username.trim().toLowerCase() || undefined,
-      accountType,
-    })
-    if (duplicate) throw new Error(duplicateFieldMessage(duplicate, t))
-
     const { error: profileError } = await backend
       .from('profiles')
       .update({
@@ -325,7 +316,20 @@ export function SignupPage() {
         identity_completed_at: null,
       })
       .eq('id', uid)
-    if (profileError) throw new Error(mapSignupError(profileError.message, t) ?? profileError.message)
+    if (profileError) {
+      const message = mapSignupError(profileError.message, t) ?? profileError.message
+      const field = signupConflictField(profileError.message)
+      if (field) {
+        setIdentityErrors((current) => ({ ...current, [field]: message }))
+        setStep('identity')
+        requestAnimationFrame(() => {
+          const input = identityFormRef.current?.querySelector<HTMLElement>(`[name="${field}"]`)
+          input?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          input?.focus()
+        })
+      }
+      throw new Error(message)
+    }
   }
 
   const persistIdentityDraft = () => saveSignupDraft({
@@ -773,7 +777,7 @@ export function SignupPage() {
 
           {authChannel === 'email' ? (
             <>
-              <Input label="نام کاربری" required value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" autoComplete="username" />
+              <Input label="نام کاربری" name="username" error={identityErrors.username} required value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" autoComplete="username" />
               <Input
                 label={t('auth.email')}
                 name="email"
@@ -788,6 +792,8 @@ export function SignupPage() {
               <PasswordField label={`${t('auth.confirmPassword')} *`} value={confirmPassword} onChange={setConfirmPassword} confirmValue={password} /></> : null}
               <Input
                 label={t('auth.phoneOptional')}
+                name="phone"
+                error={identityErrors.phone}
                 value={phone}
                 readOnly={Boolean(verifiedPhone)}
                 onChange={(e) => setPhone(numericInput(e.target.value, 11))}
