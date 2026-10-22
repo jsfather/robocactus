@@ -390,6 +390,11 @@ function sendError(response: Response, error: unknown): void {
     current = typeof current === 'object' && current !== null && 'cause' in current ? (current as { cause?: unknown }).cause : null
   }
   const message = messages.join(' ')
+  const chatError = messages.find((item) => ['empty_body', 'message_too_long', 'session_not_found', 'too_many_attempts'].includes(item))
+  if (chatError) {
+    response.status(chatError === 'too_many_attempts' ? 429 : chatError === 'session_not_found' ? 404 : 400).json({ error: { message: chatError } })
+    return
+  }
   const denied = /permission denied|row-level security|forbidden|not authenticated/i.test(message)
   const conflict = message.match(/\b(team_has_paid_invoice|registration_has_payment|registration_already_completed|registration_already_submitted)\b/i)?.[1]
   if (conflict) {

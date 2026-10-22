@@ -18,6 +18,13 @@ export type TicketStatus = 'open' | 'answered' | 'closed'
 export type ContentStatus = 'draft' | 'published'
 
 export type BlogPost = {
+  title_en?: string | null
+  body_en?: string | null
+  excerpt_en?: string | null
+  seo_title_en?: string | null
+  meta_description_en?: string | null
+  author_name_en?: string | null
+  cover_alt_en?: string | null
   id: string
   title: string
   slug: string
@@ -455,6 +462,8 @@ export type StaticPage = {
 }
 
 export type HomeBanner = {
+  title_en?: string | null
+  subtitle_en?: string | null
   id: string
   title: string
   subtitle: string | null

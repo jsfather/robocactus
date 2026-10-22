@@ -73,6 +73,7 @@ export function SuperAdminContentPage() {
   const [postCategoryId, setPostCategoryId] = useState('')
   const [postAuthor, setPostAuthor] = useState('')
   const [postCoverAlt, setPostCoverAlt] = useState('')
+  const [postEnglish, setPostEnglish] = useState({ title_en: '', body_en: '', excerpt_en: '', seo_title_en: '', meta_description_en: '', author_name_en: '', cover_alt_en: '' })
 
   const [annId, setAnnId] = useState<string | null>(null)
   const [annTitle, setAnnTitle] = useState('')
@@ -145,6 +146,7 @@ export function SuperAdminContentPage() {
   }, [])
 
   const resetPostForm = () => {
+    setPostEnglish({ title_en: '', body_en: '', excerpt_en: '', seo_title_en: '', meta_description_en: '', author_name_en: '', cover_alt_en: '' })
     setPostId(null)
     setPostTitle('')
     setPostSlug('')
@@ -161,6 +163,7 @@ export function SuperAdminContentPage() {
   }
 
   const editPost = (post: BlogPost) => {
+    setPostEnglish({ title_en: post.title_en ?? '', body_en: post.body_en ?? '', excerpt_en: post.excerpt_en ?? '', seo_title_en: post.seo_title_en ?? '', meta_description_en: post.meta_description_en ?? '', author_name_en: post.author_name_en ?? '', cover_alt_en: post.cover_alt_en ?? '' })
     setPostId(post.id)
     setPostTitle(post.title)
     setPostSlug(post.slug)
@@ -184,6 +187,7 @@ export function SuperAdminContentPage() {
     setError(null)
     try {
       await upsertBlogPost({
+        ...postEnglish,
         id: postId ?? undefined,
         title: postTitle,
         slug: postSlug,
@@ -436,6 +440,16 @@ export function SuperAdminContentPage() {
                   placeholder={postExcerpt || postTitle}
                 />
               </div>
+              <fieldset className="space-y-4 rounded-xl border border-rc-line p-4" dir="ltr" lang="en">
+                <legend className="px-2 font-bold">English content (EN)</legend>
+                <Input label="Title (EN)" value={postEnglish.title_en} onChange={(e) => setPostEnglish((current) => ({ ...current, title_en: e.target.value }))} />
+                <Input label="Author name (EN)" value={postEnglish.author_name_en} onChange={(e) => setPostEnglish((current) => ({ ...current, author_name_en: e.target.value }))} />
+                <Input label="Cover alternative text (EN)" value={postEnglish.cover_alt_en} onChange={(e) => setPostEnglish((current) => ({ ...current, cover_alt_en: e.target.value }))} />
+                <Textarea label="Excerpt (EN)" value={postEnglish.excerpt_en} onChange={(e) => setPostEnglish((current) => ({ ...current, excerpt_en: e.target.value }))} />
+                <RichTextEditor label="Article body (EN)" value={postEnglish.body_en} onChange={(body_en) => setPostEnglish((current) => ({ ...current, body_en }))} resetKey={`post-en-${postId ?? 'new'}-${postEditorKey}`} />
+                <Input label="SEO title (EN)" value={postEnglish.seo_title_en} onChange={(e) => setPostEnglish((current) => ({ ...current, seo_title_en: e.target.value }))} />
+                <Textarea label="Meta description (EN)" value={postEnglish.meta_description_en} onChange={(e) => setPostEnglish((current) => ({ ...current, meta_description_en: e.target.value }))} />
+              </fieldset>
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={busy}>
                   {busy ? t('app.loading') : t('common.save')}

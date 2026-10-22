@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchPublishedPosts } from '@/features/content/api'
+import { localizedPost } from '@/features/content/translations'
 import { ArticleCard } from '@/components/content/ArticleCard'
 import { formatAppDate } from '@/lib/dates'
 import type { BlogPost } from '@/types/database'
@@ -42,7 +43,7 @@ export function BlogListPage() {
   }, [])
 
   const categories = useMemo(() => Array.from(new Map(posts.filter((p) => p.category).map((p) => [p.category!.id, p.category!])).values()), [posts])
-  const visible = useMemo(() => category === 'all' ? posts : posts.filter((post) => post.category_id === category), [category, posts])
+  const visible = useMemo(() => (category === 'all' ? posts : posts.filter((post) => post.category_id === category)).map((post) => localizedPost(post, i18n.language)), [category, posts, i18n.language])
   const featured = visible[0]
   const rest = visible.slice(1)
   const labels = isEn ? {

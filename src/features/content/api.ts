@@ -44,6 +44,13 @@ export async function fetchAllPosts(): Promise<BlogPost[]> {
 }
 
 export async function upsertBlogPost(input: {
+  title_en?: string | null
+  body_en?: string | null
+  excerpt_en?: string | null
+  seo_title_en?: string | null
+  meta_description_en?: string | null
+  author_name_en?: string | null
+  cover_alt_en?: string | null
   id?: string
   title: string
   slug?: string
@@ -74,6 +81,13 @@ export async function upsertBlogPost(input: {
   }
 
   const payload = {
+    title_en: input.title_en?.trim() || null,
+    body_en: input.body_en?.trim() || null,
+    excerpt_en: input.excerpt_en?.trim() || null,
+    seo_title_en: input.seo_title_en?.trim() || null,
+    meta_description_en: input.meta_description_en?.trim() || null,
+    author_name_en: input.author_name_en?.trim() || null,
+    cover_alt_en: input.cover_alt_en?.trim() || null,
     title: input.title.trim(),
     slug,
     cover_image: input.cover_image ?? null,

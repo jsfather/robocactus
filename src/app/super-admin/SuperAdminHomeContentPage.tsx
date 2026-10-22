@@ -492,6 +492,8 @@ function BannersTab({
   const toast = useToast()
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
+  const [titleEn, setTitleEn] = useState('')
+  const [subtitleEn, setSubtitleEn] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
   const [editingId, setEditingId] = useState<string | undefined>()
@@ -502,6 +504,8 @@ function BannersTab({
     setEditingId(undefined)
     setTitle('')
     setSubtitle('')
+    setTitleEn('')
+    setSubtitleEn('')
     setImageUrl('')
     setLinkUrl('')
     setSortOrder(0)
@@ -512,6 +516,8 @@ function BannersTab({
     setEditingId(banner.id)
     setTitle(banner.title)
     setSubtitle(banner.subtitle ?? '')
+    setTitleEn(banner.title_en ?? '')
+    setSubtitleEn(banner.subtitle_en ?? '')
     setImageUrl(banner.image_url)
     setLinkUrl(banner.link_url ?? '')
     setSortOrder(banner.sort_order)
@@ -523,7 +529,7 @@ function BannersTab({
     e.preventDefault()
     setBusy(true)
     try {
-      await upsertBanner({ id: editingId, title, subtitle, image_url: imageUrl, link_url: linkUrl, sort_order: sortOrder, is_active: isActive })
+      await upsertBanner({ id: editingId, title, subtitle, title_en: titleEn, subtitle_en: subtitleEn, image_url: imageUrl, link_url: linkUrl, sort_order: sortOrder, is_active: isActive })
       reset()
       await onReload()
       toast.success(t('common.saved'))
@@ -550,6 +556,8 @@ function BannersTab({
             </div>
             <Input label={t('content.title')} value={title} onChange={(e) => setTitle(e.target.value)} required />
             <Input label={t('home.bannerSubtitle')} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+            <Input label="عنوان بنر (EN)" dir="ltr" lang="en" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
+            <Input label="توضیح بنر (EN)" dir="ltr" lang="en" value={subtitleEn} onChange={(e) => setSubtitleEn(e.target.value)} />
             <ImageUploadField label={t('home.bannerImageUrl')} value={imageUrl || null} onChange={(url) => setImageUrl(url ?? '')} />
             <Input label={t('home.bannerLink')} value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} dir="ltr" />
             <div className="grid gap-3 sm:grid-cols-2">
@@ -597,6 +605,7 @@ function SponsorForm({
   const { t } = useTranslation()
   const toast = useToast()
   const [name, setName] = useState(initial?.name ?? '')
+  const [nameEn, setNameEn] = useState(initial?.name_en ?? '')
   const [logo, setLogo] = useState(initial?.logo_url ?? '')
   const [link, setLink] = useState(initial?.link_url ?? '')
   return (
@@ -605,10 +614,11 @@ function SponsorForm({
       onSubmit={(e) => {
         e.preventDefault()
         setBusy(true)
-        void upsertSponsor({ id: initial?.id, name, logo_url: logo, link_url: link || null })
+        void upsertSponsor({ id: initial?.id, name: name.trim(), name_en: nameEn.trim() || null, logo_url: logo, link_url: link || null })
           .then(onSaved)
           .then(() => {
             setName('')
+            setNameEn('')
             setLogo('')
             setLink('')
           })
@@ -617,6 +627,7 @@ function SponsorForm({
       }}
     >
       <Input label={t('home.sponsorsTitle')} value={name} onChange={(e) => setName(e.target.value)} required />
+      <Input label="نام اسپانسر (EN)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" lang="en" />
       <ImageUploadField label={t('home.logo')} value={logo || null} onChange={(url) => setLogo(url ?? '')} />
       <Input label={t('home.bannerLink')} value={link} onChange={(e) => setLink(e.target.value)} dir="ltr" />
       <Button type="submit" disabled={busy || !logo}>

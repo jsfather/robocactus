@@ -9,6 +9,8 @@ export function phoneDigits(value: string): string {
 }
 
 export function normalizeIranMobileInput(value: string): string | null {
+  // Normalizing numeral keyboards must not make alphabetic or malformed input valid.
+  if (!/^\+?[0-9\s()-]+$/.test(toLatinPhoneDigits(value).trim())) return null
   const digits = phoneDigits(value)
   if (/^00989\d{9}$/.test(digits)) return `0${digits.slice(4)}`
   if (/^989\d{9}$/.test(digits)) return `0${digits.slice(2)}`

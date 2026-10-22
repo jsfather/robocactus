@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { HomeBanner, HomepageContent } from '@/types/database'
+import { localizedBanner } from '@/features/content/translations'
 
 type CountdownParts = { days: number; hours: number; minutes: number; seconds: number }
 
@@ -47,7 +48,7 @@ function HeroCountdown({ target, label, isEn, className = '' }: { target: string
 export function HeroBanner({ banners, loading = false, content }: { banners: HomeBanner[]; loading?: boolean; content?: HomepageContent['hero'] }) {
   const { i18n } = useTranslation()
   const isEn = i18n.language.startsWith('en')
-  const cmsBanner = banners[0]
+  const cmsBanner = banners[0] ? localizedBanner(banners[0], i18n.language) : undefined
 
   if (loading) {
     return <section aria-busy="true" className="min-h-[min(94svh,880px)] motion-safe:animate-pulse bg-[#061624]" />

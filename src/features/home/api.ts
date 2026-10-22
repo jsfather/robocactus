@@ -32,6 +32,8 @@ export async function fetchAllBanners(): Promise<HomeBanner[]> {
 }
 
 export async function upsertBanner(input: {
+  title_en?: string | null
+  subtitle_en?: string | null
   id?: string
   title: string
   subtitle?: string | null
@@ -41,6 +43,8 @@ export async function upsertBanner(input: {
   is_active?: boolean
 }): Promise<HomeBanner> {
   const payload = {
+    title_en: input.title_en?.trim() || null,
+    subtitle_en: input.subtitle_en?.trim() || null,
     title: input.title.trim(),
     subtitle: input.subtitle?.trim() || null,
     image_url: input.image_url.trim(),

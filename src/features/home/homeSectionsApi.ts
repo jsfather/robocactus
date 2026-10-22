@@ -3,6 +3,7 @@ import { backend } from '@/lib/backend'
 export type HomeSponsor = {
   id: string
   name: string
+  name_en?: string | null
   logo_url: string
   link_url: string | null
   sort_order: number

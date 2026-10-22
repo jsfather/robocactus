@@ -13,6 +13,7 @@ import {
 import { normalizePhone, numericInput } from '@/lib/validation'
 import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/ArcaptchaField'
 import { formatAppTime } from '@/lib/dates'
+import { chatErrorMessage } from '@/features/live-chat/errors'
 
 export function LiveChatWidget() {
   const { t, i18n } = useTranslation()
@@ -60,8 +61,8 @@ export function LiveChatWidget() {
       try {
         const list = await fetchGuestMessages(token)
         if (!cancelled) setMessages(list)
-      } catch {
-        if (!cancelled) {
+      } catch (err) {
+        if (!cancelled && err instanceof Error && err.message === 'session_not_found') {
           clearChatToken()
           setToken(null)
           setMessages([])
@@ -123,7 +124,7 @@ export function LiveChatWidget() {
       setMessages(await fetchGuestMessages(session.session_token))
     } catch (err) {
       const message = err instanceof Error ? err.message : t('common.error')
-      setError(message.startsWith('captcha_') ? captchaErrorMessage(message) : message)
+      setError(message.startsWith('captcha_') ? captchaErrorMessage(message) : chatErrorMessage(message, i18n.language))
       setCaptchaToken('')
       setCaptchaReset((value) => value + 1)
     } finally {
@@ -141,7 +142,9 @@ export function LiveChatWidget() {
       setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
       setBody('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      const code = err instanceof Error ? err.message : ''
+      setError(chatErrorMessage(code, i18n.language))
+      if (code === 'session_not_found') { clearChatToken(); setToken(null); setMessages([]) }
     } finally {
       setBusy(false)
     }
@@ -205,6 +208,8 @@ export function LiveChatWidget() {
                 dir="ltr"
                 inputMode="numeric"
                 maxLength={11}
+                minLength={11}
+                pattern="09[0-9]{9}"
               />
               <ArcaptchaField context="live_chat" onToken={setCaptchaToken} resetKey={captchaReset} />
               <FieldError message={error ?? undefined} />
@@ -241,6 +246,7 @@ export function LiveChatWidget() {
                 <input
                   className="min-w-0 flex-1 rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2.5 text-sm outline-none transition focus:border-rc-blue/40"
                   value={body}
+                  maxLength={5000}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder={t('chat.typeMessage')}
                 />

@@ -75,19 +75,19 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
       : 'id'
   const primaryValue = raw?.[primaryKey]
   if (!primaryValue || event.event === 'DELETE') return client.user || PUBLIC_REALTIME_TABLES.has(tableName) ? {} : null
-  if (!client.user && client.guestChatToken && tableName === 'live_chat_messages' && raw.session_id) {
+  if (client.guestChatToken && tableName === 'live_chat_messages' && raw.session_id) {
     const visible = await db.execute(sql`
       select to_jsonb(m) as record from public.live_chat_messages m
       join public.live_chat_sessions s on s.id=m.session_id
-      where m.id=${raw.id}::uuid and s.guest_token=${client.guestChatToken}
+      where m.id=${raw.id}::uuid and s.session_token=${client.guestChatToken}
       limit 1
     `)
     return (visible.rows[0]?.record as Record<string, unknown> | undefined) ?? null
   }
-  if (!client.user && client.guestChatToken && tableName === 'live_chat_sessions') {
+  if (client.guestChatToken && tableName === 'live_chat_sessions') {
     const visible = await db.execute(sql`
       select to_jsonb(s) as record from public.live_chat_sessions s
-      where s.id=${raw.id}::uuid and s.guest_token=${client.guestChatToken}
+      where s.id=${raw.id}::uuid and s.session_token=${client.guestChatToken}
       limit 1
     `)
     return (visible.rows[0]?.record as Record<string, unknown> | undefined) ?? null

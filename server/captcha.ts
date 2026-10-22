@@ -1,6 +1,7 @@
 import type { Request, Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { db, hashToken } from './db.js'
+import { normalizeIranMobileInput } from './phone.js'
 
 export type CaptchaContext = 'login' | 'signup' | 'password_reset' | 'contact' | 'live_chat'
 
@@ -130,9 +131,9 @@ export function registerCaptchaRoutes(router: Router): void {
     const captcha = await verifyCaptcha(request, 'live_chat')
     if (!captcha.ok) return void response.status(400).json({ error: captcha.error })
     const name = String(request.body?.name ?? '').trim()
-    const phone = String(request.body?.phone ?? '').trim()
+    const phone = normalizeIranMobileInput(String(request.body?.phone ?? ''))
     const locale = String(request.body?.locale ?? 'fa')
-    if (name.length < 2 || !/^0?9\d{9}$/.test(phone.replace(/\D/g, ''))) {
+    if (name.length < 2 || !phone) {
       return void response.status(400).json({ error: 'invalid_chat_identity' })
     }
     const result = await db.execute(sql`select public.start_live_chat(${name}, ${phone}, ${locale}) as data`)

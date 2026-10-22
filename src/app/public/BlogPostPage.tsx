@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { usePageSeo } from '@/components/seo/SeoManager'
 import { ArticleDetail } from '@/components/content/ArticleDetail'
 import { fetchPublishedPostBySlug } from '@/features/content/api'
+import { localizedPost } from '@/features/content/translations'
 import type { BlogPost } from '@/types/database'
 
 export function BlogPostPage() {
   const { slug } = useParams()
   const { t, i18n } = useTranslation()
-  const [post, setPost] = useState<BlogPost | null>(null)
+  const [savedPost, setPost] = useState<BlogPost | null>(null)
+  const post = savedPost ? localizedPost(savedPost, i18n.language) : null
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   usePageSeo({ title: post?.seo_title || post?.title, description: post?.meta_description || post?.excerpt || undefined, image: post?.og_image || post?.cover_image || undefined })

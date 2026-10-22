@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { HomeSponsor } from '@/features/home/homeSectionsApi'
 import { safeExternalUrl } from '@/lib/safe-url'
+import { localizedSponsor } from '@/features/content/translations'
 
 function SponsorLogo({ sponsor }: { sponsor: HomeSponsor }) {
   const [failed, setFailed] = useState(!sponsor.logo_url)
@@ -9,8 +10,9 @@ function SponsorLogo({ sponsor }: { sponsor: HomeSponsor }) {
   return <img src={sponsor.logo_url} alt={sponsor.name} className="max-h-24 max-w-[10rem] object-contain" loading="lazy" decoding="async" onError={() => setFailed(true)} />
 }
 
-export function SponsorsSlider({ sponsors }: { sponsors: HomeSponsor[] }) {
-  const { t } = useTranslation()
+export function SponsorsSlider({ sponsors: savedSponsors }: { sponsors: HomeSponsor[] }) {
+  const { t, i18n } = useTranslation()
+  const sponsors = savedSponsors.map((sponsor) => localizedSponsor(sponsor, i18n.language))
   const viewportRef = useRef<HTMLDivElement>(null)
   const [current, setCurrent] = useState(0)
   const [manualPaused, setManualPaused] = useState(false)
