@@ -1,201 +1,116 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, FieldError, PanelCard } from '@/components/ui/FormControls'
+import { Button, FieldError } from '@/components/ui/FormControls'
 import { PanelPage } from '@/components/layout/PanelShell'
-import {
-  closeLiveChatSession,
-  fetchStaffChatMessages,
-  fetchStaffChatSessions,
-  replyLiveChatAgent,
-  type LiveChatMessage,
-  type LiveChatSession,
-} from '@/features/live-chat/api'
+import { ChatComposer, ChatTranscript } from '@/components/live-chat/ChatConversation'
+import { closeLiveChatSession, fetchStaffChatMessages, fetchStaffChatSessions, markChatMessagesRead, replyLiveChatAgent, type LiveChatMessage, type LiveChatSession } from '@/features/live-chat/api'
+import { mergeChatMessages, mergeChatSessions } from '@/features/live-chat/messages'
+import { chatErrorMessage } from '@/features/live-chat/errors'
 import { backend } from '@/lib/backend'
-import { formatAppDateTime } from '@/lib/dates'
 
 export function LiveChatInboxPage() {
   const { t, i18n } = useTranslation()
+  const en = i18n.language.startsWith('en')
   const [sessions, setSessions] = useState<LiveChatSession[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedRef = useRef(selectedId)
+  selectedRef.current = selectedId
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
   const [reply, setReply] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
-  const endRef = useRef<HTMLDivElement>(null)
-
-  const selected = sessions.find((s) => s.id === selectedId) ?? null
-  const statusLabel = (status: string) => ({ open: 'گفتگوی باز', closed: 'پایان‌یافته', waiting: 'در انتظار کارشناس' })[status] ?? status
-  const visibleSessions = sessions.filter((session) => `${session.guest_name} ${session.guest_phone}`.toLowerCase().includes(query.trim().toLowerCase()))
-
-  const reload = useCallback(async () => {
-    try {
-      setSessions(await fetchStaffChatSessions())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
-    }
-  }, [t])
+  const selected = sessions.find((session) => session.id === selectedId)
+  const visible = sessions.filter((session) => `${session.guest_name} ${session.guest_phone}`.toLowerCase().includes(query.trim().toLowerCase()))
+  const markRead = useCallback(async (ids: string[]) => { if (selectedId) await markChatMessagesRead(selectedId, ids) }, [selectedId])
 
   useEffect(() => {
-    void reload()
-  }, [reload])
+    let active = true
+    void fetchStaffChatSessions().then((rows) => { if (active) setSessions((current) => mergeChatSessions(current, rows)) }).catch(() => { if (active) setError('دریافت گفت‌وگوها انجام نشد؛ صفحه را تازه‌سازی کنید.') })
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
-    if (!selectedId) {
-      setMessages([])
-      return
-    }
-    let cancelled = false
-    void fetchStaffChatMessages(selectedId)
-      .then((list) => {
-        if (!cancelled) setMessages(list)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
+    setMessages([]); setReply(''); setError(null)
+    if (!selectedId) return
+    let active = true
+    setLoading(true)
+    void fetchStaffChatMessages(selectedId).then((rows) => { if (active) setMessages((current) => mergeChatMessages(current, rows)) }).catch((err: Error) => { if (active) setError(err.message) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [selectedId])
 
   useEffect(() => {
-    const channel = backend
-      .channel('live-chat-inbox')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_chat_sessions' }, () => { void reload() })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat_messages' }, (payload) => {
-        const row = payload.new as LiveChatMessage
-        if (row.session_id === selectedId) {
-          setMessages((current) => current.some((message) => message.id === row.id) ? current : [...current, row])
-        }
-        void reload()
+    // One subscription across conversation changes; receipt updates never refetch the inbox.
+    let active = true
+    let connected = false
+    let refreshing = false
+    const channel = backend.channel('live-chat-inbox')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_chat_sessions' }, (payload) => {
+        const row = payload.new as LiveChatSession
+        if (!row?.id) return
+        setSessions((current) => mergeChatSessions(current, [row]))
       })
-      .subscribe()
-    return () => { void backend.removeChannel(channel) }
-  }, [reload, selectedId])
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_chat_messages' }, (payload) => {
+        const row = payload.new as LiveChatMessage
+        if (row?.id && row.session_id === selectedRef.current) setMessages((current) => mergeChatMessages(current, [row]))
+      }).subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return
+        if (connected && !refreshing) {
+          refreshing = true
+          const id = selectedRef.current
+          void Promise.all([fetchStaffChatSessions(), id ? fetchStaffChatMessages(id) : Promise.resolve([])]).then(([rows, list]) => {
+            if (!active) return
+            setSessions((current) => mergeChatSessions(current, rows))
+            if (selectedRef.current === id) setMessages((current) => mergeChatMessages(current, list))
+          }).catch(() => { /* Preserve current data until the next successful refresh. */ }).finally(() => { refreshing = false })
+        }
+        connected = true
+      })
+    return () => { active = false; void backend.removeChannel(channel) }
+  }, [])
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const onReply = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!selectedId || !reply.trim()) return
-    setBusy(true)
-    setError(null)
+  const onReply = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!selectedId || selected?.status !== 'open' || !reply.trim() || busy) return
+    const targetId = selectedId
+    const submitted = reply.trim()
+    setBusy(true); setError(null)
     try {
-      const msg = await replyLiveChatAgent(selectedId, reply.trim())
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
-      setReply('')
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setBusy(false)
-    }
+      const message = await replyLiveChatAgent(targetId, submitted)
+      if (selectedRef.current === targetId) { setMessages((current) => mergeChatMessages(current, [message])); setReply((current) => current.trim() === submitted ? '' : current) }
+    } catch (err) { setError(chatErrorMessage(err instanceof Error ? err.message : '', i18n.language)) }
+    finally { setBusy(false) }
   }
 
-  return (
-    <PanelPage title={t('chat.inboxTitle')} description={t('chat.inboxHint')} index="CHAT">
-      <FieldError message={error ?? undefined} />
-      <div className="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <PanelCard title={t('chat.sessions')}>
-          <div className="mb-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-sky-50 p-3"><p className="text-[10px] font-bold text-sky-700">همه گفتگوها</p><p className="text-xl font-black text-sky-900">{sessions.length}</p></div><div className="rounded-2xl bg-emerald-50 p-3"><p className="text-[10px] font-bold text-emerald-700">گفتگوی باز</p><p className="text-xl font-black text-emerald-900">{sessions.filter((s) => s.status === 'open').length}</p></div></div>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام یا شماره تماس…" className="mb-4 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-50" />
-          <ul className="max-h-[38rem] space-y-2 overflow-y-auto pe-1">
-            {sessions.length === 0 ? (
-              <li className="text-sm text-rc-muted">{t('chat.noSessions')}</li>
-            ) : (
-              visibleSessions.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(s.id)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-start text-sm transition ${
-                      selectedId === s.id ? 'border-sky-200 bg-gradient-to-l from-sky-50 to-cyan-50 text-sky-800 shadow-sm' : 'border-slate-100 bg-slate-50/70 hover:border-sky-100 hover:bg-sky-50/60'
-                    }`}
-                  >
-                    <span className="block font-medium">{s.guest_name}</span>
-                    <span className="font-mono text-xs text-rc-muted" dir="ltr">
-                      {s.guest_phone}
-                    </span>
-                    <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${s.status === 'open' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {statusLabel(s.status)}
-                    </span>
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </PanelCard>
+  const endChat = async () => {
+    if (!selected || !window.confirm(en ? 'End this conversation?' : 'این گفت‌وگو پایان یابد؟')) return
+    const id = selected.id
+    setBusy(true); setError(null)
+    try { await closeLiveChatSession(id); setSessions((current) => current.map((session) => session.id === id ? { ...session, status: 'closed' } : session)) }
+    catch (err) { setError(chatErrorMessage(err instanceof Error ? err.message : '', i18n.language)) }
+    finally { setBusy(false) }
+  }
 
-        {selected ? (
-          <div className="flex min-h-[36rem] flex-col overflow-hidden rounded-[1.6rem] border border-white/80 bg-white shadow-[0_18px_55px_rgb(18_76_98/0.09)]">
-            <div className="flex items-center justify-between border-b border-sky-100 bg-gradient-to-l from-slate-900 to-sky-900 px-5 py-4 text-white">
-              <div>
-                <p className="font-semibold">{selected.guest_name}</p>
-                <p className="font-mono text-xs text-white/70" dir="ltr">
-                  {selected.guest_phone}
-                </p>
-              </div>
-              {selected.status === 'open' ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    void closeLiveChatSession(selected.id)
-                      .then(reload)
-                      .then(() => setSelectedId(null))
-                  }
-                >
-                  {t('chat.close')}
-                </Button>
-              ) : null}
-            </div>
-
-            <div className="flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgb(239_248_252),_rgb(248_250_252)_55%)] p-5">
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={[
-                    'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm',
-                    m.sender_kind === 'agent'
-                      ? 'ms-auto rounded-ee-md bg-gradient-to-br from-sky-600 to-cyan-600 text-white'
-                      : m.sender_kind === 'system'
-                        ? 'mx-auto border border-slate-200 bg-white text-center text-xs text-slate-500'
-                        : 'me-auto rounded-es-md border border-slate-100 bg-white text-slate-700',
-                  ].join(' ')}
-                >
-                  <p className="whitespace-pre-wrap">{m.body}</p>
-                  <p className={`mt-1 font-mono text-[9px] ${m.sender_kind === 'agent' ? 'text-white/70' : 'text-slate-400'}`}>
-                    {formatAppDateTime(m.created_at, i18n.language)}
-                  </p>
-                </div>
-              ))}
-              <div ref={endRef} />
-            </div>
-
-            {selected.status === 'open' ? (
-              <form className="flex gap-3 border-t border-slate-100 bg-white p-4" onSubmit={(e) => void onReply(e)}>
-                <input
-                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-50"
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  placeholder={t('chat.typeMessage')}
-                />
-                <Button type="submit" disabled={busy || !reply.trim()}>
-                  {t('chat.send')}
-                </Button>
-              </form>
-            ) : (
-              <p className="border-t border-rc-line p-3 text-sm text-rc-muted">{t('chat.sessionClosed')}</p>
-            )}
-          </div>
-        ) : (
-          <div className="flex min-h-[36rem] flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-sky-200 bg-gradient-to-br from-white to-sky-50/60 p-8 text-center"><span className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-sky-100 text-3xl">◌</span><p className="font-black text-slate-700">{t('chat.selectSession')}</p><p className="mt-2 text-sm leading-7 text-slate-500">گفتگو را انتخاب کنید تا اطلاعات مخاطب و پیام‌ها در این بخش نمایش داده شوند.</p></div>
-        )}
-      </div>
-    </PanelPage>
-  )
+  return <PanelPage title={t('chat.inboxTitle')} description={t('chat.inboxHint')} index="CHAT">
+    <FieldError message={error ?? undefined} />
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)]">
+      <aside className={`min-w-0 rounded-3xl border border-slate-200 bg-white p-4 ${selectedId ? 'hidden lg:block' : ''}`}>
+        <h2 className="mb-3 text-lg font-black text-slate-900">{t('chat.sessions')}</h2>
+        <label className="block"><span className="sr-only">{en ? 'Search by name or phone' : 'جست‌وجو با نام یا شماره'}</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={en ? 'Name or phone…' : 'نام یا شماره تماس…'} className="mb-4 min-h-12 w-full rounded-xl border border-slate-200 px-4 text-base text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" /></label>
+        <ul className="max-h-[65dvh] space-y-2 overflow-y-auto">
+          {!visible.length ? <li className="py-6 text-center text-sm text-slate-600">{t('chat.noSessions')}</li> : null}
+          {visible.map((session) => <li key={session.id}><button type="button" aria-pressed={selectedId === session.id} onClick={() => setSelectedId(session.id)} className={`flex min-h-20 w-full items-center gap-3 rounded-2xl border p-3 text-start focus-visible:outline-2 focus-visible:outline-sky-700 ${selectedId === session.id ? 'border-sky-300 bg-sky-50' : 'border-slate-100 hover:bg-slate-50'}`}><span className="grid size-11 shrink-0 place-items-center rounded-full bg-sky-100 font-black text-sky-900" aria-hidden="true">{session.guest_name.slice(0, 1)}</span><span className="min-w-0"><span className="block truncate text-sm font-bold text-slate-900">{session.guest_name}</span><span className="mt-1 block text-xs text-slate-600" dir="ltr">{session.guest_phone}</span><span className={`mt-1 block text-xs font-bold ${session.status === 'open' ? 'text-emerald-800' : 'text-slate-600'}`}>{session.status === 'open' ? en ? 'Open conversation' : 'گفت‌وگوی باز' : en ? 'Ended' : 'پایان‌یافته'}</span></span></button></li>)}
+        </ul>
+      </aside>
+      <section className={`min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white ${selected ? 'flex h-[min(46rem,80dvh)] min-h-80 flex-col' : 'hidden min-h-96 items-center justify-center p-8 text-center lg:flex'}`}>
+        {selected ? <>
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3 sm:p-4"><div className="flex min-w-0 items-center gap-2"><button type="button" onClick={() => setSelectedId(null)} aria-label={en ? 'Back to conversations' : 'بازگشت به گفت‌وگوها'} className="grid size-11 shrink-0 place-items-center rounded-full text-sky-800 hover:bg-sky-50 lg:hidden"><svg viewBox="0 0 24 24" className="size-5 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><div className="min-w-0"><h2 className="truncate font-bold text-slate-900">{selected.guest_name}</h2><p dir="ltr" className="mt-1 text-start text-xs text-slate-600">{selected.guest_phone}</p></div></div>{selected.status === 'open' ? <Button type="button" variant="danger" disabled={busy} onClick={() => void endChat()}>{en ? 'End chat' : 'اتمام گفت‌وگو'}</Button> : <span className="text-sm text-slate-600">{t('chat.sessionClosed')}</span>}</header>
+          {loading ? <p role="status" className="p-4 text-sm text-slate-600">{t('app.loading')}</p> : null}
+          <ChatTranscript key={selected.id} messages={messages.filter((message) => message.session_id === selected.id)} viewer="agent" guestName={selected.guest_name} language={i18n.language} onRead={markRead} />
+          {selected.status === 'open' ? <ChatComposer value={reply} onChange={setReply} onSubmit={(event) => void onReply(event)} busy={busy || loading} language={i18n.language} /> : <p className="shrink-0 border-t border-slate-200 p-4 text-center text-sm text-slate-700">{t('chat.sessionClosed')}</p>}
+        </> : <p className="font-bold text-slate-600">{t('chat.selectSession')}</p>}
+      </section>
+    </div>
+  </PanelPage>
 }

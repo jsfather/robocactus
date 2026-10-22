@@ -12,6 +12,9 @@ export type LiveChatSession = {
 }
 
 export type LiveChatMessage = {
+  read_at?: string | null
+  sender_name?: string | null
+  sender_avatar_url?: string | null
   id: string
   session_id: string
   sender_kind: 'guest' | 'agent' | 'system'
@@ -114,5 +117,24 @@ export async function replyLiveChatAgent(sessionId: string, body: string): Promi
 
 export async function closeLiveChatSession(sessionId: string): Promise<void> {
   const { error } = await backend.rpc('close_live_chat_session', { p_session_id: sessionId })
+  if (error) throw new Error(error.message)
+}
+
+export async function getGuestChatSession(token: string): Promise<LiveChatSession> {
+  const { data, error } = await backend.rpc('get_live_chat_guest_session', { p_token: token })
+  if (error) throw new Error(error.message)
+  return data as LiveChatSession
+}
+
+export async function closeGuestChatSession(token: string): Promise<void> {
+  const { error } = await backend.rpc('close_live_chat_guest_session', { p_token: token })
+  if (error) throw new Error(error.message)
+}
+
+export async function markChatMessagesRead(sessionId: string, messageIds: string[], token?: string): Promise<void> {
+  if (!messageIds.length) return
+  const { error } = await backend.rpc('mark_live_chat_messages_read', {
+    p_session_id: sessionId, p_message_ids: JSON.stringify(messageIds.slice(0, 500)), p_token: token ?? null,
+  })
   if (error) throw new Error(error.message)
 }

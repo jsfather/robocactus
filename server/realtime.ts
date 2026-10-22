@@ -1,6 +1,7 @@
 import type { Response, Router } from 'express'
 import { sql } from 'drizzle-orm'
 import { db, hashToken, userFromRequest, withRequestRole, type AuthUser } from './db.js'
+import { isGuestChatToken } from './chat-token.js'
 
 type Client = { response: Response; tables: Set<string>; user: AuthUser | null; sessionHash: string | null; guestChatToken: string | null; ip: string; disconnected: boolean }
 const clients = new Set<Client>()
@@ -199,7 +200,7 @@ export function registerRealtimeRoutes(router: Router): void {
       response.end('event: session_expired\ndata: {}\n\n')
       return
     }
-    const guestChatToken = typeof request.query.chat_token === 'string' && /^[0-9a-f-]{36}$/i.test(request.query.chat_token)
+    const guestChatToken = isGuestChatToken(request.query.chat_token)
       ? request.query.chat_token
       : null
     const client: Client = { response, tables: new Set(requested), user, sessionHash: user ? hashToken(String(request.cookies.rc_session)) : null, guestChatToken, ip, disconnected: false }
