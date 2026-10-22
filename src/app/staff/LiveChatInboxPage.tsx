@@ -7,23 +7,33 @@ import { closeLiveChatSession, fetchStaffChatMessages, fetchStaffChatSessions, m
 import { mergeChatMessages, mergeChatSessions } from '@/features/live-chat/messages'
 import { chatErrorMessage } from '@/features/live-chat/errors'
 import { backend } from '@/lib/backend'
+import { moderateChatMessage } from '@/features/live-chat/api'
+import { useAuth } from '@/hooks/useAuth'
 
 export function LiveChatInboxPage() {
   const { t, i18n } = useTranslation()
   const en = i18n.language.startsWith('en')
+  const { user } = useAuth()
   const [sessions, setSessions] = useState<LiveChatSession[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedRef = useRef(selectedId)
   selectedRef.current = selectedId
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
   const [reply, setReply] = useState('')
+  const [file,setFile]=useState<File | null>(null)
+  const [editing,setEditing]=useState<LiveChatMessage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const selected = sessions.find((session) => session.id === selectedId)
   const visible = sessions.filter((session) => `${session.guest_name} ${session.guest_phone}`.toLowerCase().includes(query.trim().toLowerCase()))
-  const markRead = useCallback(async (ids: string[]) => { if (selectedId) await markChatMessagesRead(selectedId, ids) }, [selectedId])
+  const markRead = useCallback(async (ids: string[]) => {
+    if(!selectedId) return []
+    const rows=await markChatMessagesRead(selectedId,ids)
+    if(selectedRef.current===selectedId) setMessages((current)=>mergeChatMessages(current,rows))
+    return rows
+  }, [selectedId])
 
   useEffect(() => {
     let active = true
@@ -32,7 +42,7 @@ export function LiveChatInboxPage() {
   }, [])
 
   useEffect(() => {
-    setMessages([]); setReply(''); setError(null)
+    setMessages([]); setReply(''); setFile(null); setEditing(null); setError(null)
     if (!selectedId) return
     let active = true
     setLoading(true)
@@ -72,15 +82,27 @@ export function LiveChatInboxPage() {
 
   const onReply = async (event: FormEvent) => {
     event.preventDefault()
-    if (!selectedId || selected?.status !== 'open' || !reply.trim() || busy) return
+    if (!selectedId || selected?.status !== 'open' || (!reply.trim() && !file) || busy) return
     const targetId = selectedId
     const submitted = reply.trim()
     setBusy(true); setError(null)
     try {
-      const message = await replyLiveChatAgent(targetId, submitted)
-      if (selectedRef.current === targetId) { setMessages((current) => mergeChatMessages(current, [message])); setReply((current) => current.trim() === submitted ? '' : current) }
-    } catch (err) { setError(chatErrorMessage(err instanceof Error ? err.message : '', i18n.language)) }
+      const message = editing ? await moderateChatMessage(editing,'edit',submitted) : await replyLiveChatAgent(targetId, submitted,file ?? undefined)
+      if (selectedRef.current === targetId) { setMessages((current) => mergeChatMessages(current, [message])); setReply((current) => current.trim() === submitted ? '' : current); setFile(null); setEditing(null) }
+    } catch (err) {
+      const code=err instanceof Error ? err.message : ''
+      setError(chatErrorMessage(code,i18n.language))
+      if(code==='chat_closed') setSessions((current)=>current.map((session)=>session.id===targetId?{...session,status:'closed'}:session))
+    }
     finally { setBusy(false) }
+  }
+
+  const deleteMessage=async(message:LiveChatMessage)=>{
+    if(busy || !window.confirm(en?'Delete this message for both sides?':'این پیام برای هر دو طرف حذف شود؟')) return
+    setBusy(true);setError(null)
+    try { const row=await moderateChatMessage(message,'delete'); if(selectedRef.current===row.session_id) { setMessages((current)=>mergeChatMessages(current,[row])); if(editing?.id===row.id) {setEditing(null);setReply('')} } }
+    catch(err){setError(chatErrorMessage(err instanceof Error?err.message:'',i18n.language))}
+    finally{setBusy(false)}
   }
 
   const endChat = async () => {
@@ -107,8 +129,8 @@ export function LiveChatInboxPage() {
         {selected ? <>
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3 sm:p-4"><div className="flex min-w-0 items-center gap-2"><button type="button" onClick={() => setSelectedId(null)} aria-label={en ? 'Back to conversations' : 'بازگشت به گفت‌وگوها'} className="grid size-11 shrink-0 place-items-center rounded-full text-sky-800 hover:bg-sky-50 lg:hidden"><svg viewBox="0 0 24 24" className="size-5 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><div className="min-w-0"><h2 className="truncate font-bold text-slate-900">{selected.guest_name}</h2><p dir="ltr" className="mt-1 text-start text-xs text-slate-600">{selected.guest_phone}</p></div></div>{selected.status === 'open' ? <Button type="button" variant="danger" disabled={busy} onClick={() => void endChat()}>{en ? 'End chat' : 'اتمام گفت‌وگو'}</Button> : <span className="text-sm text-slate-600">{t('chat.sessionClosed')}</span>}</header>
           {loading ? <p role="status" className="p-4 text-sm text-slate-600">{t('app.loading')}</p> : null}
-          <ChatTranscript key={selected.id} messages={messages.filter((message) => message.session_id === selected.id)} viewer="agent" guestName={selected.guest_name} language={i18n.language} onRead={markRead} />
-          {selected.status === 'open' ? <ChatComposer value={reply} onChange={setReply} onSubmit={(event) => void onReply(event)} busy={busy || loading} language={i18n.language} /> : <p className="shrink-0 border-t border-slate-200 p-4 text-center text-sm text-slate-700">{t('chat.sessionClosed')}</p>}
+          <ChatTranscript key={selected.id} currentUserId={user?.id} messages={messages.filter((message) => message.session_id === selected.id)} viewer="agent" guestName={selected.guest_name} language={i18n.language} onRead={markRead} onEdit={selected.status==='open'?(message)=>{if(!busy){setEditing(message);setReply(message.body);setFile(null)}}:undefined} onDelete={(message)=>void deleteMessage(message)} />
+          {selected.status === 'open' ? <ChatComposer key={selected.id} value={reply} onChange={setReply} file={file} onFileChange={setFile} editing={Boolean(editing)} onCancelEdit={()=>{setEditing(null);setReply('')}} onSubmit={(event) => void onReply(event)} busy={busy || loading} language={i18n.language} /> : <p className="shrink-0 border-t border-slate-200 p-4 text-center text-sm text-slate-700">{t('chat.sessionClosed')}</p>}
         </> : <p className="font-bold text-slate-600">{t('chat.selectSession')}</p>}
       </section>
     </div>

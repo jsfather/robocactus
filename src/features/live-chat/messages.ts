@@ -14,7 +14,9 @@ export function mergeChatMessages(current: LiveChatMessage[], incoming: LiveChat
   const rows = new Map(current.map((message) => [message.id, message]))
   for (const message of incoming) {
     const previous = rows.get(message.id)
-    rows.set(message.id, { ...previous, ...message, read_at: previous?.read_at || message.read_at || null })
+    if (previous?.updated_at && message.updated_at && previous.updated_at > message.updated_at) continue
+    if (previous?.deleted_at && !message.deleted_at) continue
+    rows.set(message.id, { ...previous, ...message, read_at: message.updated_at ? message.read_at ?? null : previous?.read_at || message.read_at || null })
   }
   return [...rows.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
 }

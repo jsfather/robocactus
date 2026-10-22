@@ -6,7 +6,7 @@ import {
   clearChatToken,
   fetchGuestMessages,
   loadChatToken,
-  sendGuestMessage,
+  sendChatMessage,
   startLiveChat,
   type LiveChatMessage,
   type LiveChatSession,
@@ -29,6 +29,7 @@ export function LiveChatWidget() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [body, setBody] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaReset, setCaptchaReset] = useState(0)
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
@@ -38,7 +39,10 @@ export function LiveChatWidget() {
   const [clock, setClock] = useState(() => Date.now())
   const [launcherVisible, setLauncherVisible] = useState(false)
   const markRead = useCallback(async (ids: string[]) => {
-    if (token && session) await markChatMessagesRead(session.id, ids, token)
+    if (!token || !session) return []
+    const rows=await markChatMessagesRead(session.id, ids, token)
+    setMessages((current) => mergeChatMessages(current,rows))
+    return rows
   }, [token, session?.id])
 
   const enabled = settings?.chat_enabled !== false
@@ -95,9 +99,14 @@ export function LiveChatWidget() {
     }
     let connected = false
     source.onopen = () => { if (connected && !cancelled) void pull(); connected = true }
+    const reconcile=() => { if(document.visibilityState==='visible' && !cancelled) void pull() }
+    const recoveryTimer=window.setInterval(reconcile,30_000)
+    document.addEventListener('visibilitychange',reconcile)
     return () => {
       cancelled = true
       source.close()
+      clearInterval(recoveryTimer)
+      document.removeEventListener('visibilitychange',reconcile)
     }
   }, [token, open])
 
@@ -144,18 +153,19 @@ export function LiveChatWidget() {
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault()
-    if (!token || session?.status !== 'open' || !body.trim() || busy) return
+    if (!token || !session || session.status !== 'open' || (!body.trim() && !file) || busy) return
     const submitted = body.trim()
     setBusy(true)
     setError(null)
     try {
-      const msg = await sendGuestMessage(token, submitted)
+      const msg = await sendChatMessage(session.id, submitted, file ?? undefined, token)
       setMessages((prev) => mergeChatMessages(prev, [msg]))
       setBody((current) => current.trim() === submitted ? '' : current)
+      setFile(null)
     } catch (err) {
       const code = err instanceof Error ? err.message : ''
       setError(chatErrorMessage(code, i18n.language))
-      if (code === 'session_not_found') {
+      if (code === 'session_not_found' || code === 'chat_closed') {
         try { const current = await getGuestChatSession(token); setSession(current) }
         catch { /* Keep the transcript on a transient failure; the user can retry. */ }
       }
@@ -243,10 +253,10 @@ export function LiveChatWidget() {
             </form>
           ) : (
             <>
-              <ChatTranscript key={token} messages={visibleMessages} viewer="guest" guestName={session?.guest_name || name || (i18n.language.startsWith('en') ? 'You' : 'شما')} language={i18n.language} onRead={markRead}>
+              <ChatTranscript key={token} token={token} messages={visibleMessages} viewer="guest" guestName={session?.guest_name || name || (i18n.language.startsWith('en') ? 'You' : 'شما')} language={i18n.language} onRead={markRead}>
                 {showWaitMessage ? <div className="mx-auto max-w-[94%] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs leading-6 text-amber-900 shadow-sm"><p>{waitMessage}</p>{settings?.support_phone ? <a href={`tel:${settings.support_phone}`} className="mt-2 inline-flex rounded-xl bg-white px-3 py-1.5 font-bold text-rc-blue shadow-sm" dir="ltr">{settings.support_phone}</a> : null}</div> : null}
               </ChatTranscript>
-              {session?.status === 'closed' ? <div className="shrink-0 border-t border-slate-200 bg-white p-4 text-center"><p className="mb-3 text-sm text-slate-700">{t('chat.sessionClosed')}</p><Button type="button" onClick={() => { clearChatToken(); setToken(null); setSession(null); setMessages([]); setBody(''); setError(null) }}>{i18n.language.startsWith('en') ? 'New conversation' : 'شروع گفت‌وگوی جدید'}</Button></div> : <ChatComposer value={body} onChange={setBody} busy={busy || !session} language={i18n.language} onSubmit={(event) => void onSend(event)} />}
+              {session?.status === 'closed' ? <div className="shrink-0 border-t border-slate-200 bg-white p-4 text-center"><p className="mb-3 text-sm text-slate-700">{t('chat.sessionClosed')}</p><Button type="button" onClick={() => { clearChatToken(); setToken(null); setSession(null); setMessages([]); setBody(''); setFile(null); setError(null) }}>{i18n.language.startsWith('en') ? 'New conversation' : 'شروع گفت‌وگوی جدید'}</Button></div> : <ChatComposer value={body} onChange={setBody} file={file} onFileChange={setFile} busy={busy || !session} language={i18n.language} onSubmit={(event) => void onSend(event)} />}
               {error ? <p role="alert" className="bg-white px-3 pb-2 text-xs text-red-700">{error}</p> : null}
             </>
           )}

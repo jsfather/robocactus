@@ -140,7 +140,7 @@ async function poll(): Promise<void> {
           table: event.table_name,
           event: event.event,
           record,
-          old_record: event.event === 'DELETE' ? {} : event.old_record,
+          old_record: event.event === 'DELETE' || event.table_name === 'live_chat_messages' ? {} : event.old_record,
         })}\n\n`)
         if (!writable) disconnect(client)
       } catch {

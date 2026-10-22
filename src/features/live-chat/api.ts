@@ -12,6 +12,13 @@ export type LiveChatSession = {
 }
 
 export type LiveChatMessage = {
+  attachment_id?: string | null
+  attachment_name?: string | null
+  attachment_mime?: string | null
+  attachment_size?: number | null
+  edited_at?: string | null
+  deleted_at?: string | null
+  updated_at?: string
   read_at?: string | null
   sender_name?: string | null
   sender_avatar_url?: string | null
@@ -106,13 +113,8 @@ export async function fetchStaffChatMessages(sessionId: string): Promise<LiveCha
   return (data ?? []) as LiveChatMessage[]
 }
 
-export async function replyLiveChatAgent(sessionId: string, body: string): Promise<LiveChatMessage> {
-  const { data, error } = await backend.rpc('reply_live_chat_agent', {
-    p_session_id: sessionId,
-    p_body: body,
-  })
-  if (error) throw new Error(error.message)
-  return data as LiveChatMessage
+export async function replyLiveChatAgent(sessionId: string, body: string, file?: File): Promise<LiveChatMessage> {
+  return sendChatMessage(sessionId, body, file)
 }
 
 export async function closeLiveChatSession(sessionId: string): Promise<void> {
@@ -131,10 +133,25 @@ export async function closeGuestChatSession(token: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export async function markChatMessagesRead(sessionId: string, messageIds: string[], token?: string): Promise<void> {
-  if (!messageIds.length) return
-  const { error } = await backend.rpc('mark_live_chat_messages_read', {
-    p_session_id: sessionId, p_message_ids: JSON.stringify(messageIds.slice(0, 500)), p_token: token ?? null,
-  })
-  if (error) throw new Error(error.message)
+export async function markChatMessagesRead(sessionId: string, messageIds: string[], token?: string): Promise<LiveChatMessage[]> {
+  if (!messageIds.length) return []
+  return chatRequest<LiveChatMessage[]>(`/sessions/${sessionId}/read`, { method: 'POST', body: JSON.stringify({ messageIds: messageIds.slice(0, 500) }), headers: { 'Content-Type': 'application/json' } }, token)
+}
+
+async function chatRequest<T>(path: string, init: RequestInit, token?: string): Promise<T> {
+  const response = await fetch(`/api/chat${path}`, { ...init, credentials: 'include', headers: { ...init.headers, ...(token ? { 'X-Chat-Token': token } : {}) } })
+  const result = await response.json().catch(() => ({})) as { data: T; error?: string }
+  if (!response.ok) throw new Error(result.error || 'chat_request_failed')
+  return result.data
+}
+
+export async function sendChatMessage(sessionId: string, body: string, file?: File, token?: string): Promise<LiveChatMessage> {
+  const form = new FormData()
+  form.append('body', body)
+  if (file) form.append('file', file)
+  return chatRequest<LiveChatMessage>(`/sessions/${sessionId}/messages`, { method: 'POST', body: form }, token)
+}
+
+export async function moderateChatMessage(message: LiveChatMessage, action: 'edit' | 'delete', body?: string): Promise<LiveChatMessage> {
+  return chatRequest(`/sessions/${message.session_id}/messages/${message.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, body }) })
 }
