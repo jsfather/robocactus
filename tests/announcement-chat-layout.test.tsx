@@ -2,6 +2,9 @@ import React, { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { JSDOM } from 'jsdom'
+import { createInstance } from 'i18next'
+import { I18nextProvider } from 'react-i18next'
+import { MemoryRouter } from 'react-router-dom'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -9,6 +12,7 @@ import { localizedAnnouncement } from '../src/features/content/translations.ts'
 import { ChatComposer } from '../src/components/live-chat/ChatConversation.tsx'
 import { chatViewportMetrics, useChatViewport } from '../src/features/live-chat/useChatViewport.ts'
 import type { Announcement } from '../src/types/database.ts'
+import { AnnouncementsSlider } from '../src/components/home/AnnouncementsSlider.tsx'
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8')
 const announcement:Announcement={id:'notice',title:'عنوان فارسی',body:'متن فارسی',league_id:null,status:'published',published_at:null,created_by:null,title_en:'English notice',body_en:'English body',excerpt_en:'English summary',seo_title_en:'Notice SEO',meta_description_en:'Notice description',author_name_en:'Author',cover_alt_en:'Cover'}
@@ -21,6 +25,27 @@ test('announcements select independent English content and metadata without modi
   assert.equal(translated.cover_alt,'Cover');assert.equal(announcement.title,'عنوان فارسی')
   assert.equal(localizedAnnouncement(announcement,'fa'),announcement)
   assert.equal(localizedAnnouncement({...announcement,title_en:' ',body_en:null},'en').body,announcement.body)
+})
+
+test('announcement cards render localized content, optional covers and links in a responsive grid',async()=>{
+  for(const language of ['fa','en']){
+    const i18n=createInstance()
+    await i18n.init({lng:language,resources:{[language]:{translation:{}}},interpolation:{escapeValue:false}})
+    const notices=[{...announcement,published_at:'2026-11-12T10:00:00Z'}, {...announcement,id:'with-cover',cover_image:'/notice.webp',cover_alt:'تصویر اطلاعیه'}]
+    const render=(items:Announcement[])=>renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}><MemoryRouter><AnnouncementsSlider announcements={items}/></MemoryRouter></I18nextProvider>,
+    )
+    assert.equal(render([]),'')
+    const dom=new JSDOM(render(notices))
+    const document=dom.window.document
+    assert.equal(document.querySelectorAll('li').length,2)
+    assert.equal(document.querySelectorAll('img').length,1)
+    assert.equal(document.querySelector('h3')?.textContent,language==='fa'?'عنوان فارسی':'English notice')
+    assert.equal(document.querySelector('li a')?.getAttribute('href'),'/news/notice')
+    assert.equal(document.querySelector('time')?.getAttribute('datetime'),'2026-11-12T10:00:00Z')
+    assert.match(document.querySelector('ul')?.className || '',/grid-cols-1.*md:grid-cols-2.*xl:grid-cols-3/)
+    dom.window.close()
+  }
 })
 
 test('paperclip and microphone controls have accessible names and limits appear below the message form',()=>{
@@ -73,10 +98,10 @@ test('mobile viewport resize updates chat height and restores background scrolli
   }
 })
 
-test('homepage notices appear once, directly after the hero, and realtime invalidation never publishes draft text',()=>{
+test('homepage notices appear once, below the introduction and above statistics, and realtime invalidation never publishes draft text',()=>{
   const home=read('src/app/public/HomePage.tsx')
-  assert.ok(home.indexOf('<AnnouncementsSlider')>home.indexOf('<HeroBanner'))
-  assert.ok(home.indexOf('<AnnouncementsSlider')<home.indexOf('<TabarestanStory content='))
+  assert.ok(home.indexOf('<AnnouncementsSlider')>home.indexOf('<TabarestanStory content='))
+  assert.ok(home.indexOf('<AnnouncementsSlider')<home.indexOf('<CompetitionStats'))
   assert.equal(home.split('<AnnouncementsSlider').length-1,1)
   assert.match(read('server/realtime.ts'),/if\(tableName==='announcements'\) return \{ id: primaryValue \}/)
 })

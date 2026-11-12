@@ -166,8 +166,8 @@ export function HomePage() {
   return (
     <div>
       <HeroBanner banners={banners} loading={bannersLoading || settingsLoading} content={settings?.homepage_content?.hero} />
-      <AnnouncementsSlider announcements={announcements} />
       <TabarestanStory content={settings?.homepage_content?.story} />
+      <AnnouncementsSlider announcements={announcements} />
       <CompetitionStats cards={stats} />
       <LeagueCards leagues={leagues} />
       <WhyRoboCactus cards={why} />
