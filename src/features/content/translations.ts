@@ -1,4 +1,4 @@
-import type { BlogPost, HomeBanner } from '@/types/database'
+import type { Announcement, BlogPost, HomeBanner } from '@/types/database'
 
 export function localizedSponsor<T extends { name: string; name_en?: string | null }>(sponsor: T, language: string): T {
   return language.startsWith('en') && sponsor.name_en?.trim()
@@ -11,7 +11,9 @@ export function localizedBanner(banner: HomeBanner, language: string): HomeBanne
   return { ...banner, title: banner.title_en?.trim() || banner.title, subtitle: banner.subtitle_en?.trim() || banner.subtitle }
 }
 
-export function localizedPost(post: BlogPost, language: string): BlogPost {
+type EditorialContent = Pick<BlogPost,'title'|'body'|'excerpt'|'seo_title'|'meta_description'|'author_name'|'cover_alt'|'title_en'|'body_en'|'excerpt_en'|'seo_title_en'|'meta_description_en'|'author_name_en'|'cover_alt_en'>
+
+export function localizedPost<T extends EditorialContent>(post: T, language: string): T {
   if (!language.startsWith('en')) return post
   return {
     ...post,
@@ -23,4 +25,8 @@ export function localizedPost(post: BlogPost, language: string): BlogPost {
     author_name: post.author_name_en?.trim() || post.author_name,
     cover_alt: post.cover_alt_en?.trim() || post.title_en?.trim() || post.cover_alt,
   }
+}
+
+export function localizedAnnouncement(item: Announcement, language: string): Announcement {
+  return localizedPost(item,language)
 }

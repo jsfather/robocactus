@@ -68,7 +68,7 @@ function TabarestanStory({ content }: { content?: HomepageContent['story'] }) {
     metricBody: content.metric_body_fa || content.metric_body_en,
   }
   return (
-    <section className="relative z-10 -mt-16 mx-auto max-w-7xl px-4 sm:px-8">
+    <section className="relative z-10 mx-auto max-w-7xl px-4 pt-6 sm:px-8">
       <div className="grid overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_24px_70px_rgb(6_34_50/0.16)] ring-1 ring-sky-100/70 lg:grid-cols-[1.1fr_.9fr]">
         <div className="p-7 sm:p-10 lg:p-14">
           {text.eyebrow ? <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><HomeSectionIcon icon="why" /></svg>{text.eyebrow}</span> : null}
@@ -166,6 +166,7 @@ export function HomePage() {
   return (
     <div>
       <HeroBanner banners={banners} loading={bannersLoading || settingsLoading} content={settings?.homepage_content?.hero} />
+      <AnnouncementsSlider announcements={announcements} />
       <TabarestanStory content={settings?.homepage_content?.story} />
       <CompetitionStats cards={stats} />
       <LeagueCards leagues={leagues} />
@@ -175,7 +176,6 @@ export function HomePage() {
       <TopCompanies companies={companies} />
       <ScientificPartners partners={partners} />
       <SponsorsSlider sponsors={sponsors} />
-      <AnnouncementsSlider announcements={announcements} />
       <LatestNews posts={posts} />
       <HomeFaqSection faqs={faqs} />
       <HomeFinalCta content={settings?.homepage_content?.cta} />

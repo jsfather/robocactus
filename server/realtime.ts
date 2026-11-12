@@ -49,6 +49,7 @@ async function validateSessions(): Promise<void> {
 }
 
 const REALTIME_TABLES = new Set([
+  'announcements',
   'teams', 'invoices', 'tickets', 'ticket_messages', 'ticket_reads', 'results', 'leagues',
   'live_chat_sessions', 'live_chat_messages', 'system_notifications', 'account_issues',
   'judge_scores',
@@ -59,6 +60,7 @@ const REALTIME_TABLES = new Set([
   'league_attendance_settings', 'registration_doc_types',
 ])
 const PUBLIC_REALTIME_TABLES = new Set([
+  'announcements',
   'results', 'leagues', 'site_settings', 'home_banners', 'home_events', 'home_faqs',
   'home_partners', 'home_sponsors', 'home_stat_cards', 'home_why_cards', 'blog_posts', 'companies',
 ])
@@ -76,6 +78,9 @@ async function visibleRecord(client: Client, event: Record<string, unknown>) {
       : 'id'
   const primaryValue = raw?.[primaryKey]
   if (!primaryValue || event.event === 'DELETE') return client.user || PUBLIC_REALTIME_TABLES.has(tableName) ? {} : null
+  // Invalidate the published-only homepage query even when a notice is
+  // unpublished, without exposing draft titles, text or previous content.
+  if(tableName==='announcements') return { id: primaryValue }
   if (client.guestChatToken && tableName === 'live_chat_messages' && raw.session_id) {
     const visible = await db.execute(sql`
       select to_jsonb(m) as record from public.live_chat_messages m
@@ -140,7 +145,7 @@ async function poll(): Promise<void> {
           table: event.table_name,
           event: event.event,
           record,
-          old_record: event.event === 'DELETE' || event.table_name === 'live_chat_messages' ? {} : event.old_record,
+          old_record: event.event === 'DELETE' || ['live_chat_messages','announcements'].includes(String(event.table_name)) ? {} : event.old_record,
         })}\n\n`)
         if (!writable) disconnect(client)
       } catch {

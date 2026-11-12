@@ -62,6 +62,7 @@ const READ_ONLY_TABLES = new Set([
 ])
 
 const RPCS = new Set([
+  'get_team_review_location',
   'get_live_chat_guest_session', 'mark_live_chat_messages_read', 'close_live_chat_guest_session',
   'activate_user_account', 'admin_update_profile', 'admin_update_invoice', 'admin_archive_invoice', 'admin_delete_invoice', 'admin_delete_team', 'admin_archive_team', 'analytics_export_teams', 'analytics_snapshot',
   'apply_payment_result', 'close_live_chat_session', 'count_unread_tickets', 'create_company',

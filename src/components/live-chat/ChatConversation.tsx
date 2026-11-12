@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { LiveChatMessage } from '@/features/live-chat/api'
 import { formatAppDate, formatAppTime } from '@/lib/dates'
-import { ChatAttachment, ChatMediaControls } from './ChatMedia'
+import { ChatAttachment, ChatMediaControls, ChatMediaLimits } from './ChatMedia'
 
 function Avatar({ name, image }: { name: string; image?: string | null }) {
   const [failed, setFailed] = useState(false)
@@ -118,11 +118,11 @@ export function ChatComposer({ value, onChange, onSubmit, busy, language, file=n
 }) {
   const en = language.startsWith('en')
   const [recording, setRecording] = useState(false)
-  return <div className="max-h-[50dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white">
+  return <div className="max-h-[calc(var(--chat-vv-height,100dvh)*0.5)] shrink-0 overflow-y-auto border-t border-slate-200 bg-white">
     {editing ? <div className="flex items-center justify-between px-4 pt-2 text-sm text-sky-800"><span>{en?'Editing message':'ویرایش پیام'}</span><button type="button" disabled={busy} onClick={onCancelEdit} className="min-h-11 px-3">{en?'Cancel':'انصراف'}</button></div> : onFileChange ? <ChatMediaControls file={file} onChange={onFileChange} disabled={busy} language={language} onRecordingChange={setRecording} /> : null}
     <form onSubmit={(event) => { if(recording) { event.preventDefault(); return } onSubmit(event) }} className="flex items-end gap-2 p-3">
     <label className="min-w-0 flex-1"><span className="sr-only">{en ? 'Message' : 'متن پیام'}</span><textarea dir="auto" rows={2} maxLength={5000} value={value} onChange={(event) => onChange(event.target.value)} placeholder={en ? 'Write a message…' : 'پیام خود را بنویسید…'} className="max-h-32 min-h-12 w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" /></label>
     <button type="submit" disabled={busy || recording || (!value.trim() && !file)} aria-label={en ? 'Send message' : 'ارسال پیام'} className="mb-1 grid size-12 shrink-0 place-items-center rounded-full bg-sky-700 text-white transition hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 disabled:opacity-50"><svg viewBox="0 0 24 24" className="size-5 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 3 18 9-18 9 4-9-4-9Zm4 9h14" /></svg></button>
     <span className="sr-only" role="status">{busy ? en ? 'Sending…' : 'در حال ارسال…' : ''}</span>
-  </form></div>
+  </form>{onFileChange && !editing ? <ChatMediaLimits language={language} /> : null}</div>
 }

@@ -89,6 +89,7 @@ export function SuperAdminContentPage() {
   const [annCategoryId, setAnnCategoryId] = useState('')
   const [annAuthor, setAnnAuthor] = useState('')
   const [annCoverAlt, setAnnCoverAlt] = useState('')
+  const [annEnglish, setAnnEnglish] = useState({ title_en: '', body_en: '', excerpt_en: '', seo_title_en: '', meta_description_en: '', author_name_en: '', cover_alt_en: '' })
 
   const [galCaption, setGalCaption] = useState('')
   const [galLeagueId, setGalLeagueId] = useState('')
@@ -213,6 +214,7 @@ export function SuperAdminContentPage() {
   }
 
   const resetAnnForm = () => {
+    setAnnEnglish({ title_en: '', body_en: '', excerpt_en: '', seo_title_en: '', meta_description_en: '', author_name_en: '', cover_alt_en: '' })
     setAnnId(null)
     setAnnTitle('')
     setAnnBody('')
@@ -230,6 +232,7 @@ export function SuperAdminContentPage() {
   }
 
   const editAnnouncement = (item: Announcement) => {
+    setAnnEnglish({ title_en: item.title_en ?? '', body_en: item.body_en ?? '', excerpt_en: item.excerpt_en ?? '', seo_title_en: item.seo_title_en ?? '', meta_description_en: item.meta_description_en ?? '', author_name_en: item.author_name_en ?? '', cover_alt_en: item.cover_alt_en ?? '' })
     setAnnId(item.id)
     setAnnTitle(item.title)
     setAnnBody(item.body)
@@ -254,6 +257,7 @@ export function SuperAdminContentPage() {
     setError(null)
     try {
       await upsertAnnouncement({
+        ...annEnglish,
         id: annId ?? undefined,
         title: annTitle,
         body: annBody,
@@ -561,6 +565,16 @@ export function SuperAdminContentPage() {
                 hint={t('content.editorHint')}
                 minHeightClass="min-h-40"
               />
+              <fieldset className="space-y-4 rounded-xl border border-rc-line p-4" dir="ltr" lang="en">
+                <legend className="px-2 font-bold">English announcement (EN)</legend>
+                <Input label="Title (EN)" value={annEnglish.title_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, title_en: e.target.value }))} />
+                <Input label="Author name (EN)" value={annEnglish.author_name_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, author_name_en: e.target.value }))} />
+                <Input label="Cover alternative text (EN)" value={annEnglish.cover_alt_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, cover_alt_en: e.target.value }))} />
+                <Textarea label="Excerpt (EN)" value={annEnglish.excerpt_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, excerpt_en: e.target.value }))} />
+                <RichTextEditor label="Announcement body (EN)" value={annEnglish.body_en} onChange={(body_en) => setAnnEnglish((current) => ({ ...current, body_en }))} resetKey={`ann-en-${annId ?? 'new'}-${annEditorKey}`} minHeightClass="min-h-40" />
+                <Input label="SEO title (EN)" value={annEnglish.seo_title_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, seo_title_en: e.target.value }))} />
+                <Textarea label="Meta description (EN)" value={annEnglish.meta_description_en} onChange={(e) => setAnnEnglish((current) => ({ ...current, meta_description_en: e.target.value }))} />
+              </fieldset>
               <div className="rounded-lg border border-rc-line bg-rc-navy/30 p-3 space-y-3">
                 <p className="text-sm font-medium">{t('content.seoSection')}</p>
                 <Input

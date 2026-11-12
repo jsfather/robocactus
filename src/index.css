@@ -660,6 +660,17 @@ main[data-panel-section="system"] .panel-page-head { background: linear-gradient
 @keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes otp-success-pulse { 0%,100% { box-shadow: 0 0 0 0 rgb(16 185 129 / .15); } 50% { box-shadow: 0 0 0 8px rgb(16 185 129 / .12); } }
 @keyframes otp-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+/* A portalled chat must clear the mobile navigation and follow the keyboard's
+   visual viewport. Short landscape screens use the same full-window layout. */
+.chat-widget-open { position: fixed; left: max(.5rem, env(safe-area-inset-left)); right: max(.5rem, env(safe-area-inset-right)); top: calc(var(--chat-vv-top, 0px) + max(.5rem, env(safe-area-inset-top))); height: calc(var(--chat-vv-height, 100dvh) - max(.5rem, env(safe-area-inset-top)) - max(.5rem, env(safe-area-inset-bottom))); z-index: 120; display: flex; flex-direction: column; align-items: stretch; gap: .75rem; }
+.chat-widget-panel { height: 100%; width: 100%; }
+.chat-widget-launcher-open { display: none; }
+@media (min-width: 640px) and (min-height: 560px) {
+  .chat-widget-open:not([data-compact="true"]) { inset-inline: auto; inset-inline-start: 1.75rem; top: auto; bottom: calc(var(--chat-vv-bottom, 0px) + 1.75rem); height: auto; align-items: flex-start; }
+  .chat-widget-open:not([data-compact="true"]) .chat-widget-panel { height: min(38rem, calc(var(--chat-vv-height, 100dvh) - 7rem)); width: min(26rem, calc(100vw - 3.5rem)); }
+  .chat-widget-open:not([data-compact="true"]) .chat-widget-launcher-open { display: flex; }
+}
 .app-toast { animation: app-toast-in .32s cubic-bezier(.16,1,.3,1) both; }
 .toast-progress { animation: toast-progress 3.8s linear both; }
 .otp-success { animation: otp-success-pulse .7s ease-in-out; }

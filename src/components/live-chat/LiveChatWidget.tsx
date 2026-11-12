@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, FieldError, Input } from '@/components/ui/FormControls'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
@@ -19,11 +20,13 @@ import { ArcaptchaField, captchaErrorMessage } from '@/features/captcha/Arcaptch
 import { chatErrorMessage } from '@/features/live-chat/errors'
 import { mergeChatMessages, mergeChatSessions } from '@/features/live-chat/messages'
 import { ChatComposer, ChatTranscript } from './ChatConversation'
+import { useChatViewport } from '@/features/live-chat/useChatViewport'
 
 export function LiveChatWidget() {
   const { t, i18n } = useTranslation()
   const { settings } = useSiteSettings()
   const [open, setOpen] = useState(false)
+  const {style:viewportStyle,compact}=useChatViewport(open)
   const [mounted, setMounted] = useState(false)
   const [token, setToken] = useState<string | null>(() => loadChatToken())
   const [name, setName] = useState('')
@@ -182,20 +185,20 @@ export function LiveChatWidget() {
     finally { setBusy(false) }
   }
 
-  return (
-    <div className={open ? 'fixed inset-x-2 bottom-[max(.5rem,env(safe-area-inset-bottom))] top-[max(.5rem,env(safe-area-inset-top))] z-[60] flex flex-col items-stretch gap-3 sm:inset-x-auto sm:bottom-7 sm:start-7 sm:top-auto sm:items-start' : 'fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] start-4 z-[60] flex flex-col items-start gap-3 sm:start-7 md:bottom-7'}>
+  return createPortal(
+    <div style={viewportStyle} data-compact={compact} className={open ? 'public-layout chat-widget-open' : 'public-layout fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] start-4 z-[120] flex flex-col items-start gap-3 sm:start-7 md:bottom-7'}>
       {open ? (
         <div
           className={[
-            'flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-[0_28px_90px_rgb(12_83_108/0.22)] transition-opacity duration-200 motion-reduce:transition-none sm:h-[min(38rem,calc(100dvh-7rem))] sm:w-[26rem]',
+            'chat-widget-panel flex min-h-0 flex-col overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-[0_28px_90px_rgb(12_83_108/0.22)] transition-opacity duration-200 motion-reduce:transition-none',
             mounted ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-4 scale-95 opacity-0',
           ].join(' ')}
         >
-          <div className="relative overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ba86b] px-5 py-4 text-white">
+          <div className="relative shrink-0 overflow-hidden bg-gradient-to-l from-[#087eb8] to-[#0ba86b] px-4 py-3 text-white">
             <div className="pointer-events-none absolute -end-8 -top-12 size-36 rounded-full border-[22px] border-white/10" />
             <div className="relative flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <span className="relative flex size-12 items-center justify-center rounded-2xl bg-white/18 text-white shadow-inner backdrop-blur-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-white shadow-inner backdrop-blur-sm">
                   <svg viewBox="0 0 24 24" className="relative size-5" fill="none" aria-hidden>
                     <path
                       d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6A2.5 2.5 0 0 1 16.5 16H11l-3.5 2.8V16H7.5A2.5 2.5 0 0 1 5 13.5v-6Z"
@@ -205,14 +208,14 @@ export function LiveChatWidget() {
                     />
                   </svg>
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="text-base font-black">{t('chat.title')}</p>
-                  <p className="mt-1 text-xs text-white">{session?.status === 'closed' ? i18n.language.startsWith('en') ? 'Conversation ended' : 'گفت‌وگو پایان یافته' : messages.findLast((message) => message.sender_kind === 'agent')?.sender_name || (i18n.language.startsWith('en') ? 'Tabarestan Cup support' : 'پشتیبانی جام تبرستان')}</p>
+                  <p className="mt-1 truncate text-xs text-white">{session?.status === 'closed' ? i18n.language.startsWith('en') ? 'Conversation ended' : 'گفت‌وگو پایان یافته' : messages.findLast((message) => message.sender_kind === 'agent')?.sender_name || (i18n.language.startsWith('en') ? 'Tabarestan Cup support' : 'پشتیبانی جام تبرستان')}</p>
                 </div>
               </div>
               <button
                 type="button"
-                className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
                 onClick={() => setOpen(false)}
                 aria-label="close"
               >
@@ -266,7 +269,7 @@ export function LiveChatWidget() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`group relative h-15 items-center justify-center overflow-hidden rounded-[1.4rem] bg-gradient-to-l from-[#087eb8] to-[#13a94d] text-white shadow-lg transition duration-200 ${open ? 'hidden w-15 sm:flex' : 'flex w-auto gap-3 px-5'}`}
+        className={`group relative h-15 items-center justify-center overflow-hidden rounded-[1.4rem] bg-gradient-to-l from-[#087eb8] to-[#13a94d] text-white shadow-lg transition duration-200 ${open ? 'chat-widget-launcher-open w-15' : 'flex w-auto gap-3 px-5'}`}
         aria-label={t('chat.title')}
       >
         {open ? (
@@ -285,6 +288,6 @@ export function LiveChatWidget() {
           </svg><span className="absolute -end-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[#159c62] bg-lime-300" /></span><span className="text-sm font-black">گفتگوی آنلاین</span></>
         )}
       </button>
-    </div>
+    </div>, document.body
   )
 }

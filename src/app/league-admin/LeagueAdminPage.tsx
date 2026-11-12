@@ -38,6 +38,7 @@ import type { DocumentRow, JudgeSubmissionProgress, League, Team, TeamMember } f
 import { fetchAttendanceSnapshot, fetchTeamRegistrationChanges, reviewTeamWithdrawal, reviewTechnical, technicalSignedUrl, type AttendanceClearance, type AttendanceSettings, type TeamRegistrationChange, type TeamWithdrawalRequest, type TechnicalFile } from '@/features/attendance/api'
 import { backend } from '@/lib/backend'
 import { isTeamFlowStepEnabled, teamFlowSteps } from '@/features/registration/flowSteps'
+import { TeamReviewLocation } from '@/features/judging/TeamReviewLocation'
 
 function ReviewThumbnail({ path, label, onOpen }: { path: string; label: string; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState('')
@@ -435,6 +436,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
                     >
                       <span className="flex items-center gap-2"><b className="grid size-7 shrink-0 place-items-center rounded-lg bg-white text-[11px] text-slate-400 shadow-sm">{String(teamIndex + 1).padStart(2, '0')}</b><span className="block min-w-0"><strong className="block truncate font-black">{team.name}</strong><small className="mt-0.5 block truncate text-xs text-slate-500">{leagueName(team.league_id)}</small></span></span>
                       <div className="mt-2 ps-9">
+                        <p className="mb-2 break-words text-xs leading-5 text-slate-600">{[team.province,team.city].filter(Boolean).join(' / ') || (i18n.language.startsWith('en')?'Location not provided':'موقعیت ثبت نشده')}</p>
                         <StatusBadge
                           status={team.status}
                           label={t(`team.statuses.${team.status}`, { defaultValue: team.status })}
@@ -450,6 +452,7 @@ export function LeagueAdminPage({ section = 'review' }: { section?: 'review' | '
 
           {selected ? (
             <div id="team-review-dossier" className="min-w-0 w-full scroll-mt-24 space-y-4">
+              <TeamReviewLocation key={selected.id} team={selected} language={i18n.language} />
               <nav aria-label="موقعیت فعلی" className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-500">
                 <span>بررسی تیم‌ها</span><span aria-hidden="true">←</span><span>{selectedLeague?.name ?? leagueName(selected.league_id)}</span><span aria-hidden="true">←</span><strong className="text-sky-700">پرونده تیم {selected.name}</strong>
               </nav>

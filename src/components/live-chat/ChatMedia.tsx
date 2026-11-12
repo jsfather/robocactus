@@ -3,6 +3,22 @@ import type { LiveChatMessage } from '@/features/live-chat/api'
 import { fetchChatAttachment } from '@/features/live-chat/mediaApi'
 import { CHAT_FILE_MAX_BYTES as CHAT_FILE_LIMIT, CHAT_VOICE_MAX_SECONDS, CHAT_DOCUMENT_MIMES } from '../../../shared/chat-policy'
 
+export function ChatMediaIcon({ name }: { name: 'clip' | 'mic' | 'stop' | 'close' | 'clock' | 'size' }) {
+  return <svg viewBox="0 0 24 24" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {name==='clip' ? <path d="m8 12 6-6a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l9.2-9.2a7 7 0 0 1 9.9 9.9l-9.2 9.2" /> : name==='mic' ? <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" /></> : name==='stop' ? <rect x="6" y="6" width="12" height="12" rx="2" /> : name==='close' ? <path d="m6 6 12 12M18 6 6 18" /> : name==='clock' ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> : <><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></>}
+  </svg>
+}
+
+export function ChatMediaLimits({ language }: { language: string }) {
+  const en=language.startsWith('en')
+  const number=(value:number)=>value.toLocaleString(en?'en-US':'fa-IR')
+  return <div aria-label={en?'Attachment and voice limits':'محدودیت‌های پیوست و ویس'} className="flex flex-wrap items-center gap-1.5 px-3 pb-3 text-xs leading-5 text-slate-600">
+    <span dir="ltr" className="rounded-lg bg-slate-100 px-2 py-1 font-medium">PDF · JPEG · PNG</span>
+    <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-1 text-sky-800"><ChatMediaIcon name="size" />{en?`Up to ${number(CHAT_FILE_LIMIT/1048576)} MB`:`تا ${number(CHAT_FILE_LIMIT/1048576)} مگابایت`}</span>
+    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800"><ChatMediaIcon name="clock" />{en?`Voice: ${number(CHAT_VOICE_MAX_SECONDS/60)} min`:`ویس: ${number(CHAT_VOICE_MAX_SECONDS/60)} دقیقه`}</span>
+  </div>
+}
+
 export function ChatAttachment({ message, token, language }: { message: LiveChatMessage; token?: string; language: string }) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -92,9 +108,8 @@ export function ChatMediaControls({ file, onChange, disabled, language, onRecord
   }
   return <div className="space-y-2 px-3 pt-2 text-xs text-slate-600">
     <div className="flex flex-wrap items-center gap-2">
-      <label className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-slate-200 bg-white px-3 font-bold text-sky-800 focus-within:ring-2 focus-within:ring-sky-500 ${disabled || recording ? 'opacity-50' : ''}`}><span>{en ? 'Attach file' : 'پیوست فایل'}</span><input type="file" className="sr-only" accept={CHAT_DOCUMENT_MIMES.join(',')} disabled={disabled || recording} onChange={(event) => { const selected=event.target.files?.[0]; if(selected) { if(!(CHAT_DOCUMENT_MIMES as readonly string[]).includes(selected.type)) setError(en?'Choose PDF, JPEG or PNG.':'فایل PDF، JPEG یا PNG انتخاب کنید.'); else choose(selected) } event.target.value='' }} /></label>
-      {recording ? <><span role="status" className="font-bold text-red-700">{en?'Recording':'در حال ضبط'} · {seconds}s</span><button type="button" onClick={() => recorder.current?.stop()} className="min-h-11 rounded-xl bg-sky-50 px-3 font-bold text-sky-800">{en?'Stop & preview':'توقف و بازبینی'}</button><button type="button" onClick={() => { cancelled.current=true; recorder.current?.stop() }} className="min-h-11 px-3 text-red-700">{en?'Cancel':'انصراف'}</button></> : <button type="button" disabled={disabled || requesting} onClick={() => void start()} className="min-h-11 rounded-xl border border-slate-200 px-3 font-bold text-sky-800 disabled:opacity-50">{requesting ? en?'Microphone…':'دسترسی میکروفن…' : en?'Record voice':'ضبط ویس'}</button>}
-      <span>{en?'PDF / JPEG / PNG · 5 MB · voice up to 2 min':'PDF / JPEG / PNG · تا ۵ مگابایت · ضبط ویس تا ۲ دقیقه'}</span>
+      <label title={en?'Attach file':'پیوست فایل'} className={`grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100 focus-within:ring-2 focus-within:ring-sky-500 ${disabled || recording ? 'opacity-50' : ''}`}><ChatMediaIcon name="clip" /><span className="sr-only">{en?'Attach file':'پیوست فایل'}</span><input type="file" className="sr-only" accept={CHAT_DOCUMENT_MIMES.join(',')} disabled={disabled || recording} onChange={(event) => { const selected=event.target.files?.[0]; if(selected) { if(!(CHAT_DOCUMENT_MIMES as readonly string[]).includes(selected.type)) setError(en?'Choose PDF, JPEG or PNG.':'فایل PDF، JPEG یا PNG انتخاب کنید.'); else choose(selected) } event.target.value='' }} /></label>
+      {recording ? <><span role="status" className="font-bold tabular-nums text-red-700">{en?'Recording':'در حال ضبط'} · {seconds}s</span><button type="button" aria-label={en?'Stop & preview':'توقف و بازبینی'} title={en?'Stop & preview':'توقف و بازبینی'} onClick={() => recorder.current?.stop()} className="grid size-11 place-items-center rounded-full bg-red-50 text-red-700 focus-visible:ring-2 focus-visible:ring-red-500"><ChatMediaIcon name="stop" /></button><button type="button" aria-label={en?'Cancel recording':'انصراف از ضبط'} title={en?'Cancel recording':'انصراف از ضبط'} onClick={() => { cancelled.current=true; recorder.current?.stop() }} className="grid size-11 place-items-center rounded-full text-slate-700 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-sky-500"><ChatMediaIcon name="close" /></button></> : <button type="button" aria-label={requesting?(en?'Requesting microphone access':'درخواست دسترسی میکروفن'):(en?'Record voice':'ضبط ویس')} title={en?'Record voice':'ضبط ویس'} aria-busy={requesting} disabled={disabled || requesting} onClick={() => void start()} className="grid size-11 shrink-0 place-items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50"><ChatMediaIcon name="mic" /></button>}
     </div>
     {file ? <div className="rounded-xl bg-slate-50 p-2"><div className="flex items-center justify-between gap-2"><span className="min-w-0 break-words">{file.name} · {Math.ceil(file.size/1024)} KB</span><button type="button" disabled={disabled} onClick={() => choose(null)} className="min-h-11 shrink-0 px-3 text-red-700">{en?'Remove':'برداشتن فایل'}</button></div>{preview ? <audio src={preview} controls className="max-w-full" aria-label={en?'Voice preview':'بازبینی ویس'} /> : null}</div> : null}
     {error ? <p role="alert" className="text-red-700">{error}</p> : null}

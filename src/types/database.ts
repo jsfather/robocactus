@@ -48,6 +48,13 @@ export type BlogPost = {
 export type ContentCategory = { id: string; name_fa: string; name_en: string; slug: string; created_at: string }
 
 export type Announcement = {
+  title_en?: string | null
+  body_en?: string | null
+  excerpt_en?: string | null
+  seo_title_en?: string | null
+  meta_description_en?: string | null
+  author_name_en?: string | null
+  cover_alt_en?: string | null
   id: string
   title: string
   body: string

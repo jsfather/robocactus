@@ -11,6 +11,7 @@ import { computeLeaguePeriod, periodBadgeClass } from '@/features/leagues/period
 import { formatAmountToman } from '@/features/payments/api'
 import { formatAppDateTime, formatSeasonYear, leagueCoverUrl } from '@/lib/dates'
 import { contentLocale, localizeFaq, localizeFile, localizeLeague, localizePerson, localizeSponsor } from '@/features/leagues/localize'
+import { localizedAnnouncement } from '@/features/content/translations'
 import type { LeaguePerson, LeagueSponsor } from '@/types/database'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { safeExternalUrl } from '@/lib/safe-url'
@@ -215,6 +216,7 @@ export function LeagueDetailPage() {
   const committee = useMemo(() => (bundle?.committee ?? []).map((item) => localizePerson(item, locale)), [bundle?.committee, locale])
   const sponsors = useMemo(() => (bundle?.sponsors ?? []).map((item) => localizeSponsor(item, locale)), [bundle?.sponsors, locale])
   const related = useMemo(() => (bundle?.related ?? []).map((item) => localizeLeague(item, locale)), [bundle?.related, locale])
+  const news = useMemo(() => (bundle?.news ?? []).map((item) => localizedAnnouncement(item,i18n.language)),[bundle?.news,i18n.language])
   const period = useMemo(
     () => (league ? computeLeaguePeriod(league, bundle?.registeredCount ?? 0) : 'upcoming'),
     [league, bundle?.registeredCount],
@@ -737,10 +739,10 @@ export function LeagueDetailPage() {
           </SectionFrame>
         )}
 
-        {bundle.news.length > 0 && (
+        {news.length > 0 && (
           <SectionFrame index={nextIndex()} title={t('leaguePage.news')}>
             <ul className="space-y-3">
-              {bundle.news.map((n) => (
+              {news.map((n) => (
                 <li key={n.id} className="relative border border-rc-line border-s-2 border-s-rc-accent bg-rc-surface p-5">
                   <p className="font-mono text-[10px] tracking-widest text-rc-accent uppercase">Intel</p>
                   <p className="mt-1 font-semibold">{n.title}</p>
